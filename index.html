@@ -60,6 +60,14 @@ button:disabled { opacity: .6; cursor: default; }
 .say { top: 56px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100% - 24px)); background: color-mix(in srgb, var(--panel) 85%, transparent); border: 1px solid color-mix(in srgb, var(--holo) 40%, transparent); border-radius: 10px; padding: 10px 14px; font-size: 13.5px; line-height: 1.45; backdrop-filter: blur(6px); transition: opacity .3s; }
 .say b { font-family: var(--f-display); color: var(--holo); letter-spacing: .05em; text-transform: uppercase; font-size: 12px; margin-right: 6px; }
 .say.quiet { opacity: .55; }
+.big-btn { border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 88%, transparent); color: var(--fg); padding: 6px 10px; border-radius: 8px; font-family: var(--f-display); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; backdrop-filter: blur(6px); }
+.top-right { display: flex; gap: 8px; align-items: center; }
+.tap-hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid color-mix(in srgb, var(--holo) 50%, transparent); color: var(--fg); border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: none; }
+.stage.big { position: fixed; inset: 0; z-index: 40; height: 100% !important; min-height: 0; }
+.stage.big .hud-top { top: calc(12px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); }
+.stage.big .say { top: calc(56px + env(safe-area-inset-top, 0px)); }
+.stage.big .hud-tools { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); }
+body.no-scroll { overflow: hidden; }
 
 .panel { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding-block: 16px 28px; padding-left: 16px; padding-right: 16px; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
 .panel h2 { margin: 0 0 10px; font-family: var(--f-display); font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -164,6 +172,9 @@ button.step { font: inherit; font-size: 11.5px; }
   .brand h1 { font-size: 17px; }
   .say { top: 50px; font-size: 12.5px; padding: 8px 12px; }
   .say span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .stage:not(.big) .tap-hint { display: block; }
+  .stage:not(.big) .say { display: none; }
+  .stage.big .say { top: calc(96px + env(safe-area-inset-top, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -171,9 +182,13 @@ button.step { font: inherit; font-size: 11.5px; }
 <div class="app">
   <section class="stage" aria-label="Oficina 3D">
     <div id="viewport"></div>
+    <div class="tap-hint" id="tapHint">Toca la oficina para verla en grande</div>
     <div class="hud hud-top">
       <div class="brand"><h1>La oficina de <span>Jager</span></h1></div>
-      <span class="sim-badge" id="modeBadge" title="Gemini y ChatGPT todavía no están conectados">Modo simulación</span>
+      <div class="top-right">
+        <span class="sim-badge" id="modeBadge" title="Gemini y ChatGPT todavía no están conectados">Modo simulación</span>
+        <button type="button" class="big-btn" id="bigBtn" aria-pressed="false">Ver en grande</button>
+      </div>
     </div>
     <div class="hud say quiet" id="say" aria-live="polite"><b>Jager</b><span id="sayText">Esperando órdenes, jefe. Escríbeme abajo o elige un encargo de ejemplo.</span></div>
     <div class="hud hud-tools">
@@ -1475,14 +1490,44 @@ const VIEWS = {
   yt: { pos: V(10, 10.5, 11.5), target: V(10, 0.5, -1.2) },
   dir: { pos: V(0, 4.2, 3.2), target: V(0, 2.4, -4.8) },
 };
-let camAnim = null;
-function setView(v) { $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v)); camAnim = { pos: VIEWS[v].pos.clone(), target: VIEWS[v].target.clone() }; }
+// En vertical (móvil) la oficina se ve casi desde arriba para que quepa entera
+const VIEWS_TALL = {
+  general: { pos: V(9, 31, 0.2), target: V(0, 0, 0.2) },
+  proy: { pos: V(-10, 15, 15), target: V(-10, 0.5, -0.5) },
+  yt: { pos: V(10, 15, 15), target: V(10, 0.5, -0.5) },
+};
+const isTall = () => host.clientWidth / Math.max(1, host.clientHeight) < 0.8;
+let camAnim = null, currentView = 'general';
+function setView(v) {
+  currentView = v;
+  $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v));
+  const view = (isTall() && VIEWS_TALL[v]) || VIEWS[v];
+  camAnim = { pos: view.pos.clone(), target: view.target.clone() };
+}
 function focusOn(id) {
   if (id === 'director') return setView('dir');
   const a = agents[id]; $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', false));
   camAnim = { pos: V(a.pos.x, 5.5, a.pos.z + 6.5), target: V(a.pos.x, 1, a.pos.z) };
 }
 controls.addEventListener('start', () => camAnim = null);
+
+// Ver en grande: en el móvil basta con tocar la oficina
+const stage = $('.stage');
+function setBig(on) {
+  stage.classList.toggle('big', on); document.body.classList.toggle('no-scroll', on);
+  const b = $('#bigBtn'); b.textContent = on ? 'Salir' : 'Ver en grande'; b.setAttribute('aria-pressed', on);
+  requestAnimationFrame(() => requestAnimationFrame(() => setView(currentView)));
+}
+$('#bigBtn').onclick = () => setBig(!stage.classList.contains('big'));
+let tapStart = null;
+renderer.domElement.addEventListener('pointerdown', e => { tapStart = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!tapStart || stage.classList.contains('big') || !matchMedia('(max-width: 900px)').matches) return;
+  const moved = Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y);
+  if (moved < 10 && performance.now() - tapStart.t < 350) setBig(true);
+  tapStart = null;
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && stage.classList.contains('big')) setBig(false); });
 new ResizeObserver(() => { const w = host.clientWidth, h = Math.max(1, host.clientHeight); renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 1 ? 58 : 42; camera.updateProjectionMatrix(); }).observe(host);
 
 /* ============================================================
@@ -1651,6 +1696,7 @@ function loop() {
 drawNameTag(jagerTag, 'Jager', 'claude');
 document.fonts?.ready.then(() => { for (const id in agents) agents[id].redraw(); drawNameTag(jagerTag, 'Jager', 'claude'); signs.forEach(s => s.userData.redraw?.()); });
 renderJobs(); renderTeam();
+if (isTall()) { const v = VIEWS_TALL.general; camera.position.copy(v.pos); controls.target.copy(v.target); }
 log('La oficina de Jager abre sus puertas. El equipo está en su sitio.');
 loop();
 
