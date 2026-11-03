@@ -1,0 +1,1319 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>Oficina Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: oficina 3D a pantalla completa a la izquierda, consola del jefe a la derecha (se apila en móvil). Un solo tema oscuro "oficina de noche" a propósito. */
+:root {
+  color-scheme: dark;
+  --bg: #080c17;
+  --panel: #0e1425;
+  --panel-2: #141c32;
+  --line: #222d4a;
+  --fg: #e8edf8;
+  --muted: #8d9abb;
+  --holo: #5ce8ff;
+  --proy: #6f8fff;
+  --yt: #ff6b7a;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --claude: #e0835c;
+  --gemini: #6c9bff;
+  --chatgpt: #22b58c;
+  --f-display: "Chakra Petch", "Trebuchet MS", system-ui, sans-serif;
+  --f-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 14px; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--holo); outline-offset: 2px; }
+
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 390px; height: 100%; }
+.stage { position: relative; min-width: 0; overflow: hidden; background: radial-gradient(120% 90% at 50% 10%, #111a33 0%, var(--bg) 70%); }
+#viewport { position: absolute; inset: 0; }
+#viewport canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; }
+
+.hud { position: absolute; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; pointer-events: none; }
+.hud > * { pointer-events: auto; }
+.hud-top { top: 12px; left: 12px; right: 12px; justify-content: space-between; }
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: .04em; text-transform: uppercase; }
+.brand h1 span { color: var(--holo); }
+.sim-badge { font-family: var(--f-display); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); padding: 3px 8px; border-radius: 4px; background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.hud-tools { bottom: 12px; left: 12px; right: 12px; justify-content: space-between; }
+.seg { display: inline-flex; background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 3px; backdrop-filter: blur(6px); }
+.seg button { border: 0; background: transparent; padding: 6px 10px; border-radius: 6px; font-family: var(--f-display); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line); }
+.fan-btn { border: 1px solid color-mix(in srgb, var(--holo) 60%, transparent); background: color-mix(in srgb, var(--holo) 14%, var(--panel)); color: var(--holo); padding: 9px 14px; border-radius: 8px; font-family: var(--f-display); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; font-size: 12px; }
+.say { top: 56px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100% - 24px)); background: color-mix(in srgb, var(--panel) 85%, transparent); border: 1px solid color-mix(in srgb, var(--holo) 40%, transparent); border-radius: 10px; padding: 10px 14px; font-size: 13.5px; line-height: 1.45; backdrop-filter: blur(6px); transition: opacity .3s; }
+.say b { font-family: var(--f-display); color: var(--holo); letter-spacing: .05em; text-transform: uppercase; font-size: 12px; margin-right: 6px; }
+.say.quiet { opacity: .55; }
+
+.panel { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding-block: 16px 28px; padding-left: 16px; padding-right: 16px; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.panel h2 { margin: 0 0 10px; font-family: var(--f-display); font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.panel h2 small { font-family: var(--f-body); letter-spacing: 0; text-transform: none; font-weight: 500; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.order { display: flex; flex-direction: column; gap: 8px; }
+.order label { font-family: var(--f-display); font-weight: 600; font-size: 15px; letter-spacing: .03em; }
+.order label span { color: var(--holo); }
+.order textarea { width: 100%; min-height: 76px; resize: vertical; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; line-height: 1.4; }
+.order-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--panel-2); padding: 8px 12px; border-radius: 8px; font-weight: 600; font-size: 13px; }
+.btn.primary { background: var(--holo); color: #04202a; border-color: var(--holo); margin-left: auto; }
+.btn.ok { background: color-mix(in srgb, var(--ok) 20%, var(--panel-2)); border-color: color-mix(in srgb, var(--ok) 50%, transparent); color: var(--ok); }
+.btn.ghost { background: transparent; }
+.toggle { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px dashed var(--line); background: transparent; color: var(--muted); border-radius: 999px; padding: 5px 10px; font-size: 12px; text-align: left; }
+.chip:hover { color: var(--fg); border-style: solid; }
+
+.jobs { display: flex; flex-direction: column; gap: 10px; }
+.empty { color: var(--muted); font-size: 13px; line-height: 1.5; border: 1px dashed var(--line); border-radius: 10px; padding: 12px; }
+.job { border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.job.wait { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+.job-head { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; }
+.job-title { font-weight: 600; line-height: 1.3; min-width: 0; overflow-wrap: anywhere; }
+.tag { flex: none; font-family: var(--f-display); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; border: 1px solid currentColor; }
+.tag.video { color: var(--yt); }
+.tag.proyecto { color: var(--proy); }
+.steps { display: flex; flex-wrap: wrap; gap: 5px; }
+.step { --p: 0; position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 4px 8px; font-size: 11.5px; color: var(--muted); }
+.step::before { content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--p) * 100%); background: color-mix(in srgb, var(--holo) 22%, transparent); }
+.step span { position: relative; }
+.step.cola { color: var(--fg); }
+.step.trabajando { color: var(--holo); border-color: color-mix(in srgb, var(--holo) 55%, transparent); }
+.step.cambios { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+.step.hecho { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+button.step { font: inherit; font-size: 11.5px; }
+.job-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.job-foot .btn { padding: 6px 10px; font-size: 12.5px; }
+
+.team { display: flex; flex-direction: column; gap: 4px; }
+.room-label { font-family: var(--f-display); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; margin: 8px 0 2px; }
+.room-label.proy { color: var(--proy); }
+.room-label.yt { color: var(--yt); }
+.room-label.hall { color: var(--holo); margin-top: 0; }
+.member { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; background: transparent; text-align: left; width: 100%; }
+.member:hover { background: var(--panel-2); border-color: var(--line); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.dot.work { background: var(--holo); box-shadow: 0 0 8px var(--holo); }
+.dot.walk { background: var(--warn); }
+.m-name { font-weight: 600; font-size: 13px; }
+.m-status { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai { font-family: var(--f-display); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; }
+.ai.claude { color: var(--claude); background: color-mix(in srgb, var(--claude) 14%, transparent); }
+.ai.gemini { color: var(--gemini); background: color-mix(in srgb, var(--gemini) 14%, transparent); }
+.ai.chatgpt { color: var(--chatgpt); background: color-mix(in srgb, var(--chatgpt) 14%, transparent); }
+
+.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 1.4; max-height: 260px; overflow-y: auto; }
+.log li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; color: var(--muted); }
+.log time { font-family: var(--f-mono); font-size: 11px; color: color-mix(in srgb, var(--muted) 70%, transparent); padding-top: 1px; }
+.log b { color: var(--fg); font-weight: 600; }
+.note { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+.overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.modal-bg { background: rgba(3, 6, 14, .72); backdrop-filter: blur(3px); }
+.modal { width: min(760px, 100%); max-height: 100%; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.modal-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.modal h3 { margin: 0; font-family: var(--f-display); font-size: 18px; letter-spacing: .03em; text-wrap: balance; }
+.modal .meta { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+.modal pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.55; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.thumbs figure { margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.thumbs img { border-radius: 8px; border: 1px solid var(--line); aspect-ratio: 16/9; width: 100%; object-fit: cover; }
+
+.fan { background: #000; color: #e8edf8; grid-template-columns: minmax(0, auto) minmax(0, 340px); gap: 28px; align-content: center; justify-content: center; }
+.fan canvas { width: min(78vmin, 640px); height: min(78vmin, 640px); max-width: 100%; display: block; border-radius: 50%; box-shadow: 0 0 0 1px #111, 0 0 60px rgba(92, 232, 255, .08); }
+.fan-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.fan-side h3 { margin: 0; font-family: var(--f-display); font-size: 20px; letter-spacing: .05em; text-transform: uppercase; }
+.fan-side p { margin: 0; color: #9aa6c4; line-height: 1.5; font-size: 13px; }
+.fan-states { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.fan-states button { border: 1px solid #263150; background: #0b1020; border-radius: 8px; padding: 9px; font-family: var(--f-display); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: #9aa6c4; }
+.fan-states button[aria-pressed="true"] { color: var(--holo); border-color: var(--holo); }
+.rec-out { display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: #9aa6c4; }
+.rec-out a { color: var(--holo); font-weight: 600; }
+.rec-out video { width: 160px; border-radius: 50%; background: #000; border: 1px solid #222; }
+
+@media (max-width: 900px) {
+  html, body { height: auto; }
+  .app { grid-template-columns: 1fr; height: auto; }
+  .stage { height: 62vh; min-height: 360px; }
+  .panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .fan { grid-template-columns: 1fr; justify-items: center; align-content: start; overflow-y: auto; }
+  .fan-side { width: 100%; max-width: 420px; }
+  .brand h1 { font-size: 18px; }
+  .say { top: 50px; font-size: 12.5px; padding: 8px 12px; }
+  .say span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app">
+  <section class="stage" aria-label="Oficina 3D">
+    <div id="viewport"></div>
+    <div class="hud hud-top">
+      <div class="brand"><h1>Oficina <span>Atlas</span></h1></div>
+      <span class="sim-badge" title="Las IAs todavía no están conectadas: las respuestas son de ejemplo">Modo simulación</span>
+    </div>
+    <div class="hud say quiet" id="say" aria-live="polite"><b>Atlas</b><span id="sayText">Esperando órdenes, jefe. Escríbeme abajo o elige un encargo de ejemplo.</span></div>
+    <div class="hud hud-tools">
+      <div class="seg" role="group" aria-label="Vista">
+        <button type="button" data-view="general" aria-pressed="true">General</button>
+        <button type="button" data-view="proy">Proyectos</button>
+        <button type="button" data-view="yt">YouTube</button>
+        <button type="button" data-view="dir">Atlas</button>
+      </div>
+      <div class="seg" role="group" aria-label="Velocidad">
+        <button type="button" data-speed="1" aria-pressed="true">x1</button>
+        <button type="button" data-speed="2">x2</button>
+        <button type="button" data-speed="4">x4</button>
+      </div>
+      <button type="button" class="fan-btn" id="openFan">Modo ventilador</button>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <form class="order" id="orderForm">
+      <label for="orderText">Orden para <span>Atlas</span></label>
+      <textarea id="orderText" placeholder="Ej.: Prepara un vídeo sobre cómo bañar a un perro sin estrés"></textarea>
+      <div class="order-row">
+        <button type="button" class="btn ghost" id="micBtn" hidden>🎙 Hablar</button>
+        <label class="toggle"><input type="checkbox" id="voiceOn"> Voz de Atlas</label>
+        <button type="submit" class="btn primary">Enviar orden</button>
+      </div>
+      <div class="chips" aria-label="Encargos de ejemplo">
+        <button type="button" class="chip" data-order="Vídeo: 5 trucos para que tu perro beba agua en verano">Vídeo · 5 trucos de hidratación</button>
+        <button type="button" class="chip" data-order="Proyecto: añadir un comparador de productos a la tienda Reino Peludos">Proyecto · comparador para la tienda</button>
+        <button type="button" class="chip" data-order="Vídeo: probamos la luz LED con sensor en casa">Vídeo · reseña luz LED</button>
+      </div>
+    </form>
+
+    <section>
+      <h2>Encargos <small id="stats">0 hechos · ≈0,00 €</small></h2>
+      <div class="jobs" id="jobs"></div>
+    </section>
+
+    <section>
+      <h2>Equipo</h2>
+      <div class="team" id="team"></div>
+    </section>
+
+    <section>
+      <h2>Registro</h2>
+      <ol class="log" id="log"></ol>
+    </section>
+
+    <p class="note">Simulación: cada trabajador usará su propia IA cuando conectemos las claves (Claude para dirección, guiones y código; Gemini para imágenes; ChatGPT para títulos, SEO e ideas). Nada se publica sin tu aprobación.</p>
+  </aside>
+</div>
+
+<div class="overlay modal-bg" id="modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <div><h3 id="modalTitle"></h3><div class="meta" id="modalMeta"></div></div>
+      <button type="button" class="btn" id="modalClose">Cerrar</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div class="overlay fan" id="fan" hidden>
+  <canvas id="fanCanvas" width="720" height="720" aria-label="Avatar Atlas para el ventilador holográfico"></canvas>
+  <div class="fan-side">
+    <h3>Atlas en el ventilador</h3>
+    <p>Tu ventilador no admite HDMI, así que Atlas no puede ir en directo. La solución: graba un clip corto de cada estado y súbelo con la app del ventilador. El negro sale transparente, así que Atlas flota en el aire.</p>
+    <div class="fan-states" role="group" aria-label="Estado del avatar">
+      <button type="button" data-fan="espera" aria-pressed="true">Esperando</button>
+      <button type="button" data-fan="escucha">Escuchando</button>
+      <button type="button" data-fan="habla">Hablando</button>
+      <button type="button" data-fan="listo">Trabajo listo</button>
+    </div>
+    <label class="toggle"><input type="checkbox" id="fanSync" checked> Seguir lo que pasa en la oficina</label>
+    <div class="order-row">
+      <button type="button" class="btn ok" id="recBtn">Grabar clip de 10 s</button>
+      <button type="button" class="btn" id="closeFan">Volver a la oficina</button>
+    </div>
+    <div class="rec-out" id="recOut"></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================
+   1. EQUIPO, SALAS Y FLUJOS DE TRABAJO
+   ============================================================ */
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const $ = s => document.querySelector(s);
+
+const AI = {
+  claude:  { name: 'Claude',  color: '#e0835c', cost: 0.012 },
+  gemini:  { name: 'Gemini',  color: '#6c9bff', cost: 0.035 },
+  chatgpt: { name: 'ChatGPT', color: '#22b58c', cost: 0.006 },
+};
+
+const WORKERS = [
+  { id: 'leo',  name: 'Leo',  role: 'Programador',          ai: 'claude',  room: 'proy', desk: [-12.2, -4.6], rot: Math.PI + 0.22, hair: '#2b1d14', skin: '#efc39f' },
+  { id: 'vera', name: 'Vera', role: 'Revisora de código',   ai: 'claude',  room: 'proy', desk: [-7.6, -4.6],  rot: Math.PI - 0.22, hair: '#7a3b1e', skin: '#d9a57f' },
+  { id: 'max',  name: 'Max',  role: 'Ideas y documentación', ai: 'chatgpt', room: 'proy', desk: [-10, 4.2],    rot: Math.PI,        hair: '#111111', skin: '#a8754f' },
+  { id: 'nora', name: 'Nora', role: 'Guionista',            ai: 'claude',  room: 'yt',   desk: [7.6, -4.6],   rot: Math.PI + 0.22, hair: '#5a2d82', skin: '#f2cfb3' },
+  { id: 'gema', name: 'Gema', role: 'Miniaturas',           ai: 'gemini',  room: 'yt',   desk: [12.2, -4.6],  rot: Math.PI - 0.22, hair: '#c9a227', skin: '#e8b996' },
+  { id: 'tito', name: 'Tito', role: 'Títulos y SEO',        ai: 'chatgpt', room: 'yt',   desk: [7.8, 4.2],    rot: Math.PI,        hair: '#3a2a1a', skin: '#c48d64' },
+  { id: 'paco', name: 'Paco', role: 'Productor',            ai: 'claude',  room: 'yt',   desk: [12, 4.2],     rot: Math.PI,        hair: '#888c95', skin: '#efc6a6' },
+];
+
+const FLOWS = {
+  video: {
+    label: 'Vídeo · Pixelido',
+    steps: [
+      { id: 'guion',      label: 'Guion',            worker: 'nora', deps: [],                        verb: 'Escribiendo el guion',    secs: 10 },
+      { id: 'miniaturas', label: 'Miniaturas',       worker: 'gema', deps: ['guion'],                 verb: 'Generando miniaturas',    secs: 11 },
+      { id: 'titulos',    label: 'Títulos y SEO',    worker: 'tito', deps: ['guion'],                 verb: 'Probando títulos',        secs: 8 },
+      { id: 'brief',      label: 'Paquete Pixelido', worker: 'paco', deps: ['miniaturas', 'titulos'], verb: 'Montando el paquete',     secs: 7 },
+      { id: 'ok',         label: 'Tu aprobación',    worker: 'director', deps: ['brief'] },
+    ],
+  },
+  proyecto: {
+    label: 'Proyecto',
+    steps: [
+      { id: 'requisitos', label: 'Requisitos',    worker: 'max',  deps: [],             verb: 'Ordenando la idea',   secs: 8 },
+      { id: 'codigo',     label: 'Código',        worker: 'leo',  deps: ['requisitos'], verb: 'Programando',         secs: 13 },
+      { id: 'review',     label: 'Revisión',      worker: 'vera', deps: ['codigo'],     verb: 'Revisando el código', secs: 8 },
+      { id: 'ok',         label: 'Tu aprobación', worker: 'director', deps: ['review'] },
+    ],
+  },
+};
+
+// Puntos clave del plano (x = izquierda/derecha, z = fondo/frente)
+const AISLE_Z = 0.2;
+const DOORS = { proy: V(-4, 0, AISLE_Z), yt: V(4, 0, AISLE_Z) };
+const roomAt = x => x < -4 ? 'proy' : x > 4 ? 'yt' : 'hall';
+const FAN_POS = V(0, 0, -4.8);
+const DIRECTOR_SPOT = V(0, 0, -2.4);
+const PIXELIDO_SPOT = V(14.3, 0, AISLE_Z);
+
+/* ============================================================
+   2. ESCENA 3D
+   ============================================================ */
+const host = $('#viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x080c17, 38, 70);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+camera.position.set(0, 18, 21);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, -0.5);
+controls.enableDamping = true;
+controls.maxPolarAngle = 1.32;
+controls.minDistance = 5;
+controls.maxDistance = 48;
+
+scene.add(new THREE.HemisphereLight(0xa9bbff, 0x161b2a, 0.75));
+const sun = new THREE.DirectionalLight(0xfff1dc, 1.25);
+sun.position.set(9, 20, 12);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -20, right: 20, top: 14, bottom: -14, near: 1, far: 60 });
+sun.shadow.bias = -0.0006;
+scene.add(sun);
+const addPoint = (c, i, x, y, z) => { const l = new THREE.PointLight(c, i, 18, 1.6); l.position.set(x, y, z); scene.add(l); return l; };
+addPoint(0x6f8fff, 14, -10, 4, 0);
+addPoint(0xff6b7a, 14, 10, 4, 0);
+const holoLight = addPoint(0x5ce8ff, 10, 0, 3, -4.2);
+
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05, ...o });
+function box(w, h, d, mat, x = 0, y = 0, z = 0, parent = scene, shadow = true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z); m.castShadow = shadow; m.receiveShadow = true; parent.add(m); return m;
+}
+
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+function signPlane(text, sub, color, w, h, x, y, z, ry = 0) {
+  const draw = (g, W, H) => {
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = 'rgba(8,12,23,.82)'; g.beginPath(); g.roundRect(4, 4, W - 8, H - 8, 18); g.fill();
+    g.strokeStyle = color; g.lineWidth = 5; g.stroke();
+    g.fillStyle = color; g.font = '700 74px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, W / 2, sub ? H * 0.42 : H / 2);
+    if (sub) { g.fillStyle = '#c9d3ee'; g.font = '500 38px Figtree, sans-serif'; g.fillText(sub, W / 2, H * 0.76); }
+  };
+  const tex = canvasTex(1024, 220, draw);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+  m.position.set(x, y, z); m.rotation.y = ry; scene.add(m);
+  m.userData.redraw = () => { draw(tex.image.getContext('2d'), 1024, 220); tex.needsUpdate = true; };
+  return m;
+}
+
+// --- Suelos de cada sala
+function floor(w, d, x, z, color) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), std(color, { roughness: 0.9 }));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, 0, z); m.receiveShadow = true; scene.add(m); return m;
+}
+floor(60, 40, 0, 0, 0x0a0f1d).position.y = -0.02;
+floor(12, 16, -10, 0, 0x1a2547);
+floor(8, 16, 0, 0, 0x151b2c);
+floor(12, 16, 10, 0, 0x3a1c2a);
+// alfombras
+const rug = (w, d, x, z, c) => { const r = floor(w, d, x, z, c); r.position.y = 0.01; };
+rug(9, 3.2, -10, -4.4, 0x22305c); rug(9, 3.2, 10, -4.4, 0x4a2235);
+// línea de luz en el pasillo
+const strip = new THREE.Mesh(new THREE.PlaneGeometry(32, 0.06), new THREE.MeshBasicMaterial({ color: 0x5ce8ff, transparent: true, opacity: 0.35 }));
+strip.rotation.x = -Math.PI / 2; strip.position.set(0, 0.015, AISLE_Z); scene.add(strip);
+
+// --- Paredes
+const wallMat = std(0x1c2440), wallMatYt = std(0x2c1a27), wallMatProy = std(0x18213e), trim = std(0x0d1222);
+box(12, 2.8, 0.2, wallMatProy, -10, 1.4, -8.1);
+box(8, 2.8, 0.2, wallMat, 0, 1.4, -8.1);
+box(12, 2.8, 0.2, wallMatYt, 10, 1.4, -8.1);
+box(0.2, 2.8, 16, wallMatProy, -16.1, 1.4, 0);
+box(0.2, 2.8, 16, wallMatYt, 16.1, 1.4, 0);
+const glass = new THREE.MeshStandardMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.12, roughness: 0.1, metalness: 0.2 });
+for (const x of [-4, 4]) {
+  box(0.16, 1.0, 6.6, trim, x, 0.5, -4.7);
+  box(0.16, 1.0, 6.6, trim, x, 0.5, 4.7);
+  box(0.06, 1.4, 6.6, glass, x, 1.7, -4.7, scene, false);
+  box(0.06, 1.4, 6.6, glass, x, 1.7, 4.7, scene, false);
+}
+box(32, 0.12, 0.2, trim, 0, 0.06, 8.05, scene, false);
+
+// --- Carteles
+const signs = [
+  signPlane('SALA PROYECTOS', 'programación e ideas', '#6f8fff', 6, 1.3, -10, 2.15, -7.98),
+  signPlane('SALA YOUTUBE', 'preparación para Pixelido', '#ff6b7a', 6, 1.3, 10, 2.15, -7.98),
+  signPlane('DIRECCIÓN', 'Atlas · ventilador holográfico', '#5ce8ff', 5, 1.1, 0, 2.3, -7.98),
+];
+
+// --- Decoración
+function plant(x, z) {
+  box(0.5, 0.5, 0.5, std(0x3a2a24), x, 0.25, z);
+  const leaves = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 0), std(0x2f8f5b, { flatShading: true }));
+  leaves.position.set(x, 0.95, z); leaves.castShadow = true; scene.add(leaves);
+}
+[[-15.2, -7.2], [-4.7, 7.2], [15.2, -7.2], [4.7, 7.2], [-3.3, -7.2], [3.3, -7.2]].forEach(p => plant(...p));
+// pizarra de sprint en Proyectos
+const board = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.5), new THREE.MeshBasicMaterial({ map: canvasTex(680, 300, (g, W, H) => {
+  g.fillStyle = '#e9edf5'; g.fillRect(0, 0, W, H);
+  const cols = ['POR HACER', 'EN CURSO', 'HECHO'];
+  cols.forEach((c, i) => { g.fillStyle = '#1b2440'; g.font = '700 26px "Chakra Petch", sans-serif'; g.fillText(c, 20 + i * 225, 40);
+    for (let k = 0; k < 3 - i % 2; k++) { g.fillStyle = ['#ffd166', '#9be7c4', '#a8c5ff'][(i + k) % 3]; g.fillRect(20 + i * 225, 62 + k * 70, 180, 54); } });
+}) }));
+board.position.set(-14.2, 1.55, -7.98); scene.add(board);
+// letrero neón "play" en YouTube
+const playSign = new THREE.Group();
+const neon = new THREE.MeshBasicMaterial({ color: 0xff4d5e });
+const pRect = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.05, 8, 4), neon); pRect.rotation.z = Math.PI / 4; pRect.scale.set(1.5, 1, 1); playSign.add(pRect);
+const tri = new THREE.Mesh(new THREE.CircleGeometry(0.28, 3), neon); playSign.add(tri);
+playSign.position.set(14.4, 1.7, -7.95); scene.add(playSign);
+// foco de grabación y trípode en YouTube
+const ring = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.06, 10, 32), new THREE.MeshBasicMaterial({ color: 0xfff4d6 }));
+ring.position.set(9.6, 1.8, -1.6); ring.rotation.y = 0.5; scene.add(ring);
+box(0.05, 1.8, 0.05, std(0x222222), 9.6, 0.9, -1.6);
+// estanterías de Proyectos
+for (let i = 0; i < 3; i++) box(1.6, 0.06, 0.4, std(0x2a3352), -15.7 + 0.8, 0.6 + i * 0.6, 2 + 0.0, scene).rotation.y = Math.PI / 2;
+for (let i = 0; i < 6; i++) box(0.12, 0.4, 0.3, std([0x6f8fff, 0xffd166, 0x9be7c4][i % 3]), -15.7, 0.85 + Math.floor(i / 2) * 0.6, 1.5 + (i % 2) * 0.5);
+
+// --- Portal de entrega a Pixelido (agencia externa)
+const portal = new THREE.Group();
+portal.position.set(15.95, 0, AISLE_Z); portal.rotation.y = -Math.PI / 2; scene.add(portal);
+const portalMat = new THREE.MeshStandardMaterial({ color: 0x2a1236, emissive: 0xb44dff, emissiveIntensity: 0.9 });
+box(0.18, 2.6, 0.18, portalMat, -0.95, 1.3, 0, portal); box(0.18, 2.6, 0.18, portalMat, 0.95, 1.3, 0, portal); box(2.08, 0.18, 0.18, portalMat, 0, 2.6, 0, portal);
+const swirlTex = canvasTex(256, 256, (g, W, H) => {
+  const grd = g.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, W / 2);
+  grd.addColorStop(0, '#ffffff'); grd.addColorStop(0.25, '#ff8be0'); grd.addColorStop(0.6, '#7a3cff'); grd.addColorStop(1, 'rgba(40,10,80,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 6;
+  for (let i = 0; i < 5; i++) { g.beginPath(); g.arc(W / 2, H / 2, 24 + i * 22, i, i + 2.4); g.stroke(); }
+});
+const swirl = new THREE.Mesh(new THREE.CircleGeometry(0.9, 40), new THREE.MeshBasicMaterial({ map: swirlTex, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+swirl.position.set(0, 1.3, 0.05); portal.add(swirl);
+const portalLight = new THREE.PointLight(0xb44dff, 6, 7, 1.6); portalLight.position.set(-0.8, 1.4, 0); portal.add(portalLight);
+signs.push(signPlane('PIXELIDO', 'entrega a la agencia de vídeo', '#d48bff', 2.6, 0.56, 15.9, 3.2, AISLE_Z, -Math.PI / 2));
+
+/* ============================================================
+   3. PERSONAJES
+   ============================================================ */
+const holoMat = c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+
+function makeCharacter({ shirt, skin, hair, holo = false, glow = false }) {
+  const mat = c => holo ? holoMat(c) : std(c, glow ? { emissive: c, emissiveIntensity: 0.25 } : {});
+  const g = new THREE.Group();
+  const body = new THREE.Group(); g.add(body);
+  const add = (geo, m, x, y, z, parent = body) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = !holo; parent.add(o); return o; };
+  const pants = mat(0x2a3150), shirtM = mat(shirt), skinM = mat(skin), hairM = mat(hair), dark = mat(0x111111);
+  const leg = side => { const p = new THREE.Group(); p.position.set(side * 0.13, 0.56, 0); body.add(p); add(new THREE.BoxGeometry(0.17, 0.52, 0.19), pants, 0, -0.27, 0, p); add(new THREE.BoxGeometry(0.19, 0.08, 0.27), dark, 0, -0.52, 0.04, p); return p; };
+  const legL = leg(-1), legR = leg(1);
+  add(new THREE.CapsuleGeometry(0.25, 0.32, 4, 12), shirtM, 0, 0.93, 0);
+  const badge = add(new THREE.CircleGeometry(0.06, 16), mat(0xffffff), 0.1, 1.04, 0.255); badge.castShadow = false;
+  const head = new THREE.Group(); head.position.set(0, 1.58, 0); body.add(head);
+  add(new THREE.SphereGeometry(0.27, 20, 16), skinM, 0, 0, 0, head);
+  const hairCap = add(new THREE.SphereGeometry(0.285, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), hairM, 0, 0.02, -0.02, head);
+  hairCap.rotation.x = -0.25;
+  add(new THREE.SphereGeometry(0.035, 8, 8), dark, -0.09, 0.02, 0.25, head);
+  add(new THREE.SphereGeometry(0.035, 8, 8), dark, 0.09, 0.02, 0.25, head);
+  const mouth = add(new THREE.BoxGeometry(0.09, 0.02, 0.02), dark, 0, -0.1, 0.255, head);
+  const arm = side => { const p = new THREE.Group(); p.position.set(side * 0.35, 1.2, 0); body.add(p); add(new THREE.BoxGeometry(0.12, 0.44, 0.13), shirtM, 0, -0.2, 0, p); add(new THREE.SphereGeometry(0.075, 10, 8), skinM, 0, -0.45, 0, p); return p; };
+  const armL = arm(-1), armR = arm(1);
+  const doc = add(new THREE.BoxGeometry(0.32, 0.03, 0.42), mat(0xf4f1e8), 0, 0.98, 0.42); doc.visible = false;
+  const docMark = add(new THREE.BoxGeometry(0.2, 0.035, 0.04), mat(shirt), 0, 0.995, 0.34); docMark.visible = false;
+  return { g, body, head, legL, legR, armL, armR, mouth, doc, docMark };
+}
+
+function poseCharacter(c, mode, t, phase, extra = {}) {
+  const s = Math.sin, w = t * 9 + phase;
+  c.body.position.y = 0; c.body.rotation.set(0, 0, 0);
+  c.head.rotation.set(0, 0, 0);
+  c.legL.rotation.set(0, 0, 0); c.legR.rotation.set(0, 0, 0);
+  c.armL.rotation.set(0, 0, 0); c.armR.rotation.set(0, 0, 0);
+  c.mouth.scale.y = 1;
+  const carry = !!extra.carry;
+  c.doc.visible = carry; c.docMark.visible = carry;
+  if (extra.sitting) {
+    c.legL.rotation.x = c.legR.rotation.x = -1.45;
+    c.body.position.y = -0.06;
+  }
+  switch (mode) {
+    case 'walk': {
+      c.legL.rotation.x = s(w) * 0.6; c.legR.rotation.x = -s(w) * 0.6;
+      c.body.position.y = Math.abs(s(w)) * 0.06;
+      if (carry) { c.armL.rotation.x = c.armR.rotation.x = -1.25; }
+      else { c.armL.rotation.x = -s(w) * 0.5; c.armR.rotation.x = s(w) * 0.5; }
+      break;
+    }
+    case 'work': {
+      c.armL.rotation.x = -1.15 + s(t * 20 + phase) * 0.12;
+      c.armR.rotation.x = -1.15 + s(t * 20 + phase + 2) * 0.12;
+      c.head.rotation.x = 0.12 + s(t * 3 + phase) * 0.05;
+      c.head.rotation.y = s(t * 0.8 + phase) * 0.15;
+      break;
+    }
+    case 'give': {
+      c.armL.rotation.x = c.armR.rotation.x = -1.4;
+      c.body.rotation.x = 0.12;
+      c.doc.visible = c.docMark.visible = true;
+      c.head.rotation.x = 0.1;
+      break;
+    }
+    case 'celebrate': {
+      c.armL.rotation.x = c.armR.rotation.x = -2.9 + s(t * 12) * 0.25;
+      c.armL.rotation.z = -0.4; c.armR.rotation.z = 0.4;
+      c.body.position.y += Math.abs(s(t * 8)) * 0.25;
+      break;
+    }
+    case 'talk': {
+      c.mouth.scale.y = 1 + Math.abs(s(t * 16)) * 3;
+      c.armR.rotation.x = -0.9 + s(t * 3) * 0.35; c.armR.rotation.z = 0.25;
+      c.armL.rotation.x = -0.3 + s(t * 2.3) * 0.2;
+      c.head.rotation.y = s(t * 1.7) * 0.2;
+      break;
+    }
+    case 'listen': {
+      c.head.rotation.z = 0.22; c.armR.rotation.x = -2.4; c.armR.rotation.z = 0.9;
+      c.body.rotation.z = 0.04;
+      break;
+    }
+    default: { // idle
+      const stretch = extra.stretch || 0;
+      if (stretch > 0) { c.armL.rotation.x = c.armR.rotation.x = -2.8 * Math.min(1, stretch * 2); c.head.rotation.x = -0.3; }
+      else {
+        c.head.rotation.y = s(t * 0.5 + phase) * 0.45;
+        c.armL.rotation.x = extra.sitting ? -0.9 : s(t * 1.2 + phase) * 0.05;
+        c.armR.rotation.x = extra.sitting ? -0.9 : -s(t * 1.2 + phase) * 0.05;
+      }
+      c.body.position.y += s(t * 2 + phase) * 0.012;
+    }
+  }
+}
+
+// Etiquetas flotantes (nombre + IA, y bocadillo de estado)
+function makeSprite(w, h, worldH) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  s.scale.set(worldH * w / h, worldH, 1); s.renderOrder = 10;
+  return { s, c, g: c.getContext('2d'), tex };
+}
+function drawNameTag(sp, name, aiKey) {
+  const { g, c } = sp; const W = c.width, H = c.height; const ai = AI[aiKey];
+  g.clearRect(0, 0, W, H);
+  g.font = '700 44px "Chakra Petch", sans-serif';
+  const nameW = g.measureText(name).width;
+  g.font = '600 30px "Chakra Petch", sans-serif';
+  const aiW = g.measureText(ai.name.toUpperCase()).width;
+  const total = nameW + aiW + 64; const x0 = (W - total) / 2;
+  g.fillStyle = 'rgba(8,12,23,.86)'; g.beginPath(); g.roundRect(x0, 10, total, H - 20, 14); g.fill();
+  g.fillStyle = '#e8edf8'; g.font = '700 44px "Chakra Petch", sans-serif'; g.textBaseline = 'middle'; g.fillText(name, x0 + 18, H / 2 + 2);
+  g.fillStyle = ai.color; g.beginPath(); g.roundRect(x0 + nameW + 32, H / 2 - 20, aiW + 18, 40, 8); g.fill();
+  g.fillStyle = '#0a0f1c'; g.font = '600 30px "Chakra Petch", sans-serif'; g.fillText(ai.name.toUpperCase(), x0 + nameW + 41, H / 2 + 2);
+  sp.tex.needsUpdate = true;
+}
+function drawBubble(sp, text, color, progress = -1) {
+  const { g, c } = sp; const W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  if (!text) { sp.tex.needsUpdate = true; return; }
+  g.font = '500 34px Figtree, sans-serif';
+  let t = text; while (g.measureText(t).width > W - 70 && t.length > 4) t = t.slice(0, -2);
+  if (t !== text) t = t.trimEnd() + '…';
+  const tw = g.measureText(t).width; const bw = tw + 48; const x0 = (W - bw) / 2;
+  g.fillStyle = 'rgba(14,20,37,.92)'; g.strokeStyle = color; g.lineWidth = 4;
+  g.beginPath(); g.roundRect(x0, 8, bw, H - 34, 16); g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(W / 2 - 12, H - 27); g.lineTo(W / 2, H - 8); g.lineTo(W / 2 + 12, H - 27); g.fill();
+  g.fillStyle = '#e8edf8'; g.textBaseline = 'middle'; g.fillText(t, x0 + 24, (H - 26) / 2 + 6);
+  if (progress >= 0) { g.fillStyle = color; g.fillRect(x0 + 16, H - 34, (bw - 32) * progress, 5); }
+  sp.tex.needsUpdate = true;
+}
+
+/* ============================================================
+   4. ESCRITORIOS Y AGENTES
+   ============================================================ */
+function buildDesk(def) {
+  const g = new THREE.Group(); g.position.set(def.desk[0], 0, def.desk[1]); g.rotation.y = def.rot; scene.add(g);
+  const wood = std(0x6b4f3a), metal = std(0x2a2f3d, { metalness: 0.4, roughness: 0.5 });
+  box(1.7, 0.08, 0.85, wood, 0, 0.78, 0, g);
+  for (const [x, z] of [[-0.78, -0.36], [0.78, -0.36], [-0.78, 0.36], [0.78, 0.36]]) box(0.06, 0.76, 0.06, metal, x, 0.38, z, g);
+  box(0.82, 0.52, 0.05, std(0x10131c), 0, 1.16, -0.22, g);
+  box(0.06, 0.18, 0.06, metal, 0, 0.9, -0.24, g);
+  const screenMat = new THREE.MeshStandardMaterial({ color: 0x0b1020, emissive: 0x1b2a4a, emissiveIntensity: 0.7 });
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 0.44), screenMat); screen.position.set(0, 1.16, -0.19); g.add(screen);
+  box(0.5, 0.03, 0.16, std(0x1d2230), 0, 0.835, 0.12, g);
+  const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.11, 12), std(AI[def.ai].color)); mug.position.set(0.6, 0.875, 0.1); g.add(mug);
+  // silla
+  const chair = std(0x232a3f);
+  box(0.55, 0.08, 0.52, chair, 0, 0.47, 0.88, g);
+  box(0.55, 0.62, 0.07, chair, 0, 0.82, 1.14, g);
+  box(0.06, 0.44, 0.06, metal, 0, 0.22, 0.88, g);
+  return { g, screenMat };
+}
+
+let speed = 1, simClock = 0;
+const agents = {};
+
+class Agent {
+  constructor(def) {
+    Object.assign(this, { def, id: def.id });
+    this.desk = buildDesk(def); this.desk.g.updateMatrixWorld(true);
+    this.seat = this.desk.g.localToWorld(V(0, 0, 0.82)); this.seat.y = 0;
+    this.stand = this.seat.clone().add(V(1.2, 0, 0.3));
+    this.seatYaw = def.rot + Math.PI;
+    this.c = makeCharacter({ shirt: AI[def.ai].color, skin: def.skin, hair: def.hair });
+    scene.add(this.c.g);
+    this.pos = this.seat.clone(); this.yaw = this.seatYaw;
+    this.sitting = true; this.mode = 'idle'; this.carry = false;
+    this.agenda = []; this.inbox = []; this.action = null;
+    this.phase = Math.random() * 6; this.stretch = 0; this.nextStretch = 6 + Math.random() * 14; this.celebrate = 0;
+    this.status = 'Libre'; this.statusColor = '#8d9abb'; this.progress = -1;
+    this.tag = makeSprite(512, 96, 0.55); this.bubble = makeSprite(640, 110, 0.66);
+    scene.add(this.tag.s, this.bubble.s);
+    this.redraw();
+  }
+  redraw() { drawNameTag(this.tag, this.def.name, this.def.ai); this.drawStatus(true); }
+  setStatus(text, color = '#8d9abb') { this.status = text; this.statusColor = color; this.drawStatus(true); }
+  drawStatus(force) {
+    const p = this.progress >= 0 ? Math.round(this.progress * 20) / 20 : -1;
+    if (!force && p === this._lastP) return; this._lastP = p;
+    drawBubble(this.bubble, this.status, this.statusColor, p);
+  }
+  pathTo(dest) {
+    const from = this.pos.clone();
+    const pts = [];
+    if (this.sitting || from.distanceTo(this.seat) < 0.2) pts.push(this.stand.clone());
+    const start = pts.length ? pts[0] : from;
+    const ra = roomAt(start.x), rb = roomAt(dest.x);
+    pts.push(V(start.x, 0, AISLE_Z));
+    if (ra !== rb) { if (ra !== 'hall') pts.push(DOORS[ra].clone()); if (rb !== 'hall') pts.push(DOORS[rb].clone()); }
+    pts.push(V(dest.x, 0, AISLE_Z), dest.clone());
+    return pts;
+  }
+  begin(a) {
+    this.action = a; a.t = 0;
+    if (a.type === 'goto') {
+      const dest = a.dest === 'home' ? this.stand : a.dest;
+      a.pts = this.pathTo(dest); if (a.dest === 'home') a.pts.push(this.seat.clone());
+      a.i = 0; this.sitting = false; this.mode = 'walk'; this.carry = !!a.carry;
+      this.setStatus(a.status || 'Volviendo a su mesa', a.dest === 'home' ? '#8d9abb' : '#fbbf24');
+    } else if (a.type === 'work') {
+      const { job, step } = a.task;
+      a.dur = step.secs; step.state = 'trabajando'; this.mode = 'work'; this.sitting = true; this.yaw = this.seatYaw;
+      this.progress = 0; this.setStatus(step.verb + '…', AI[this.def.ai].color);
+      log(`<b>${this.def.name}</b> empieza «${step.label}» · ${esc(job.short)}`);
+      markDirty();
+    } else if (a.type === 'do') {
+      this.mode = a.pose || 'give'; this.setStatus(a.status, '#5ce8ff');
+      if (a.face) this.targetYaw = Math.atan2(a.face.x - this.pos.x, a.face.z - this.pos.z);
+    }
+  }
+  update(dt, t) {
+    if (!this.action) {
+      if (this.agenda.length) this.begin(this.agenda.shift());
+      else if (this.inbox.length) {
+        const task = this.inbox.shift();
+        if (!this.sitting) this.agenda.push({ type: 'goto', dest: 'home' });
+        this.agenda.push({ type: 'work', task });
+        this.begin(this.agenda.shift());
+      }
+    }
+    const a = this.action;
+    if (a?.type === 'goto') {
+      const target = a.pts[a.i]; const d = target.clone().sub(this.pos); d.y = 0;
+      const step = 2.6 * dt; const dist = d.length();
+      if (dist > 0.001) this.targetYaw = Math.atan2(d.x, d.z);
+      if (dist <= step) { this.pos.copy(target); a.i++; if (a.i >= a.pts.length) {
+        this.action = null; this.carry = false;
+        if (a.dest === 'home') { this.sitting = true; this.mode = 'idle'; this.targetYaw = this.seatYaw; this.setStatus(this.inbox.length ? 'Siguiente tarea…' : 'Libre'); }
+        else this.mode = 'idle';
+      } }
+      else this.pos.addScaledVector(d.normalize(), step);
+    } else if (a?.type === 'work') {
+      a.t += dt; this.progress = Math.min(1, a.t / a.dur); a.task.step.progress = this.progress;
+      if (a.t >= a.dur) { this.action = null; this.progress = -1; this.mode = 'idle'; finishStep(this, a.task); }
+    } else if (a?.type === 'do') {
+      a.t += dt; if (a.t >= (a.dur || 1.2)) { this.action = null; this.mode = 'idle'; a.fn?.(); }
+    } else if (!a) {
+      // tiempo libre: estirarse de vez en cuando
+      this.nextStretch -= dt;
+      if (this.nextStretch < 0 && this.sitting) { this.stretch = 1.4; this.nextStretch = 10 + Math.random() * 18; }
+    }
+    this.stretch = Math.max(0, this.stretch - dt);
+    this.celebrate = Math.max(0, this.celebrate - dt);
+
+    // transformar
+    if (this.sitting && !this.action) this.targetYaw = this.seatYaw;
+    let dy = this.targetYaw - this.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    this.yaw += dy * Math.min(1, dt * 8 + 0.02);
+    this.c.g.position.copy(this.pos); this.c.g.rotation.y = this.yaw;
+    let mode = this.mode;
+    if (mode === 'idle' && this.celebrate > 0) mode = 'celebrate';
+    poseCharacter(this.c, mode, t, this.phase, { sitting: this.sitting && mode !== 'celebrate', carry: this.carry, stretch: this.stretch });
+    this.tag.s.position.set(this.pos.x, 2.2, this.pos.z);
+    this.bubble.s.position.set(this.pos.x, 2.82, this.pos.z);
+    this.bubble.s.material.opacity = this.status === 'Libre' ? 0.55 : 1;
+    // pantalla
+    const sm = this.desk.screenMat;
+    if (this.mode === 'work') { sm.emissive.set(AI[this.def.ai].color); sm.emissiveIntensity = 1.1 + Math.sin(t * 13 + this.phase) * 0.25; }
+    else { sm.emissive.set(0x1b2a4a); sm.emissiveIntensity = 0.7; }
+    if (this.mode === 'work') this.drawStatus(false);
+  }
+  busy() { return !!this.action || this.inbox.length > 0 || this.agenda.length > 0; }
+}
+
+WORKERS.forEach(d => agents[d.id] = new Agent(d));
+
+/* ============================================================
+   5. ATLAS, EL DIRECTOR HOLOGRÁFICO
+   ============================================================ */
+const fanGroup = new THREE.Group(); fanGroup.position.copy(FAN_POS); scene.add(fanGroup);
+const dais = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 0.2, 40), std(0x161d33, { metalness: 0.3 })); dais.position.y = 0.1; dais.receiveShadow = true; fanGroup.add(dais);
+const daisRing = new THREE.Mesh(new THREE.TorusGeometry(1.62, 0.03, 8, 64), new THREE.MeshBasicMaterial({ color: 0x5ce8ff })); daisRing.rotation.x = Math.PI / 2; daisRing.position.y = 0.2; fanGroup.add(daisRing);
+const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1.1, 12), std(0x2a2f3d, { metalness: 0.6, roughness: 0.4 })); pole.position.y = 0.75; fanGroup.add(pole);
+const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.12, 16), std(0x2a2f3d, { metalness: 0.6 })); hub.position.y = 1.32; fanGroup.add(hub);
+const blades = new THREE.Group(); blades.position.y = 1.32; fanGroup.add(blades);
+for (let i = 0; i < 4; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.015, 0.09), holoMat(0x5ce8ff)); b.position.x = 0.58; const p = new THREE.Group(); p.rotation.y = i * Math.PI / 2; p.add(b); blades.add(p); }
+const disc = new THREE.Mesh(new THREE.CircleGeometry(1.18, 48), new THREE.MeshBasicMaterial({ color: 0x5ce8ff, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+disc.rotation.x = -Math.PI / 2; disc.position.y = 1.33; fanGroup.add(disc);
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 1.15, 2.6, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0x5ce8ff, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+beam.position.y = 2.65; fanGroup.add(beam);
+const atlasHolo = makeCharacter({ shirt: 0x5ce8ff, skin: 0x9ff3ff, hair: 0x2fb7d6, holo: true });
+atlasHolo.g.position.y = 1.45; atlasHolo.g.scale.setScalar(1.05); fanGroup.add(atlasHolo.g);
+const atlasTag = makeSprite(512, 96, 0.55); const atlasBubble = makeSprite(640, 110, 0.55);
+atlasTag.s.position.set(FAN_POS.x, 3.75, FAN_POS.z); atlasBubble.s.position.set(FAN_POS.x, 4.3, FAN_POS.z);
+scene.add(atlasTag.s); // el texto de Atlas va en el recuadro superior
+const director = { mode: 'espera', modeT: 0, say: 'Esperando órdenes', fanState: 'espera' };
+function directorSay(text, mode = 'habla', secs = 4) {
+  director.mode = mode; director.modeT = secs; director.say = text;
+  drawBubble(atlasBubble, text.length > 40 ? text.slice(0, 38) + '…' : text, '#5ce8ff');
+  $('#sayText').textContent = text; $('#say').classList.remove('quiet');
+  clearTimeout(director._q); director._q = setTimeout(() => $('#say').classList.add('quiet'), 9000);
+  if ($('#voiceOn').checked && 'speechSynthesis' in window) {
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES'; u.rate = 1.04; speechSynthesis.speak(u); } catch (e) {}
+  }
+}
+
+// Orbes: así reparte Atlas las tareas
+const orbs = [];
+const orbGeo = new THREE.SphereGeometry(0.16, 16, 12);
+function sendOrb(to, color, onArrive) {
+  const m = new THREE.Mesh(orbGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const from = V(FAN_POS.x, 2.6, FAN_POS.z); const end = V(to.x, 1.6, to.z);
+  const mid = from.clone().lerp(end, 0.5); mid.y = 6;
+  scene.add(m); orbs.push({ m, from, mid, end, t: 0, dur: 1.6, onArrive });
+}
+
+let portalFlash = 0;
+
+/* ============================================================
+   6. MOTOR DE TAREAS
+   ============================================================ */
+const jobs = [];
+let jobSeq = 0;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function classify(text) {
+  const l = text.toLowerCase();
+  const vw = ['vídeo', 'video', 'youtube', 'guion', 'guión', 'miniatura', 'título', 'titulo', 'short', 'pixelido', 'canal', 'reseña', 'tutorial'];
+  const pw = ['proyecto', 'app', 'web', 'código', 'codigo', 'programa', 'tienda', 'bot', 'función', 'funcion', 'arregla', 'bug', 'página', 'pagina', 'script', 'api'];
+  const sv = vw.filter(w => l.includes(w)).length, sp = pw.filter(w => l.includes(w)).length;
+  return sv >= sp && sv > 0 ? 'video' : sp > 0 ? 'proyecto' : 'video';
+}
+function cleanTopic(text) {
+  let t = text.trim().replace(/^(v[ií]deo|proyecto|idea)\s*[:\-–]\s*/i, '');
+  t = t.replace(/^(prepara|haz|hazme|crea|monta|programa)\s+(un|una)?\s*(v[ií]deo|proyecto)?\s*(sobre|de|para)?\s*/i, '');
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function newOrder(text, version = 1) {
+  text = text.trim(); if (!text) return;
+  const type = classify(text); const topic = cleanTopic(text);
+  const flow = FLOWS[type];
+  const job = {
+    id: ++jobSeq, type, topic, version, short: topic.length > 34 ? topic.slice(0, 32) + '…' : topic,
+    steps: flow.steps.map(s => ({ ...s, state: 'espera', progress: 0, output: null })),
+    got: {}, status: 'en curso', cost: 0, round: 0,
+  };
+  job.steps.forEach(s => job.got[s.id] = new Set());
+  job.step = id => job.steps.find(s => s.id === id);
+  jobs.unshift(job);
+  log(`Orden recibida: <b>${esc(topic)}</b>${version > 1 ? ' (v' + version + ')' : ''}`);
+  const reply = type === 'video'
+    ? `Entendido, jefe. Nora escribe el guion con Claude, Gema hace las miniaturas con Gemini, Tito busca títulos con ChatGPT y Paco lo prepara todo para Pixelido.`
+    : `Entendido, jefe. Max ordena la idea con ChatGPT, Leo la programa con Claude y Vera revisa el código antes de enseñártelo.`;
+  directorSay(reply, 'habla', 4.5);
+  setFan('habla', true);
+  setTimeout(() => {
+    job.steps.filter(s => s.deps.length === 0).forEach(s => {
+      s.state = 'cola';
+      const ag = agents[s.worker];
+      sendOrb(ag.seat, AI[ag.def.ai].color, () => { ag.inbox.push({ job, step: s }); ag.setStatus('¡Nueva tarea!', '#5ce8ff'); log(`Atlas manda «${s.label}» a <b>${ag.def.name}</b>`); });
+    });
+    markDirty();
+  }, 1800 / speed);
+  markDirty();
+}
+
+function enqueue(job, step) {
+  step.state = 'cola'; step.progress = 0;
+  agents[step.worker].inbox.push({ job, step }); markDirty();
+}
+
+function finishStep(agent, task) {
+  const { job, step } = task;
+  step.state = 'hecho'; step.progress = 1;
+  job.cost += AI[agent.def.ai].cost;
+  let targets = [];
+  if (step.id === 'review' && job.round === 0 && Math.random() < 0.55) {
+    job.round++;
+    step.output = GEN.reviewFail(job); step.state = 'cambios';
+    const code = job.step('codigo'); code.state = 'cambios';
+    targets.push({ worker: 'leo', what: 'notas de revisión', onArrive: () => { code.verb = 'Corrigiendo lo que pidió Vera'; enqueue(job, code); } });
+    log(`<b>Vera</b> encuentra fallos y devuelve el código a <b>Leo</b>`);
+  } else {
+    step.output = GEN[step.id](job);
+    log(`<b>${agent.def.name}</b> termina «${step.label}»`);
+    job.steps.filter(s => s.deps.includes(step.id)).forEach(s => targets.push({
+      worker: s.worker, what: step.label.toLowerCase(),
+      onArrive: () => {
+        job.got[s.id].add(step.id);
+        if (s.deps.every(d => job.got[s.id].has(d))) {
+          if (s.worker === 'director') awaitApproval(job); else enqueue(job, s);
+        }
+      },
+    }));
+  }
+  // planificar entregas a pie
+  for (const tg of targets) {
+    const isDir = tg.worker === 'director';
+    const dest = isDir ? DIRECTOR_SPOT : agents[tg.worker].stand;
+    const face = isDir ? FAN_POS : agents[tg.worker].seat;
+    const who = isDir ? 'Atlas' : agents[tg.worker].def.name;
+    agent.agenda.push({ type: 'goto', dest, carry: true, status: `Llevando ${tg.what} a ${who}` });
+    agent.agenda.push({ type: 'do', pose: 'give', face, dur: 1.3, status: `Entregando a ${who}`, fn: () => { tg.onArrive(); markDirty(); } });
+  }
+  agent.agenda.push({ type: 'goto', dest: 'home' });
+  markDirty();
+}
+
+function awaitApproval(job) {
+  job.status = 'esperando'; job.step('ok').state = 'cola';
+  directorSay(job.type === 'video'
+    ? `Jefe, el paquete de «${job.short}» está listo. Revísalo y, si te gusta, Paco se lo lleva a Pixelido.`
+    : `Jefe, el proyecto «${job.short}» está programado y revisado. ¿Lo apruebas?`, 'listo', 6);
+  setFan('listo', true);
+  log(`Encargo <b>#${job.id}</b> esperando tu aprobación`);
+  markDirty();
+}
+
+function approve(job) {
+  job.step('ok').state = 'hecho'; job.status = 'aprobado';
+  const crew = job.steps.filter(s => agents[s.worker]).map(s => agents[s.worker]);
+  if (job.type === 'video') {
+    job.status = 'enviando';
+    const paco = agents.paco;
+    paco.agenda.push({ type: 'goto', dest: PIXELIDO_SPOT, carry: true, status: 'Llevando el paquete a Pixelido' });
+    paco.agenda.push({ type: 'do', pose: 'give', face: V(16, 0, AISLE_Z), dur: 1.4, status: 'Enviando a Pixelido', fn: () => {
+      portalFlash = 1; job.status = 'enviado'; log(`Paquete de <b>${esc(job.short)}</b> entregado a <b>Pixelido</b>`);
+      directorSay(`Hecho. Pixelido ya tiene el paquete de «${job.short}».`, 'habla', 3);
+      crew.forEach(a => { if (!a.busy()) a.celebrate = 2.5; }); markDirty();
+    } });
+    paco.agenda.push({ type: 'goto', dest: 'home' });
+    directorSay('Aprobado. Paco, llévale el paquete a Pixelido.', 'habla', 3);
+  } else {
+    log(`Proyecto <b>${esc(job.short)}</b> aprobado`);
+    directorSay('Aprobado. ¡Buen trabajo, equipo de Proyectos!', 'habla', 3);
+    crew.forEach(a => { if (!a.busy()) a.celebrate = 2.5; });
+  }
+  markDirty();
+}
+
+function requestChanges(job) {
+  job.status = 'rehecho'; job.step('ok').state = 'cambios';
+  log(`Pides cambios en <b>#${job.id}</b>: se repite el encargo`);
+  newOrder((job.type === 'video' ? 'Vídeo: ' : 'Proyecto: ') + job.topic, job.version + 1);
+}
+
+/* ============================================================
+   7. RESULTADOS DE EJEMPLO (aquí irán las llamadas reales a cada IA)
+   ============================================================ */
+const STOP = new Set('de la el los las un una unos unas y o a en con para por que tu tus su sus del al como sin sobre es mi mis lo se vídeo video proyecto añadir'.split(' '));
+const keywords = t => t.split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 2 && !STOP.has(w.toLowerCase())).sort((a, b) => b.length - a.length);
+const today = () => new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+
+function thumb(topic, variant) {
+  const c = document.createElement('canvas'); c.width = 640; c.height = 360; const g = c.getContext('2d');
+  const pal = [['#ff3d5a', '#ffb800'], ['#2d6bff', '#00e0ff'], ['#7c3aed', '#ff4fd8']][variant];
+  const grd = g.createLinearGradient(0, 0, 640, 360); grd.addColorStop(0, pal[0]); grd.addColorStop(1, pal[1]);
+  g.fillStyle = grd; g.fillRect(0, 0, 640, 360);
+  g.globalAlpha = 0.18; g.fillStyle = '#fff';
+  for (let i = 0; i < 9; i++) { g.beginPath(); g.arc(80 + i * 70, 40 + (i % 3) * 120, 18 + (i % 4) * 10, 0, 7); g.fill(); }
+  g.globalAlpha = 1;
+  // personaje
+  g.fillStyle = '#ffe3c8'; g.beginPath(); g.arc(variant === 1 ? 140 : 500, 200, 95, 0, 7); g.fill();
+  g.fillStyle = '#1a1a1a'; const fx = variant === 1 ? 140 : 500;
+  g.beginPath(); g.arc(fx - 30, 185, 12, 0, 7); g.arc(fx + 30, 185, 12, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(fx, 245, 28, variant === 2 ? 26 : 12, 0, 0, 7); g.fill();
+  // texto
+  const words = keywords(topic).slice(0, 2).map(w => w.toUpperCase());
+  const lines = words.length ? words : ['¡MIRA', 'ESTO!'];
+  g.textBaseline = 'top'; g.lineJoin = 'round';
+  lines.forEach((w, i) => {
+    let size = 78; g.font = `900 ${size}px Impact, "Arial Black", sans-serif`;
+    while (g.measureText(w).width > 360 && size > 30) { size -= 4; g.font = `900 ${size}px Impact, "Arial Black", sans-serif`; }
+    const x = variant === 1 ? 270 : 28, y = 60 + i * 96;
+    g.lineWidth = 12; g.strokeStyle = '#000'; g.strokeText(w, x, y); g.fillStyle = i === 0 ? '#fff' : '#ffe14d'; g.fillText(w, x, y);
+  });
+  // flecha
+  g.strokeStyle = '#fff'; g.lineWidth = 10; g.beginPath(); const ax = variant === 1 ? 250 : 400;
+  g.moveTo(ax - 20, 300); g.lineTo(ax + 40, 250); g.stroke();
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
+const GEN = {
+  guion: j => ({ kind: 'text', by: 'nora', text:
+`GUION · ${j.topic}
+Duración objetivo: 8–10 min · Tono: cercano y con humor
+
+[0:00] GANCHO
+«Si haces esto mal, tu peludo lo nota. Y hoy vas a ver por qué.»
+Plano rápido del resultado final antes de explicar nada.
+
+[0:20] PRESENTACIÓN
+Quiénes somos, qué vas a aprender y por qué merece la pena quedarse.
+
+[1:00] PUNTO 1 · El error más común
+[2:30] PUNTO 2 · Lo que dicen los expertos
+[4:00] PUNTO 3 · Prueba real en casa (B-roll para Pixelido)
+[6:00] PUNTO 4 · Trucos rápidos en pantalla
+[7:30] PUNTO 5 · Resultado y comparativa
+
+[8:30] CIERRE
+Resumen en 3 frases + pregunta para comentarios.
+CTA: suscríbete y mira el siguiente vídeo.` }),
+  miniaturas: j => ({ kind: 'thumbs', by: 'gema', images: [0, 1, 2].map(v => thumb(j.topic, v)),
+    notes: ['A · cara de sorpresa + texto grande', 'B · contraste frío, texto a la derecha', 'C · morado llamativo, boca abierta'] }),
+  titulos: j => { const t = j.topic; const k = keywords(t)[0] || t; return { kind: 'text', by: 'tito', text:
+`TÍTULOS (ordenados por gancho)
+1. ${t}: lo que nadie te cuenta
+2. Probé ${t.toLowerCase()} y esto pasó
+3. 5 errores con ${k.toLowerCase()} que debes evitar
+4. ${t} explicado en 8 minutos
+5. ¿Merece la pena? ${t}
+6. Lo hice mal durante años: ${t.toLowerCase()}
+7. El truco de ${k.toLowerCase()} que cambia todo
+8. ${t} (guía rápida 2026)
+9. No hagas esto con ${k.toLowerCase()}
+10. ${t}: antes y después
+
+DESCRIPCIÓN
+En este vídeo vemos ${t.toLowerCase()} paso a paso, con pruebas reales y trucos que puedes aplicar hoy mismo.
+
+ETIQUETAS
+${keywords(t).slice(0, 5).map(w => w.toLowerCase()).join(', ')}, consejos, tutorial, 2026` }; },
+  brief: j => ({ kind: 'text', by: 'paco', text:
+`PAQUETE PARA PIXELIDO · ${j.topic}
+Preparado el ${today()} · Encargo #${j.id}${j.version > 1 ? ' (v' + j.version + ')' : ''}
+
+TÍTULO ELEGIDO
+${j.topic}: lo que nadie te cuenta
+
+MINIATURA ELEGIDA
+Opción A (cara de sorpresa + texto grande). Archivos adjuntos.
+
+LO QUE NECESITAMOS DE PIXELIDO
+· Montaje 16:9 de 8–10 min siguiendo el guion adjunto
+· 1 short vertical 9:16 de 30–45 s con el gancho
+· Rótulos con el estilo del canal y subtítulos quemados
+· Música animada sin copyright, bajada en las explicaciones
+
+ESCENAS CLAVE
+1. Gancho con el resultado final
+2. Prueba real en casa (B-roll)
+3. Comparativa antes / después
+
+ENTREGA
+Primera versión en 5 días. Revisión por nuestra parte en 24 h.` }),
+  requisitos: j => ({ kind: 'text', by: 'max', text:
+`REQUISITOS · ${j.topic}
+
+OBJETIVO
+Que la idea funcione de forma sencilla y se pueda probar en un día.
+
+HISTORIAS DE USUARIO
+· Como cliente quiero ver la función sin buscarla
+· Como dueño quiero activarla o quitarla desde el panel
+· En móvil tiene que verse igual de bien
+
+CRITERIOS DE ACEPTACIÓN
+1. Carga en menos de 1 segundo
+2. Sin errores en la consola
+3. Probado en móvil y ordenador
+
+FUERA DE ALCANCE (por ahora)
+Integraciones de pago y analíticas avanzadas.` }),
+  codigo: j => ({ kind: 'text', by: 'leo', text:
+`// ${j.topic}
+// Primera versión · ${j.round > 0 ? 'con las correcciones de Vera' : 'lista para revisión'}
+
+export function iniciar(config = {}) {
+  const opciones = { activo: true, ...config };
+  if (!opciones.activo) return null;
+
+  const contenedor = document.querySelector('[data-funcion]');
+  if (!contenedor) {
+    console.warn('No encuentro el contenedor');
+    return null;
+  }
+
+  contenedor.classList.add('listo');
+  return { opciones, contenedor };
+}` }),
+  review: j => ({ kind: 'text', by: 'vera', text:
+`REVISIÓN DE CÓDIGO · ${j.topic}
+Resultado: APROBADO ✔
+
+· Estructura clara y fácil de mantener
+· Gestiona bien el caso sin contenedor
+· Probado en móvil y ordenador
+${j.round > 0 ? '· Las correcciones de la primera revisión están hechas\n' : ''}
+Listo para que Atlas se lo enseñe al jefe.` }),
+  reviewFail: j => ({ kind: 'text', by: 'vera', text:
+`REVISIÓN DE CÓDIGO · ${j.topic}
+Resultado: CAMBIOS PEDIDOS ✖
+
+1. Falta comprobar la configuración antes de usarla
+2. El aviso de la consola debería explicar cómo arreglarlo
+3. Añadir una prueba para móvil
+
+Devuelto a Leo.` }),
+};
+
+/* ============================================================
+   8. INTERFAZ
+   ============================================================ */
+let dirty = true;
+const markDirty = () => dirty = true;
+const fmtEur = n => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const STATUS_TXT = { 'en curso': 'En marcha', esperando: 'Esperando tu aprobación', enviando: 'Aprobado · Paco va hacia Pixelido', enviado: 'Entregado a Pixelido', aprobado: 'Aprobado', rehecho: 'Rehaciendo con cambios' };
+
+function renderJobs() {
+  const box = $('#jobs');
+  if (!jobs.length) { box.innerHTML = '<div class="empty">Todavía no hay encargos. Escribe una orden arriba, por ejemplo «Prepara un vídeo sobre…» o «Proyecto: …», y Atlas la repartirá entre el equipo.</div>'; }
+  else box.innerHTML = jobs.map(j => `
+    <article class="job ${j.status === 'esperando' ? 'wait' : ''}">
+      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>
+      <div class="steps">${j.steps.map(s => {
+        const who = agents[s.worker]?.def.name || 'Tú';
+        const inner = `<span>${s.label} · ${who}</span>`;
+        return s.output
+          ? `<button type="button" class="step ${s.state}" style="--p:${s.state === 'trabajando' ? s.progress : 0}" data-job="${j.id}" data-step="${s.id}" title="Ver resultado">${inner}</button>`
+          : `<span class="step ${s.state}" data-pj="${j.id}" data-ps="${s.id}" style="--p:${s.state === 'trabajando' ? s.progress.toFixed(2) : 0}">${inner}</span>`;
+      }).join('')}</div>
+      <div class="job-foot"><span>${STATUS_TXT[j.status]} · ≈${fmtEur(j.cost)}</span>
+        ${j.status === 'esperando' ? `<button type="button" class="btn ok" data-approve="${j.id}">${j.type === 'video' ? 'Aprobar y enviar a Pixelido' : 'Aprobar'}</button><button type="button" class="btn" data-changes="${j.id}">Pedir cambios</button>` : ''}
+      </div>
+    </article>`).join('');
+  const done = jobs.filter(j => ['enviado', 'aprobado'].includes(j.status)).length;
+  $('#stats').textContent = `${done} hechos · ≈${fmtEur(jobs.reduce((s, j) => s + j.cost, 0))} (simulado)`;
+}
+
+function updateProgress() {
+  document.querySelectorAll('[data-pj]').forEach(el => {
+    const s = jobs.find(j => j.id === +el.dataset.pj)?.step(el.dataset.ps);
+    if (s) el.style.setProperty('--p', s.state === 'trabajando' ? s.progress.toFixed(2) : 0);
+  });
+}
+
+function renderTeam() {
+  const rows = [`<div class="room-label hall">Dirección</div>
+    <button type="button" class="member" data-focus="director"><span class="dot ${director.mode !== 'espera' ? 'work' : ''}"></span><span><span class="m-name">Atlas · Director</span><span class="m-status">${esc(director.say)}</span></span><span class="ai claude">Claude</span></button>`];
+  for (const room of ['proy', 'yt']) {
+    rows.push(`<div class="room-label ${room}">${room === 'proy' ? 'Sala Proyectos' : 'Sala YouTube'}</div>`);
+    WORKERS.filter(w => w.room === room).forEach(w => {
+      const a = agents[w.id]; const st = a.mode === 'work' ? 'work' : a.mode === 'walk' || a.mode === 'give' ? 'walk' : '';
+      const extra = a.inbox.length ? ` · ${a.inbox.length} en cola` : '';
+      rows.push(`<button type="button" class="member" data-focus="${w.id}"><span class="dot ${st}"></span><span><span class="m-name">${w.name} · ${w.role}</span><span class="m-status">${esc(a.status)}${a.progress >= 0 ? ' ' + Math.round(a.progress * 100) + '%' : ''}${extra}</span></span><span class="ai ${w.ai}">${AI[w.ai].name}</span></button>`);
+    });
+  }
+  $('#team').innerHTML = rows.join('');
+}
+
+function log(html) {
+  const li = document.createElement('li');
+  const m = Math.floor(simClock / 60), s = Math.floor(simClock % 60);
+  li.innerHTML = `<time>${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}</time><span>${html}</span>`;
+  const ol = $('#log'); ol.prepend(li); while (ol.children.length > 60) ol.lastChild.remove();
+}
+
+function openOutput(jobId, stepId) {
+  const j = jobs.find(x => x.id === +jobId); const s = j?.step(stepId); if (!s?.output) return;
+  const by = agents[s.output.by] || agents[s.worker];
+  $('#modalTitle').textContent = `${s.label} · ${j.topic}`;
+  $('#modalMeta').textContent = `Hecho por ${by.def.name} (${by.def.role}) con ${AI[by.def.ai].name} · resultado de ejemplo`;
+  const body = $('#modalBody');
+  if (s.output.kind === 'thumbs') {
+    body.innerHTML = `<div class="thumbs">${s.output.images.map((src, i) => `<figure><img src="${src}" alt="Miniatura de ejemplo ${'ABC'[i]}"><figcaption>${esc(s.output.notes[i])}</figcaption></figure>`).join('')}</div>
+      <p class="note" style="margin-top:10px">Cuando conectemos Gemini, aquí aparecerán las imágenes reales generadas a partir del guion de Nora.</p>`;
+  } else {
+    body.innerHTML = `<pre></pre>`; body.querySelector('pre').textContent = s.output.text;
+  }
+  $('#modal').hidden = false; $('#modalClose').focus();
+}
+
+document.addEventListener('click', e => {
+  const st = e.target.closest('[data-step]'); if (st) return openOutput(st.dataset.job, st.dataset.step);
+  const ap = e.target.closest('[data-approve]'); if (ap) return approve(jobs.find(j => j.id === +ap.dataset.approve));
+  const ch = e.target.closest('[data-changes]'); if (ch) return requestChanges(jobs.find(j => j.id === +ch.dataset.changes));
+  const fo = e.target.closest('[data-focus]'); if (fo) return focusOn(fo.dataset.focus);
+  const ch2 = e.target.closest('[data-order]'); if (ch2) { newOrder(ch2.dataset.order); return; }
+  const vw = e.target.closest('[data-view]'); if (vw) { setView(vw.dataset.view); return; }
+  const sp = e.target.closest('[data-speed]'); if (sp) { speed = +sp.dataset.speed; document.querySelectorAll('[data-speed]').forEach(b => b.setAttribute('aria-pressed', b === sp)); return; }
+});
+$('#modalClose').onclick = () => $('#modal').hidden = true;
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') $('#modal').hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('#modal').hidden = true; } });
+$('#orderForm').addEventListener('submit', e => { e.preventDefault(); const t = $('#orderText'); if (t.value.trim()) { newOrder(t.value); t.value = ''; } });
+$('#orderText').addEventListener('focus', () => setFan('escucha', true));
+$('#orderText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('#orderForm').requestSubmit(); });
+
+// Voz → orden (solo donde el navegador lo permita)
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SR) {
+  const mic = $('#micBtn'); mic.hidden = false;
+  mic.onclick = () => {
+    try {
+      const r = new SR(); r.lang = 'es-ES'; r.interimResults = false;
+      setFan('escucha', true); directorSay('Te escucho, jefe…', 'escucha', 6);
+      r.onresult = ev => { const txt = ev.results[0][0].transcript; $('#orderText').value = txt; newOrder(txt); $('#orderText').value = ''; };
+      r.onerror = () => directorSay('No he podido usar el micrófono aquí. Escríbeme la orden.', 'habla', 4);
+      r.start();
+    } catch (err) { directorSay('No he podido usar el micrófono aquí. Escríbeme la orden.', 'habla', 4); }
+  };
+}
+
+// Cámara
+const VIEWS = {
+  general: { pos: V(0, 18, 21), target: V(0, 0, -0.5) },
+  proy: { pos: V(-10, 10.5, 11.5), target: V(-10, 0.5, -1.2) },
+  yt: { pos: V(10, 10.5, 11.5), target: V(10, 0.5, -1.2) },
+  dir: { pos: V(0, 5.2, 4.2), target: V(0, 2.2, -4.8) },
+};
+let camAnim = null;
+function flyTo(pos, target) { camAnim = { pos, target }; }
+function setView(v) { document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v)); flyTo(VIEWS[v].pos.clone(), VIEWS[v].target.clone()); }
+function focusOn(id) {
+  if (id === 'director') return setView('dir');
+  const a = agents[id]; document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', false));
+  flyTo(V(a.pos.x, 5.5, a.pos.z + 6.5), V(a.pos.x, 1, a.pos.z));
+}
+controls.addEventListener('start', () => camAnim = null);
+
+new ResizeObserver(() => { const w = host.clientWidth, h = host.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / Math.max(1, h); camera.fov = w / h < 1 ? 58 : 42; camera.updateProjectionMatrix(); }).observe(host);
+
+/* ============================================================
+   9. MODO VENTILADOR (clips para el ventilador holográfico)
+   ============================================================ */
+const fanCanvas = $('#fanCanvas');
+let fanR = null, fanScene, fanCam, fanAtlas, fanRings = [], fanState = 'espera';
+function setFan(state, fromOffice = false) {
+  if (fromOffice && !$('#fanSync').checked) return;
+  fanState = state; director.fanState = state;
+  document.querySelectorAll('[data-fan]').forEach(b => b.setAttribute('aria-pressed', b.dataset.fan === state));
+}
+function initFan() {
+  fanR = new THREE.WebGLRenderer({ canvas: fanCanvas, antialias: true, preserveDrawingBuffer: true });
+  fanR.setPixelRatio(1); fanR.setSize(720, 720, false); fanR.setClearColor(0x000000, 1);
+  fanR.outputColorSpace = THREE.SRGBColorSpace;
+  fanScene = new THREE.Scene();
+  fanCam = new THREE.PerspectiveCamera(32, 1, 0.1, 50); fanCam.position.set(0, 1.2, 6.2); fanCam.lookAt(0, 1.05, 0);
+  fanScene.add(new THREE.HemisphereLight(0xffffff, 0x223355, 1.4));
+  const key = new THREE.DirectionalLight(0xffffff, 2); key.position.set(2, 3, 4); fanScene.add(key);
+  const rim = new THREE.DirectionalLight(0x5ce8ff, 2.5); rim.position.set(-3, 2, -3); fanScene.add(rim);
+  fanAtlas = makeCharacter({ shirt: 0xe0835c, skin: 0xf2cfb3, hair: 0x5ce8ff, glow: true });
+  fanAtlas.g.position.y = -0.1; fanScene.add(fanAtlas.g);
+  for (let i = 0; i < 3; i++) {
+    const r = new THREE.Mesh(new THREE.TorusGeometry(0.7 + i * 0.25, 0.015, 8, 64), new THREE.MeshBasicMaterial({ color: 0x5ce8ff, transparent: true, opacity: 0.6 }));
+    r.rotation.x = Math.PI / 2; r.position.y = -0.05; fanScene.add(r); fanRings.push(r);
+  }
+  const visor = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.025, 8, 32, Math.PI), new THREE.MeshBasicMaterial({ color: 0x5ce8ff }));
+  visor.position.set(0, 0.06, 0); visor.rotation.z = 0; fanAtlas.head.add(visor);
+}
+function renderFan(t) {
+  if (!fanR) return;
+  const pose = { espera: 'idle', escucha: 'listen', habla: 'talk', listo: 'celebrate' }[fanState];
+  poseCharacter(fanAtlas, pose, t, 0, {});
+  fanAtlas.g.rotation.y = fanState === 'espera' ? Math.sin(t * 0.6) * 0.5 : Math.sin(t * 0.8) * 0.15;
+  fanAtlas.g.position.y = -0.1 + Math.sin(t * 1.6) * 0.05;
+  fanRings.forEach((r, i) => {
+    const k = (t * (fanState === 'escucha' ? 0.9 : 0.4) + i / 3) % 1;
+    r.scale.setScalar(0.8 + k * (fanState === 'listo' ? 1.6 : 0.9)); r.material.opacity = (1 - k) * 0.7;
+    r.material.color.set(fanState === 'listo' ? 0x4ade80 : 0x5ce8ff);
+  });
+  fanR.render(fanScene, fanCam);
+}
+$('#openFan').onclick = () => { if (!fanR) initFan(); $('#fan').hidden = false; };
+$('#closeFan').onclick = () => $('#fan').hidden = true;
+document.querySelectorAll('[data-fan]').forEach(b => b.onclick = () => setFan(b.dataset.fan));
+$('#recBtn').onclick = () => {
+  const out = $('#recOut');
+  if (!fanCanvas.captureStream || !window.MediaRecorder) { out.textContent = 'Este navegador no puede grabar el lienzo. Prueba con Chrome en el ordenador.'; return; }
+  const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+  const type = types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+  const ext = type.includes('mp4') ? 'mp4' : 'webm';
+  let rec; try { rec = new MediaRecorder(fanCanvas.captureStream(30), type ? { mimeType: type, videoBitsPerSecond: 6e6 } : undefined); }
+  catch (err) { out.textContent = 'No se pudo empezar a grabar en esta vista. Abre la oficina desde el repositorio en Chrome.'; return; }
+  const chunks = []; rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  const btn = $('#recBtn'); btn.disabled = true; let left = 10; btn.textContent = `Grabando… ${left} s`;
+  const iv = setInterval(() => { left--; btn.textContent = `Grabando… ${left} s`; }, 1000);
+  rec.onstop = () => {
+    clearInterval(iv); btn.disabled = false; btn.textContent = 'Grabar clip de 10 s';
+    const blob = new Blob(chunks, { type: type || 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const name = `atlas-${fanState}.${ext}`;
+    out.innerHTML = `<video src="${url}" autoplay loop muted playsinline></video><button type="button" class="btn ok" id="saveClip">Guardar ${name}</button><span id="saveMsg">${ext === 'webm' ? 'Si la app del ventilador no acepta WebM, conviértelo a MP4.' : 'Súbelo con la app del ventilador.'}</span>`;
+    $('#saveClip').onclick = async () => {
+      const msg = $('#saveMsg');
+      const dl = window.claude?.use ? await window.claude.use('downloads') : null;
+      if (dl) {
+        try { await dl.save({ filename: name, data: blob }); msg.textContent = 'Clip guardado. Súbelo con la app del ventilador.'; }
+        catch (err) { msg.textContent = err?.code === 'declined' ? 'Descarga cancelada.' : 'No se pudo guardar el clip en esta vista.'; }
+      } else { const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+    };
+  };
+  rec.start(); setTimeout(() => rec.stop(), 10000);
+};
+
+/* ============================================================
+   10. BUCLE PRINCIPAL
+   ============================================================ */
+const clock = new THREE.Clock(); let t = 0, uiT = 0;
+function frame() {
+  const rdt = Math.min(clock.getDelta(), 0.05); const dt = rdt * speed; t += rdt; simClock += dt;
+  for (const id in agents) agents[id].update(dt, t);
+
+  // Atlas
+  director.modeT -= dt;
+  if (director.modeT <= 0 && director.mode !== 'espera') {
+    const waiting = jobs.some(j => j.status === 'esperando');
+    director.mode = waiting ? 'listo' : 'espera'; director.say = waiting ? 'Esperando tu aprobación' : 'Esperando órdenes';
+    drawBubble(atlasBubble, director.say, waiting ? '#fbbf24' : '#5ce8ff');
+    if (!waiting) setFan('espera', true);
+    director.modeT = 9999;
+  }
+  const dPose = director.mode === 'habla' ? 'talk' : director.mode === 'escucha' ? 'listen' : 'idle';
+  poseCharacter(atlasHolo, dPose, t, 0, {});
+  atlasHolo.g.position.y = 1.45 + Math.sin(t * 1.5) * 0.06;
+  atlasHolo.g.rotation.y = Math.sin(t * 0.4) * 0.5;
+  const flick = 0.45 + Math.random() * 0.12 + (director.mode === 'habla' ? 0.15 : 0);
+  atlasHolo.g.traverse(o => { if (o.material) o.material.opacity = flick; });
+  blades.rotation.y += rdt * 28;
+  beam.material.opacity = 0.05 + Math.sin(t * 3) * 0.015 + (director.mode === 'habla' ? 0.04 : 0);
+  holoLight.intensity = 9 + Math.sin(t * 4) * 1.5 + (director.mode === 'habla' ? 6 : 0);
+  daisRing.material.color.set(jobs.some(j => j.status === 'esperando') ? 0xfbbf24 : 0x5ce8ff);
+
+  // orbes
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i]; o.t += dt / o.dur; const k = Math.min(1, o.t);
+    const p = o.from.clone().multiplyScalar((1 - k) ** 2).add(o.mid.clone().multiplyScalar(2 * (1 - k) * k)).add(o.end.clone().multiplyScalar(k * k));
+    o.m.position.copy(p); o.m.scale.setScalar(1 + Math.sin(t * 20) * 0.15);
+    if (k >= 1) { scene.remove(o.m); orbs.splice(i, 1); o.onArrive(); markDirty(); }
+  }
+
+  // portal Pixelido
+  swirl.rotation.z -= rdt * 1.2;
+  portalFlash = Math.max(0, portalFlash - rdt * 0.8);
+  portalMat.emissiveIntensity = 0.9 + portalFlash * 3 + Math.sin(t * 2) * 0.15;
+  portalLight.intensity = 6 + portalFlash * 30;
+  swirl.scale.setScalar(1 + portalFlash * 0.25);
+
+  // cámara
+  if (camAnim) {
+    camera.position.lerp(camAnim.pos, Math.min(1, rdt * 3)); controls.target.lerp(camAnim.target, Math.min(1, rdt * 3));
+    if (camera.position.distanceTo(camAnim.pos) < 0.05) camAnim = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  if (!$('#fan').hidden) renderFan(t);
+
+  uiT -= rdt;
+  if (uiT <= 0) { uiT = 0.3; renderTeam(); if (dirty) { renderJobs(); dirty = false; } else updateProgress(); }
+  requestAnimationFrame(frame);
+}
+
+// primeros dibujos (y otra vez cuando carguen las fuentes)
+drawNameTag(atlasTag, 'Atlas', 'claude'); drawBubble(atlasBubble, 'Esperando órdenes', '#5ce8ff');
+document.fonts?.ready.then(() => { for (const id in agents) agents[id].redraw(); drawNameTag(atlasTag, 'Atlas', 'claude'); drawBubble(atlasBubble, director.say, '#5ce8ff'); signs.forEach(s => s.userData.redraw?.()); });
+renderJobs(); renderTeam();
+log('La oficina abre sus puertas. El equipo está en su sitio.');
+frame();
+
+// Arranque de demostración: un encargo de ejemplo para ver a todos moverse
+setTimeout(() => { if (!jobs.length) newOrder('Vídeo: 5 trucos para que tu perro beba agua en verano'); }, 2500);
+</script>
+
+</body>
+</html>
