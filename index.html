@@ -168,6 +168,9 @@ button.step { font: inherit; font-size: 11.5px; }
 .log b { color: var(--fg); font-weight: 600; }
 .note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 0; }
 .settings { display: flex; flex-direction: column; gap: 8px; }
+.chan-bar { display: flex; flex-direction: column; gap: 6px; border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); border-radius: 10px; padding: 10px 12px; background: var(--panel-2); }
+.chan-bar label { font-family: var(--f-display); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.chan-bar select { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .conns { display: flex; flex-direction: column; gap: 10px; }
 .conn { border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .conn-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -175,10 +178,6 @@ button.step { font: inherit; font-size: 11.5px; }
 .conn-state { font-size: 12px; color: var(--muted); line-height: 1.45; }
 .conn-state.ok { color: var(--ok); }
 .conn-state.err { color: var(--warn); }
-.prods { display: flex; flex-direction: column; gap: 6px; }
-.prod { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 12.5px; }
-.prod img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: var(--bg); }
-.prod small { color: var(--muted); font-variant-numeric: tabular-nums; }
 .folders { display: flex; flex-direction: column; gap: 6px; }
 .folder { text-align: left; }
 .folder[aria-pressed="true"] { border-color: var(--ok); color: var(--ok); }
@@ -278,7 +277,7 @@ button.step { font: inherit; font-size: 11.5px; }
   <aside class="panel">
     <form class="order" id="orderForm">
       <label class="title" for="orderText">Orden para <span>Jager</span></label>
-      <textarea id="orderText" placeholder="Ej.: Prepara un vídeo sobre cómo bañar a un perro sin estrés"></textarea>
+      <textarea id="orderText" placeholder="Ej.: Prepara un vídeo sobre los errores que todos cometemos al empezar"></textarea>
       <div class="order-row">
         <button type="button" class="btn ghost mic" hidden>🎙 Hablar</button>
         <label class="toggle"><input type="checkbox" id="voiceOn" checked> Voz de Jager</label>
@@ -286,10 +285,17 @@ button.step { font: inherit; font-size: 11.5px; }
       </div>
       <div class="chips" aria-label="Encargos de ejemplo">
         <button type="button" class="chip lab" data-order="Busca temas virales para el canal">Buscar temas virales</button>
-        <button type="button" class="chip" data-order="Vídeo: 5 trucos para que tu perro beba agua en verano">Vídeo · 5 trucos de hidratación</button>
-        <button type="button" class="chip" data-order="Proyecto: añadir un comparador de productos a la tienda Reino Peludos">Proyecto · comparador para la tienda</button>
+        <button type="button" class="chip" data-order="Vídeo: 5 errores que casi todos cometen y cómo evitarlos">Vídeo · 5 errores comunes</button>
+        <button type="button" class="chip" data-order="Proyecto: nueva función para la Ruleta Caliente">Proyecto · Ruleta Caliente</button>
       </div>
     </form>
+
+    <section class="chan-bar" aria-label="Canal de YouTube">
+      <label for="chanSel">Canal de YouTube</label>
+      <div class="field-row"><select id="chanSel"></select><button type="button" class="btn small" id="chanNew">Nuevo canal</button></div>
+      <div class="field-row" id="chanNewRow" hidden><input id="chanNewName" placeholder="Nombre del nuevo canal" aria-label="Nombre del nuevo canal"><button type="button" class="btn small primary" id="chanCreate">Crear</button></div>
+      <p class="note">Los vídeos, las métricas y el manual son de cada canal. Los proyectos (como la Ruleta Caliente) no dependen del canal.</p>
+    </section>
 
     <section>
       <h2>Encargos <small id="stats">0 hechos</small></h2>
@@ -308,7 +314,8 @@ button.step { font: inherit; font-size: 11.5px; }
 
     <section>
       <h2>Manual del canal <small id="lessonCount"></small></h2>
-      <div class="niche"><input id="nicheInput" aria-label="Nicho del canal" placeholder="Nicho del canal"><button type="button" class="btn small" id="nicheSave">Guardar</button></div>
+      <div class="niche"><input id="chanName" aria-label="Nombre del canal" placeholder="Nombre del canal"></div>
+      <div class="niche"><input id="nicheInput" aria-label="De qué va el canal" placeholder="De qué va el canal y para quién (nicho)"><button type="button" class="btn small" id="nicheSave">Guardar</button></div>
       <ul class="lessons" id="lessons"></ul>
     </section>
 
@@ -325,11 +332,6 @@ button.step { font: inherit; font-size: 11.5px; }
     <section>
       <h2>Conexiones</h2>
       <div class="conns">
-        <div class="conn" id="connShop">
-          <div class="conn-head"><b>Tienda Reino Peludos · Shopify</b><button type="button" class="btn small" id="shopBtn">Cargar productos</button></div>
-          <div class="conn-state" id="shopState">Sam usa los productos reales de la tienda para decidir cómo ganar dinero con cada vídeo.</div>
-          <div class="prods" id="prods"></div>
-        </div>
         <div class="conn" id="connDrive">
           <div class="conn-head"><b>Entrega a Pixelido · Google Drive</b><button type="button" class="btn small" id="driveBtn">Elegir carpeta</button></div>
           <div class="conn-state" id="driveState">Cuando apruebes un vídeo, Paco guarda el paquete completo en la carpeta que compartes con Pixelido.</div>
@@ -1406,7 +1408,17 @@ let portalFlash = 0;
 const hasRuntime = !!window.claude?.use;
 const TARGETS = { ctr: 6, r30: 70, pct: 45 };
 const store = {
-  db: null, videos: [], nicho: 'Mascotas: trucos, cuidados y productos para perros y gatos', lecciones: [],
+  db: null, videos: [],
+  channels: [{ id: 'c1', name: 'Mi canal', nicho: '', lecciones: [] }], active: 'c1',
+  get ch() { return this.channels.find(c => c.id === this.active) || this.channels[0]; },
+  get nicho() { return this.ch.nicho || 'sin definir todavía (pregunta al jefe de qué va el canal)'; },
+  set nicho(v) { this.ch.nicho = v; },
+  get lecciones() { return this.ch.lecciones; },
+  set lecciones(v) { this.ch.lecciones = v; },
+  loadChannels(d) {
+    if (d?.channels?.length) { this.channels = d.channels; this.active = this.channels.some(c => c.id === d.active) ? d.active : this.channels[0].id; }
+    else if (d && (d.nicho || d.lecciones)) { this.channels[0].nicho = d.nicho || ''; this.channels[0].lecciones = d.lecciones || []; }
+  },
   async init() {
     if (hasRuntime) {
       this.db = await window.claude.use('db').catch(() => null);
@@ -1414,19 +1426,20 @@ const store = {
         try {
           const snap = await this.db.collection('videos').get();
           this.videos = snap.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-          const pb = await this.db.doc('config/manual').get();
-          if (pb.exists) { const d = pb.data(); this.nicho = d.nicho || this.nicho; this.lecciones = d.lecciones || []; }
+          const cn = await this.db.doc('config/canales').get();
+          if (cn.exists) this.loadChannels(cn.data());
+          else { const pb = await this.db.doc('config/manual').get(); if (pb.exists) this.loadChannels(pb.data()); }
           const dr = await this.db.doc('config/drive').get(); if (dr.exists) this.drive = dr.data();
           const av = await this.db.doc('config/avatar').get();
           if (av.exists) { const d = av.data(); applyAvatar('/_blob/' + d.id, d.kind); }
         } catch (e) {}
       }
     } else {
-      try { const raw = localStorage.getItem('oficina-jager'); if (raw) { const d = JSON.parse(raw); this.videos = d.videos || []; this.nicho = d.nicho || this.nicho; this.lecciones = d.lecciones || []; this.drive = d.drive || null; } } catch (e) {}
+      try { const raw = localStorage.getItem('oficina-jager'); if (raw) { const d = JSON.parse(raw); this.videos = d.videos || []; this.loadChannels(d); this.drive = d.drive || null; } } catch (e) {}
     }
     renderChannel(); renderConn();
   },
-  saveLocal() { try { localStorage.setItem('oficina-jager', JSON.stringify({ videos: this.videos, nicho: this.nicho, lecciones: this.lecciones, drive: this.drive })); } catch (e) {} },
+  saveLocal() { try { localStorage.setItem('oficina-jager', JSON.stringify({ videos: this.videos, channels: this.channels, active: this.active, drive: this.drive })); } catch (e) {} },
   async saveDrive() {
     renderConn();
     if (this.db) { try { await this.db.doc('config/drive').set(this.drive ? { ...this.drive } : { id: null }); } catch (e) {} }
@@ -1440,11 +1453,15 @@ const store = {
   },
   async saveManual() {
     renderChannel();
-    if (this.db) { try { await this.db.doc('config/manual').set({ nicho: this.nicho, lecciones: this.lecciones }); } catch (e) {} }
+    if (this.db) { try { await this.db.doc('config/canales').set(JSON.parse(JSON.stringify({ channels: this.channels, active: this.active }))); } catch (e) {} }
     else if (!hasRuntime) this.saveLocal();
   },
 };
-const withMetrics = () => store.videos.filter(v => v.metrics);
+const chanVideos = () => store.videos.filter(v => (v.channelId || store.channels[0].id) === store.active);
+const withMetrics = () => chanVideos().filter(v => v.metrics);
+// Cada encargo trabaja con su canal aunque cambies de canal mientras tanto
+function inChannel(job, fn) { const prev = store.active; if (job?.channelId) store.active = job.channelId; try { return fn(); } finally { store.active = prev; } }
+const chanName = id => store.channels.find(c => c.id === id)?.name || '';
 const avg = arr => arr.length ? arr.reduce((s, x) => s + x, 0) / arr.length : null;
 function channelStats() {
   const vm = withMetrics();
@@ -1480,7 +1497,8 @@ async function interpret(text) {
   const enCurso = jobs.slice(0, 6).map(j => `#${j.id} ${j.type} «${j.topic}»: ${STATUS_TXT[j.status]}`).join('\n') || 'ninguno';
   const r = await askClaude(`Eres Jager, el director de "La oficina de Jager", una empresa virtual. Tu jefe te habla y respondes en voz alta desde un ventilador holográfico. Español de España, cercano y profesional, frases cortas.
 ${TEAM_TXT}
-Nicho del canal: ${store.nicho}
+Canales del jefe: ${store.channels.map(c => c.name).join(', ')}. Canal activo: ${store.ch.name}.
+Nicho del canal activo: ${store.nicho}
 Métricas medias del canal: ${st.n ? `CTR ${st.ctr.toFixed(1)}%, retención 30 s ${st.r30.toFixed(0)}%, visto medio ${st.pct.toFixed(0)}% (${st.n} vídeos)` : 'aún no hay métricas'}
 Últimos vídeos:
 ${historyTxt()}
@@ -1492,7 +1510,7 @@ ${enCurso}
 Clasifica el mensaje del jefe:
 - "video": encargo de un vídeo concreto de YouTube
 - "tendencias": pide buscar temas, ideas o qué puede ser viral
-- "proyecto": programación, app, web, la tienda online o una idea técnica
+- "proyecto": programación, app, web, la Ruleta Caliente u otro proyecto técnico
 - "charla": pregunta, saludo o conversación (por ejemplo, cómo va algo o qué tal funcionó un vídeo)
 
 Devuelve SOLO JSON: {"tipo":"video|tendencias|proyecto|charla","tema":"tema del encargo, corto y claro; vacío si es charla","respuesta":"lo que dices en voz alta, máximo 2 frases; si hay encargo di a quién se lo repartes"}
@@ -1518,8 +1536,8 @@ Propón 5 temas con alto potencial viral para este canal en español. Combina b�
 Devuelve SOLO JSON: {"temas":[{"tema":"título de trabajo","angulo":"enfoque","puntuacion":0-100,"por_que":"una frase","formato":"largo|short"}]} ordenado de mayor a menor puntuación.`,
     format: (d, j) => { j.picks = (d.temas || []).slice(0, 5); return 'TEMAS CON POTENCIAL VIRAL\n\n' + j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100 · ${p.formato}\n   Ángulo: ${p.angulo}\n   Por qué: ${p.por_que}`).join('\n\n'); },
     fallback: j => {
-      const base = ['5 errores que cometes al bañar a tu perro', 'Probamos 3 juguetes virales para gatos: ¿merecen la pena?', 'Cómo saber si tu perro tiene calor (señales que nadie mira)', 'Rutina de 10 minutos para un perro más tranquilo', 'Lo que tu gato intenta decirte con la cola'];
-      j.picks = base.map((t, i) => ({ tema: t, angulo: 'demostración real en casa', puntuacion: 88 - i * 5, por_que: 'problema común con solución visual (ejemplo)', formato: i === 3 ? 'short' : 'largo' }));
+      const base = ['5 errores que casi todos cometen (y cómo evitarlos)', 'Probé lo más viral del momento: ¿merece la pena?', 'Lo que nadie te cuenta antes de empezar', 'Reto de 24 horas: ¿lo consigo?', 'Mitos que todo el mundo se cree'];
+      j.picks = base.map((t, i) => ({ tema: t, angulo: 'prueba real con antes y después', puntuacion: 88 - i * 5, por_que: 'problema común con solución visual (ejemplo)', formato: i === 3 ? 'short' : 'largo' }));
       return { kind: 'text', via: 'ejemplo', text: 'TEMAS CON POTENCIAL VIRAL (ejemplo)\n\n' + j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100`).join('\n') };
     },
   },
@@ -1530,14 +1548,13 @@ Estudio de Lía:
 ${j.step('estudio').output?.text || ''}
 Lecciones del manual del canal (aplícalas):
 ${lessonsTxt()}
-Producto de la tienda acordado por la mesa: ${prodLine(j)}${j.productHow ? '. Cómo integrarlo: ' + j.productHow : ''}. Si hay producto, intégralo de forma natural y sin que parezca un anuncio.
 Objetivo: máxima retención. El gancho debe enseñar el resultado o el conflicto en los primeros 5 segundos, sin presentaciones largas; pon un motivo para seguir viendo cada 60-90 segundos y cambios visuales frecuentes.
 Formato en texto plano: marcas de tiempo, GANCHO (0:00), 5 PUNTOS, CIERRE con llamada a la acción y enlace al siguiente vídeo. Máximo 420 palabras. Sin markdown.`,
     fallback: j => ({ kind: 'text', via: 'ejemplo', text: `GUION · ${j.topicFinal || j.topic}
 Duración objetivo: 8 min · Tono: cercano y con humor
 
 [0:00] GANCHO
-«Casi nadie hace esto bien, y tu peludo lo nota. Mira el resultado final.»
+«Casi nadie hace esto bien. Mira el resultado final.»
 [Plano del resultado final, texto grande en pantalla]
 
 [0:12] Sin presentación: directos al primer error.
@@ -1605,14 +1622,12 @@ Guion de Nora:
 ${j.step('guion').output?.text || ''}
 Combinación ganadora del test de CTR de Rui: «${j.winner?.titulo}» + miniatura ${j.winner?.miniatura} (${(j.concepts || [])['ABC'.indexOf(j.winner?.miniatura)]?.escena || ''}).
 Lecciones del manual del canal: ${lessonsTxt()}
-Producto de la tienda que debe salir en el vídeo: ${prodLine(j)}${j.productHow ? ' (' + j.productHow + ')' : ''}.
-Incluye en texto plano: TÍTULO, MINIATURA, PRODUCTO DE LA TIENDA (cuándo sale y el enlace para la descripción), QUÉ NECESITAMOS DE PIXELIDO (vídeo 16:9 y un short 9:16 con el gancho), RITMO Y RETENCIÓN (cambios de plano, rótulos, B-roll en los minutos clave), ESCENAS CLAVE, ESTILO VISUAL, ENTREGA. Máximo 300 palabras. Sin markdown.`,
+Incluye en texto plano: TÍTULO, MINIATURA, QUÉ NECESITAMOS DE PIXELIDO (vídeo 16:9 y un short 9:16 con el gancho), RITMO Y RETENCIÓN (cambios de plano, rótulos, B-roll en los minutos clave), ESCENAS CLAVE, ESTILO VISUAL, ENTREGA. Máximo 300 palabras. Sin markdown.`,
     fallback: j => ({ kind: 'text', via: 'ejemplo', text: `PAQUETE PARA PIXELIDO · ${j.topicFinal || j.topic}
 Preparado el ${today()} · Encargo #${j.id}
 
 TÍTULO: ${j.winner?.titulo || j.topic}
 MINIATURA: opción ${j.winner?.miniatura || 'A'} (ver bocetos de Gema)
-PRODUCTO DE LA TIENDA: ${prodLine(j)}
 
 LO QUE NECESITAMOS DE PIXELIDO
 · Montaje 16:9 de 7-9 min siguiendo el guion
@@ -1718,11 +1733,11 @@ function startRealWork(agent, job, step) {
   step.realPending = true; step.realData = null; step.realVia = route;
   const timeout = new Promise(r => setTimeout(() => r(null), 120000));
   const work = (async () => {
-    const res = route ? await askAI(route, spec.prompt(job), { json: !!spec.json }) : null;
+    const res = route ? await askAI(route, inChannel(job, () => spec.prompt(job)), { json: !!spec.json }) : null;
     step.realData = res && (typeof res === 'object' || String(res).trim()) ? res : null;
     if (step.id === 'miniaturas' && serverReady()) {
       if (step.realData?.conceptos) job.concepts = step.realData.conceptos.slice(0, 3);
-      const cs = job.concepts?.length === 3 ? job.concepts : [0, 1, 2].map(i => ({ texto: (keywords(job.topicFinal || job.topic).slice(0, 2).join(' ') || 'MIRA ESTO').toUpperCase(), escena: ['cara de sorpresa en primer plano', 'antes y después', 'mascota en acción'][i], emocion: 'sorpresa' }));
+      const cs = job.concepts?.length === 3 ? job.concepts : [0, 1, 2].map(i => ({ texto: (keywords(job.topicFinal || job.topic).slice(0, 2).join(' ') || 'MIRA ESTO').toUpperCase(), escena: ['cara de sorpresa en primer plano', 'antes y después', 'reacción en plano detalle'][i], emocion: 'sorpresa' }));
       job.realThumbs = await Promise.all(cs.map(c => askServerImage(`Miniatura de YouTube 16:9, estilo fotográfico, colores muy contrastados, para el vídeo «${job.topicFinal || job.topic}». Escena: ${c.escena}. Emoción: ${c.emocion}. Texto grande en la imagen: «${c.texto}». Fácil de entender en un móvil.`).catch(() => null)));
     }
   })();
@@ -1735,7 +1750,7 @@ function startRealWork(agent, job, step) {
 const PERSONA = {
   lia: 'Lía, analista de tendencias y viralidad (trabaja con Gemini). Tu prioridad: lo que la gente busca, comparte y está subiendo; el potencial viral y el momento de publicar.',
   rui: 'Rui, analista de CTR y empaquetado (trabaja con ChatGPT). Tu prioridad: que el título y la miniatura den ganas de hacer clic sin engañar, y que se entiendan en un móvil en 1 segundo.',
-  sam: 'Sam, analista de retención y rentabilidad (trabaja con Claude). Tu prioridad: que la gente vea el vídeo hasta el final y que sea rentable: RPM del nicho, afiliados, productos de la tienda Reino Peludos cuando encajen, patrocinios y que pueda convertirse en serie.',
+  sam: 'Sam, analista de retención y rentabilidad (trabaja con Claude). Tu prioridad: que la gente vea el vídeo hasta el final y que sea rentable: RPM del nicho, patrocinios, afiliados, productos o servicios propios cuando encajen, y que pueda convertirse en serie.',
 };
 const GOAL = {
   estudio: 'el mejor enfoque para el vídeo: que sea viral, que la gente haga clic, que se quede hasta el final y que sea rentable',
@@ -1743,7 +1758,7 @@ const GOAL = {
   plan: 'el plan para subir el CTR y la retención y escalar el canal al máximo',
 };
 const SCHEMA = {
-  estudio: '{"acuerdo":"1-2 frases para decir en voz alta","tema_final":"título de trabajo","angulo":"...","gancho":"primera frase exacta del vídeo","promesa":"qué gana el espectador","publico":"...","duracion_ideal":"x-y min","mejor_momento":"día y hora","puntuaciones":{"viral":0-100,"ctr_estimado":número,"retencion_30s":número,"rentabilidad":0-100},"monetizacion":["2-3 formas de ganar dinero con este vídeo"],"producto":"título exacto de un producto de la lista de la tienda que encaje con el vídeo, o ninguno","como_integrarlo":"en qué momento del vídeo y cómo mostrarlo sin que parezca un anuncio","riesgos":["..."],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
+  estudio: '{"acuerdo":"1-2 frases para decir en voz alta","tema_final":"título de trabajo","angulo":"...","gancho":"primera frase exacta del vídeo","promesa":"qué gana el espectador","publico":"...","duracion_ideal":"x-y min","mejor_momento":"día y hora","puntuaciones":{"viral":0-100,"ctr_estimado":número,"retencion_30s":número,"rentabilidad":0-100},"monetizacion":["2-3 formas de ganar dinero con este vídeo"],"riesgos":["..."],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
   eleccion: '{"acuerdo":"1-2 frases para decir en voz alta","ranking":[{"tema":"...","angulo":"...","viral":0-100,"rentabilidad":0-100,"total":0-100,"por_que":"una frase","formato":"largo|short"}],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}} con todos los candidatos ordenados de mejor a peor',
   plan: '{"acuerdo":"2 frases para el jefe","acciones":["5 acciones concretas y priorizadas"],"lecciones":["1-3 reglas nuevas y cortas para el manual del canal que no repitan las que ya hay"],"escalar":"cómo escalar: serie, shorts, frecuencia y monetización","siguiente_video":"idea concreta","votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
 };
@@ -1753,7 +1768,7 @@ let D = null;
 
 function debateContext(d) {
   const j = d.job;
-  const base = `Nicho del canal: ${store.nicho}\nManual del canal:\n${lessonsTxt()}\nHistorial de vídeos:\n${historyTxt()}\nProductos reales de la tienda Reino Peludos (${SHOP_DOMAIN}):\n${productsTxt()}`;
+  const base = `Nicho del canal: ${store.nicho}\nManual del canal:\n${lessonsTxt()}\nHistorial de vídeos:\n${historyTxt()}`;
   if (d.mode === 'estudio') return `Tema que propone el jefe: «${j.topic}».\n${base}`;
   if (d.mode === 'eleccion') return `Temas candidatos que ha encontrado Lía:\n${(j.picks || []).map((p, i) => `${i + 1}. ${p.tema} (${p.formato}): ${p.angulo}`).join('\n')}\n${base}`;
   const v = videoOf(j);
@@ -1768,15 +1783,15 @@ function fallbackLine(d, id, r) {
   if (d.mode === 'estudio') return ({
     1: { lia: `«${j.topic}» tiene búsqueda constante y se comparte mucho. Lo enfocaría como «errores que casi todos cometen»: despierta curiosidad.`,
          rui: `Para el clic: cara con sorpresa, máximo 3 palabras grandes y un título con número. Algo con «${k}» muy visible.`,
-         sam: `Si enseñamos el resultado en los primeros 5 segundos, retenemos. Y es rentable: podemos enlazar un producto de la tienda que encaje con el tema.` },
-    2: { lia: `Rui, de acuerdo con el número en el título. Sam, lo de la tienda me gusta, pero primero el valor para que no parezca un anuncio.`,
-         rui: `Lía, el enfoque de errores sube el CTR. Sam, el producto mejor a mitad del vídeo, nunca en la miniatura.`,
-         sam: `Entonces: errores, resultado al principio y producto en el punto 3. Si funciona, lo convertimos en serie.` },
+         sam: `Si enseñamos el resultado en los primeros 5 segundos, retenemos. Y es rentable: cabe una mención de patrocinio o un enlace de afiliado sin cortar el ritmo.` },
+    2: { lia: `Rui, de acuerdo con el número en el título. Sam, lo del patrocinio me gusta, pero primero el valor para que no parezca un anuncio.`,
+         rui: `Lía, el enfoque de errores sube el CTR. Sam, la mención comercial mejor a mitad del vídeo, nunca en la miniatura.`,
+         sam: `Entonces: errores, resultado al principio y patrocinio en el punto 3. Si funciona, lo convertimos en serie.` },
   })[r][id];
   if (d.mode === 'eleccion') { const a = j.picks?.[0]?.tema || 'el primero', b = j.picks?.[1]?.tema || 'el segundo'; return ({
     1: { lia: `«${a}» es el que más se busca ahora mismo. «${b}» también tiene tirón, pero es más de temporada.`,
          rui: `«${a}» se entiende en una miniatura en un segundo. Eso es CTR fácil.`,
-         sam: `«${b}» deja meter producto de la tienda de forma natural, pero «${a}» retiene más. Votaría por «${a}» primero.` },
+         sam: `«${b}» deja meter un patrocinio de forma natural, pero «${a}» retiene más. Votaría por «${a}» primero.` },
     2: { lia: `Sam, de acuerdo: primero «${a}» y dejamos «${b}» para la semana siguiente.`,
          rui: `Lía, perfecto. Y del segundo sacamos un short para probar el interés.`,
          sam: `Hecho. Así el primero trae vistas y el segundo trae ventas.` },
@@ -1785,7 +1800,7 @@ function fallbackLine(d, id, r) {
   return ({
     1: { lia: `El tema funcionó en impresiones. Propongo repetir el formato con otro tema del mismo tipo para aprovechar el tirón.`,
          rui: `Un CTR del ${m.ctr}% ${m.ctr >= TARGETS.ctr ? 'es bueno: mantengamos el estilo de miniatura' : 'se queda corto: probemos otra miniatura con más emoción'}.`,
-         sam: `A los 30 segundos queda el ${m.r30}% de la gente. ${m.r30 >= TARGETS.r30 ? 'El gancho funciona.' : 'Hay que enseñar el resultado antes.'} Y añadiría un producto de la tienda en la descripción.` },
+         sam: `A los 30 segundos queda el ${m.r30}% de la gente. ${m.r30 >= TARGETS.r30 ? 'El gancho funciona.' : 'Hay que enseñar el resultado antes.'} Y añadiría un enlace de afiliado en la descripción.` },
     2: { lia: `Rui, si cambias la miniatura, que mantenga la misma idea para no romper la serie.`,
          rui: `Sam, de acuerdo con el gancho. Lo pruebo con «Probar y comparar» de YouTube.`,
          sam: `Entonces: prueba A/B de miniatura, gancho más rápido y serie de 3 vídeos. Lo apunto en el manual.` },
@@ -1793,7 +1808,7 @@ function fallbackLine(d, id, r) {
 }
 function fallbackConsensus(d) {
   const j = d.job;
-  if (d.mode === 'estudio') { const viral = 70 + Math.round(Math.random() * 18); return { acuerdo: `Vamos con un enfoque de errores comunes, con el resultado al principio y un producto de la tienda en el punto 3.`, tema_final: j.topic, angulo: 'errores que casi todos cometen, con prueba real', gancho: 'Casi nadie hace esto bien, y tu peludo lo nota.', promesa: 'soluciones que puedes aplicar hoy mismo', publico: 'dueños de mascotas', duracion_ideal: '7-9 min', mejor_momento: 'jueves 18:00', puntuaciones: { viral, ctr_estimado: 6.5, retencion_30s: 72, rentabilidad: 68 }, monetizacion: ['producto de la tienda en el punto 3', 'enlace en la descripción y comentario fijado'], producto: pickProduct(j.topic)?.title || 'ninguno', como_integrarlo: 'en el punto 3, usándolo en la prueba real', riesgos: ['que parezca un anuncio'], votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } }; }
+  if (d.mode === 'estudio') { const viral = 70 + Math.round(Math.random() * 18); return { acuerdo: `Vamos con un enfoque de errores comunes, con el resultado al principio y un patrocinio en el punto 3.`, tema_final: j.topic, angulo: 'errores que casi todos cometen, con prueba real', gancho: 'Casi nadie hace esto bien, y se nota.', promesa: 'soluciones que puedes aplicar hoy mismo', publico: 'el público del canal', duracion_ideal: '7-9 min', mejor_momento: 'jueves 18:00', puntuaciones: { viral, ctr_estimado: 6.5, retencion_30s: 72, rentabilidad: 68 }, monetizacion: ['patrocinio en el punto 3', 'enlace de afiliado en la descripción y comentario fijado'], riesgos: ['que parezca un anuncio'], votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } }; }
   if (d.mode === 'eleccion') return { acuerdo: `Primero «${j.picks?.[0]?.tema}»: es el más buscado y retiene. El segundo, la semana siguiente.`, ranking: (j.picks || []).map((p, i) => ({ tema: p.tema, angulo: p.angulo, viral: p.puntuacion, rentabilidad: 75 - i * 6, total: Math.round((p.puntuacion + 75 - i * 6) / 2), por_que: p.por_que, formato: p.formato })), votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } };
   const pl = rulePlan(videoOf(j)); return { acuerdo: pl.resumen, acciones: pl.acciones, lecciones: pl.lecciones, escalar: 'Serie de 3 vídeos del mismo formato, un short por vídeo y publicar cada semana el mismo día.', siguiente_video: pl.siguiente_video, votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } };
 }
@@ -1804,7 +1819,7 @@ function startDebate(job, step) {
   log(`La mesa de análisis se reúne: <b>${esc(job.short)}</b>`); markDirty(); tableDirty = true;
 }
 async function fetchRound(d, r) {
-  const ctx = debateContext(d), prev = transcriptTxt(d);
+  const ctx = inChannel(d.job, () => debateContext(d)), prev = transcriptTxt(d);
   return Promise.all(MEMBERS.map(async id => {
     let text = null;
     const route = routeFor(agents[id].def.ai, d.job.demo);
@@ -1820,7 +1835,7 @@ Habla en primera persona, en español de España, con tono de reunión y frases 
 async function fetchConsensus(d) {
   let res = null;
   if (useBrain(d, 'sam')) res = await askClaude(`Eres la secretaria de la reunión de análisis de "La oficina de Jager". Lee el debate entre Lía (tendencias, Gemini), Rui (CTR, ChatGPT) y Sam (retención y rentabilidad, Claude) y redacta el acuerdo final para decidir ${GOAL[d.mode]}. Quédate con la opción más viral y rentable en la que coincidan o que mejor hayan defendido, y refleja el voto real de cada uno.
-${debateContext(d)}
+${inChannel(d.job, () => debateContext(d))}
 Debate:
 ${transcriptTxt(d)}
 Devuelve SOLO JSON: ${SCHEMA[d.mode]}`, { json: true });
@@ -1879,9 +1894,8 @@ function endDebate(d) {
   let summary;
   if (d.mode === 'estudio') {
     j.topicFinal = r.tema_final || j.topic; j.viral = r.puntuaciones?.viral ?? null; j.study = r;
-    j.product = findProduct(r.producto) || (d.via === 'real' ? null : pickProduct(j.topic)); j.productHow = r.como_integrarlo || '';
     const pz = r.puntuaciones || {};
-    summary = `ACUERDO DE LA MESA DE ANÁLISIS\n${r.acuerdo}\n\nTema final: ${j.topicFinal}\nViral ${pz.viral ?? '?'}/100 · CTR estimado ${pz.ctr_estimado ?? '?'}% · Retención 30 s ${pz.retencion_30s ?? '?'}% · Rentabilidad ${pz.rentabilidad ?? '?'}/100\n\nÁNGULO: ${r.angulo}\nPÚBLICO: ${r.publico}\nGANCHO (0:00): «${r.gancho}»\nPROMESA: ${r.promesa}\nDURACIÓN IDEAL: ${r.duracion_ideal}\nPUBLICAR: ${r.mejor_momento}\n\nCÓMO GANAR DINERO CON ESTE VÍDEO\n${(r.monetizacion || []).map(x => '· ' + x).join('\n')}\n\nRIESGOS\n${(r.riesgos || []).map(x => '· ' + x).join('\n')}\n\nPRODUCTO DE LA TIENDA\n${prodLine(j)}${j.productHow ? '\nCómo: ' + j.productHow : ''}`;
+    summary = `ACUERDO DE LA MESA DE ANÁLISIS\n${r.acuerdo}\n\nTema final: ${j.topicFinal}\nViral ${pz.viral ?? '?'}/100 · CTR estimado ${pz.ctr_estimado ?? '?'}% · Retención 30 s ${pz.retencion_30s ?? '?'}% · Rentabilidad ${pz.rentabilidad ?? '?'}/100\n\nÁNGULO: ${r.angulo}\nPÚBLICO: ${r.publico}\nGANCHO (0:00): «${r.gancho}»\nPROMESA: ${r.promesa}\nDURACIÓN IDEAL: ${r.duracion_ideal}\nPUBLICAR: ${r.mejor_momento}\n\nCÓMO GANAR DINERO CON ESTE VÍDEO\n${(r.monetizacion || []).map(x => '· ' + x).join('\n')}\n\nRIESGOS\n${(r.riesgos || []).map(x => '· ' + x).join('\n')}`;
   } else if (d.mode === 'eleccion') {
     j.picks = (r.ranking || []).slice(0, 5).map(x => ({ tema: x.tema, angulo: x.angulo, puntuacion: x.total, por_que: `${x.por_que} · viral ${x.viral} · rentable ${x.rentabilidad}`, formato: x.formato }));
     summary = `ACUERDO: ${r.acuerdo}\n\nRANKING (viral + rentable)\n${j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100\n   ${p.por_que}`).join('\n')}`;
@@ -1929,11 +1943,9 @@ function drawTable() {
 }
 
 /* ============================================================
-   8c. CONEXIONES: Shopify (productos reales), Google Drive (entrega a Pixelido) y servidor propio
+   8c. CONEXIONES: Google Drive (entrega a Pixelido) y servidor propio
    ============================================================ */
-const SHOP_DOMAIN = 'reinopeludos.com';
-const SHOP_URL = `https://${SHOP_DOMAIN}/products/`;
-const conn = { mcp: null, products: [], shopMsg: '', shopOk: false, driveMsg: '', driveOk: false, folders: null };
+const conn = { mcp: null, driveMsg: '', driveOk: false, folders: null };
 const mcpPromise = hasRuntime ? window.claude.use('mcp').catch(() => null) : Promise.resolve(null);
 function mcpFix(server, e) {
   const c = e?.code;
@@ -1951,39 +1963,7 @@ function mcpFix(server, e) {
     capability_disabled: `Esta vista no puede usar ${server}. Abre la oficina en claude.ai.`,
   })[c] || `No he podido usar ${server} (${c || 'error desconocido'}).`;
 }
-const parseProducts = payload => (payload?.data?.products?.edges || []).map(e => e.node).filter(Boolean).map(n => ({
-  title: n.title, handle: n.handle, type: n.productType || '', tags: n.tags || [], desc: (n.description || '').slice(0, 160),
-  price: n.priceRangeV2?.minVariantPrice?.amount, cur: n.priceRangeV2?.minVariantPrice?.currencyCode || 'EUR', img: n.featuredMedia?.preview?.image?.url || '',
-}));
-const SHOP_INPUT = { first: 30, search_query: 'status:active', search_summary: 'Productos activos de Reino Peludos' };
-function setProducts(list) { conn.products = list; conn.shopOk = true; conn.shopMsg = `${list.length} productos activos cargados. Sam los tiene en cuenta en cada debate.`; renderConn(); }
-async function loadProducts() {
-  const mcp = await mcpPromise;
-  if (!mcp) { conn.shopMsg = 'La tienda solo se puede consultar con la oficina abierta en claude.ai.'; return renderConn(); }
-  conn.shopMsg = 'Cargando productos…'; renderConn();
-  try { const r = await mcp.callTool('Shopify', 'search_products', SHOP_INPUT, { cache: { staleTime: 600000, gcTime: 86400000 } }); setProducts(parseProducts(r.payload)); }
-  catch (e) { conn.shopOk = false; conn.shopMsg = mcpFix('Shopify', e); renderConn(); }
-}
-mcpPromise.then(mcp => {
-  conn.mcp = mcp; renderConn();
-  if (!mcp) return;
-  // Si ya diste permiso antes, los productos se cargan solos (un watch nunca pide permiso)
-  mcp.watchTool('Shopify', 'search_products', SHOP_INPUT, ev => {
-    if (ev.type === 'data') setProducts(parseProducts(ev.result.payload));
-    else if (['needs_reauth', 'server_not_connected', 'blocked_by_policy'].includes(ev.error?.code)) { conn.products = []; conn.shopOk = false; conn.shopMsg = mcpFix('Shopify', ev.error); renderConn(); }
-  }, { cache: { staleTime: 600000, gcTime: 86400000 } });
-});
-const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-function findProduct(title) { if (!title || /^ningun/i.test(title)) return null; const t = norm(title); return conn.products.find(p => norm(p.title) === t) || conn.products.find(p => t.includes(norm(p.title)) || norm(p.title).includes(t)) || null; }
-function pickProduct(topic) {
-  if (!conn.products.length) return null;
-  const words = new Set(keywords(topic).map(norm));
-  let best = null, bestScore = 0;
-  for (const p of conn.products) { const hay = norm([p.title, p.type, ...p.tags].join(' ')); let sc = 0; words.forEach(w => { if (w.length > 3 && hay.includes(w.slice(0, -1))) sc++; }); if (sc > bestScore) { best = p; bestScore = sc; } }
-  return best;
-}
-const productsTxt = () => conn.products.length ? conn.products.map(p => `- ${p.title} (${p.type}) · desde ${p.price} ${p.cur} · ${SHOP_URL}${p.handle} · ${p.desc}`).join('\n') : '(no hay productos cargados: usa solo ideas generales de monetización)';
-const prodLine = j => j.product ? `${j.product.title} · desde ${j.product.price} ${j.product.cur} · ${SHOP_URL}${j.product.handle}` : 'ninguno';
+mcpPromise.then(mcp => { conn.mcp = mcp; renderConn(); });
 
 async function chooseFolder() {
   const mcp = await mcpPromise;
@@ -1999,7 +1979,7 @@ async function chooseFolder() {
 }
 function packageText(job) {
   const out = (id, t) => job.step(id)?.output?.text ? `\n\n══════ ${t} ══════\n${job.step(id).output.text}` : '';
-  return `PAQUETE PARA PIXELIDO · ${job.topicFinal || job.topic}\nPreparado por La oficina de Jager el ${today()}\nTítulo elegido: ${job.winner?.titulo || '-'}\nMiniatura elegida: ${job.winner?.miniatura || '-'}\nProducto de la tienda: ${prodLine(job)}`
+  return `PAQUETE PARA PIXELIDO · ${job.topicFinal || job.topic}\nPreparado por La oficina de Jager el ${today()}\nTítulo elegido: ${job.winner?.titulo || '-'}\nMiniatura elegida: ${job.winner?.miniatura || '-'}`
     + out('brief', 'ENCARGO PARA PIXELIDO') + out('guion', 'GUION') + out('titulos', 'TÍTULOS Y SEO') + out('pretest', 'TEST DE CTR') + out('estudio', 'ACUERDO DE LA MESA DE ANÁLISIS');
 }
 async function savePackageToDrive(job, video) {
@@ -2040,16 +2020,12 @@ async function testServer() {
 
 function renderConn() {
   const st = (el, msg, ok) => { el.textContent = msg; el.className = 'conn-state' + (ok === true ? ' ok' : ok === false && msg ? ' err' : ''); };
-  if (conn.shopMsg) st($('#shopState'), conn.shopMsg, conn.shopOk);
-  $('#shopBtn').textContent = conn.products.length ? 'Actualizar' : 'Cargar productos';
-  $('#prods').innerHTML = conn.products.slice(0, 6).map(p => `<div class="prod">${p.img ? `<img src="${esc(p.img)}" alt="">` : '<span></span>'}<span>${esc(p.title)}</span><small>${esc(p.price)} €</small></div>`).join('');
   const d = store.drive;
   st($('#driveState'), conn.driveMsg || (d?.id ? `Carpeta: ${d.title}` : 'Cuando apruebes un vídeo, Paco guarda el paquete completo en la carpeta que compartes con Pixelido.'), conn.driveMsg ? conn.driveOk : d?.id ? true : undefined);
   $('#folders').innerHTML = (conn.folders || []).map(f => `<button type="button" class="btn small folder" data-folder="${esc(f.id)}" aria-pressed="${d?.id === f.id}">${esc(f.title)}</button>`).join('');
   $('#connServer').hidden = hasRuntime;
   if (!hasRuntime) { if (document.activeElement !== $('#srvUrl')) $('#srvUrl').value = srv.url; if (srv.msg) st($('#srvState'), srv.msg, srv.ok); }
 }
-$('#shopBtn').onclick = loadProducts;
 $('#driveBtn').onclick = chooseFolder;
 $('#folders').addEventListener('click', e => { const b = e.target.closest('[data-folder]'); if (!b) return; const f = conn.folders.find(x => x.id === b.dataset.folder); store.drive = f; conn.driveMsg = `Carpeta elegida: ${f.title}. Los próximos paquetes aprobados se guardarán ahí.`; conn.driveOk = true; store.saveDrive(); });
 $('#srvSave').onclick = () => { srv.url = $('#srvUrl').value.trim(); if ($('#srvKey').value) srv.key = $('#srvKey').value; try { localStorage.setItem('oficina-servidor', JSON.stringify({ url: srv.url, key: srv.key })); } catch (e) {} $('#srvKey').value = ''; testServer(); };
@@ -2067,7 +2043,7 @@ function classify(text) {
   const l = text.toLowerCase();
   if (/(viral|tendencia|temas|ideas de v[ií]deo|de moda|qu[eé] subir)/.test(l)) return 'tendencias';
   const vw = ['vídeo', 'video', 'youtube', 'guion', 'guión', 'miniatura', 'título', 'titulo', 'short', 'pixelido', 'canal', 'reseña', 'tutorial'];
-  const pw = ['proyecto', 'app', 'web', 'código', 'codigo', 'programa', 'tienda', 'bot', 'función', 'funcion', 'arregla', 'bug', 'página', 'pagina', 'script', 'api'];
+  const pw = ['proyecto', 'app', 'web', 'código', 'codigo', 'programa', 'ruleta', 'bot', 'función', 'funcion', 'arregla', 'bug', 'página', 'pagina', 'script', 'api'];
   const sv = vw.filter(w => l.includes(w)).length, sp = pw.filter(w => l.includes(w)).length;
   if (!sv && !sp && /\?\s*$|^(hola|buenas|qué tal|que tal|cómo|como)\b/i.test(text.trim())) return 'charla';
   return sv >= sp && sv > 0 ? 'video' : sp > 0 ? 'proyecto' : 'video';
@@ -2104,6 +2080,7 @@ const REPLIES = {
 function newOrder(type, topic, o = {}) {
   const flow = FLOWS[type];
   const job = {
+    channelId: store.active,
     id: ++jobSeq, type, topic, version: o.version || 1, demo: !!o.demo, videoId: o.videoId || null,
     short: topic.length > 34 ? topic.slice(0, 32) + '…' : topic,
     steps: flow.steps.map(s => ({ ...s, state: 'espera', progress: 0, output: null })),
@@ -2205,7 +2182,7 @@ function arriveDirector(job) {
     ok.state = 'hecho'; job.status = 'aprobado';
     const v = videoOf(job); const p = job.plan || {};
     const nuevas = (p.lecciones || []).filter(Boolean).map(texto => ({ texto, origen: v.title || v.topic, fecha: Date.now() }));
-    store.lecciones = [...store.lecciones, ...nuevas].slice(-20);
+    inChannel(job, () => { store.lecciones = [...store.lecciones, ...nuevas].slice(-20); });
     store.saveManual();
     v.analysis = { ctr: job.step('ctr').output?.text, retencion: job.step('retencion').output?.text, plan: job.step('plan').output?.text, at: Date.now() };
     if (v.id) store.saveVideo(v);
@@ -2237,8 +2214,7 @@ function approve(job) {
       store.saveVideo({
         id: 'v' + Date.now().toString(36), topic: job.topicFinal || job.topic, title: job.winner?.titulo || job.topicFinal || job.topic,
         thumb: job.winner?.miniatura || 'A', thumbIdea: job.concepts?.[ci]?.escena || '', predCtr: job.winner?.ctr_estimado ? +job.winner.ctr_estimado : null,
-        viral: job.viral || null, guion: (job.step('guion').output?.text || '').slice(0, 3000), createdAt: Date.now(), metrics: null, analysis: null, demo: job.demo,
-        product: job.product ? { title: job.product.title, url: SHOP_URL + job.product.handle } : null,
+        viral: job.viral || null, guion: (job.step('guion').output?.text || '').slice(0, 3000), createdAt: Date.now(), metrics: null, analysis: null, demo: job.demo, channelId: job.channelId,
       });
       savePackageToDrive(job, store.videos[store.videos.length - 1]);
       directorSay(`Hecho. Pixelido ya tiene el paquete de «${job.short}». Cuando esté publicado, pásame sus métricas y lo analizamos.`);
@@ -2310,7 +2286,7 @@ function renderJobs() {
   if (!jobs.length) { boxEl.innerHTML = '<div class="empty">Todavía no hay encargos. Pide «Busca temas virales», «Prepara un vídeo sobre…» o «Proyecto: …», y Jager lo repartirá entre el equipo.</div>'; }
   else boxEl.innerHTML = jobs.slice(0, 12).map(j => `
     <article class="job ${['esperando', 'elige'].includes(j.status) ? 'wait' : ''}">
-      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>
+      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>
       <div class="steps">${j.steps.map(s => {
         const inner = `<span>${s.label} · ${stepOwner(s, j)}</span>`;
         return s.output
@@ -2348,16 +2324,18 @@ function renderChannel() {
     <div class="kpi ${grade(st.pct, TARGETS.pct, 0.75)}"><span class="k-label">Visto medio</span><span class="k-val">${fmt(st.pct, 0)}%</span><span class="k-goal">objetivo ≥ ${TARGETS.pct}%</span>${spark(vm.map(v => v.metrics.pct), TARGETS.pct, 'var(--gemini)')}</div>
     <div class="kpi"><span class="k-label">Vídeos analizados</span><span class="k-val">${st.n}</span><span class="k-goal">${st.subs != null ? fmt(st.subs) + ' subs / 1.000 vistas' : 'añade métricas para empezar'}</span></div>`;
   $('#kpiNote').textContent = st.n ? 'objetivos orientativos' : 'sin datos todavía';
-  const vids = [...store.videos].reverse();
+  const vids = [...chanVideos()].reverse();
   $('#videoCount').textContent = vids.length ? `${vids.length}` : '';
   $('#videos').innerHTML = vids.length ? vids.map(v => {
     const m = v.metrics;
     return `<article class="video"><div class="video-head"><div class="job-title">${esc(v.title || v.topic)}${v.demo ? ' <small>(demo)</small>' : ''}</div></div>
       <div class="video-meta">${v.predCtr ? `<span class="pill">CTR previsto ${esc(v.predCtr)}%</span>` : ''}${m ? `<span class="pill ${grade(m.ctr, TARGETS.ctr)}">CTR ${esc(m.ctr)}%</span><span class="pill ${grade(m.r30, TARGETS.r30, 0.85)}">30 s ${esc(m.r30)}%</span><span class="pill ${grade(m.pct, TARGETS.pct, 0.75)}">visto ${esc(m.pct)}%</span><span class="pill">${Number(m.vistas).toLocaleString('es-ES')} vistas</span>` : '<span>En Pixelido o publicado · faltan métricas</span>'}</div>
-      <div class="order-row"><button type="button" class="btn small lab" data-metrics="${v.id}">${m ? 'Actualizar métricas' : 'Añadir métricas'}</button>${v.analysis ? `<button type="button" class="btn small" data-analysis="${v.id}">Ver análisis</button>` : ''}${v.driveUrl ? `<a href="${esc(v.driveUrl)}" target="_blank" rel="noopener">Paquete en Drive</a>` : ''}</div>${v.driveErr ? `<span class="note">${esc(v.driveErr)}</span>` : ''}${v.product ? `<span class="note">Producto: <a href="${esc(v.product.url)}" target="_blank" rel="noopener">${esc(v.product.title)}</a></span>` : ''}</article>`;
+      <div class="order-row"><button type="button" class="btn small lab" data-metrics="${v.id}">${m ? 'Actualizar métricas' : 'Añadir métricas'}</button>${v.analysis ? `<button type="button" class="btn small" data-analysis="${v.id}">Ver análisis</button>` : ''}${v.driveUrl ? `<a href="${esc(v.driveUrl)}" target="_blank" rel="noopener">Paquete en Drive</a>` : ''}</div>${v.driveErr ? `<span class="note">${esc(v.driveErr)}</span>` : ''}</article>`;
   }).join('') : '<div class="empty">Cuando apruebes un vídeo y Paco lo entregue a Pixelido, aparecerá aquí. Después añade sus métricas de YouTube Studio y el equipo de Análisis las estudiará.</div>';
   $('#lessonCount').textContent = store.lecciones.length ? `${store.lecciones.length} lecciones` : '';
-  if (document.activeElement !== $('#nicheInput')) $('#nicheInput').value = store.nicho;
+  if (document.activeElement !== $('#nicheInput')) $('#nicheInput').value = store.ch.nicho || '';
+  if (document.activeElement !== $('#chanName')) $('#chanName').value = store.ch.name;
+  $('#chanSel').innerHTML = store.channels.map(c => `<option value="${esc(c.id)}"${c.id === store.active ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
   $('#lessons').innerHTML = store.lecciones.length ? store.lecciones.map((l, i) => `<li><span>${esc(l.texto)}<small>de «${esc((l.origen || '').slice(0, 40))}»</small></span><button type="button" class="x" data-dellesson="${i}" aria-label="Quitar lección">×</button></li>`).join('') : '<li><span>Todavía no hay lecciones. Cada vídeo analizado añade reglas que el equipo usará en los siguientes guiones, títulos y miniaturas.<small>el manual aprende solo</small></span></li>';
   drawWalls();
 }
@@ -2473,7 +2451,16 @@ document.addEventListener('click', e => {
   const vw = e.target.closest('[data-view]'); if (vw) return setView(vw.dataset.view);
   const sp = e.target.closest('[data-speed]'); if (sp) { speed = +sp.dataset.speed; $$('[data-speed]').forEach(b => b.setAttribute('aria-pressed', b === sp)); }
 });
-$('#nicheSave').onclick = () => { const v = $('#nicheInput').value.trim(); if (v) { store.nicho = v; store.saveManual(); log('Nicho del canal actualizado'); } };
+$('#nicheSave').onclick = () => { const n = $('#chanName').value.trim(); if (n) store.ch.name = n; store.ch.nicho = $('#nicheInput').value.trim(); store.saveManual(); log(`Canal «${esc(store.ch.name)}» actualizado`); };
+$('#chanSel').addEventListener('change', e => { store.active = e.target.value; store.saveManual(); log(`Trabajando en el canal «${esc(store.ch.name)}»`); markDirty(); });
+$('#chanNew').onclick = () => { $('#chanNewRow').hidden = false; $('#chanNewName').focus(); };
+$('#chanCreate').onclick = () => {
+  const n = $('#chanNewName').value.trim(); if (!n) return;
+  const c = { id: 'c' + Date.now().toString(36), name: n, nicho: '', lecciones: [] };
+  store.channels.push(c); store.active = c.id; store.saveManual();
+  $('#chanNewName').value = ''; $('#chanNewRow').hidden = true; $('#nicheInput').focus();
+  log(`Nuevo canal: <b>${esc(n)}</b>. Escribe de qué va en el manual del canal.`);
+};
 $('#modalClose').onclick = () => $('#modal').hidden = true;
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') $('#modal').hidden = true; });
 $('#orderForm').addEventListener('submit', e => { e.preventDefault(); const t = $('#orderText'); if (t.value.trim()) { handleMessage(t.value); t.value = ''; } });
@@ -2712,7 +2699,7 @@ resize();
 loop();
 
 // Encargo de demostración (sin IA) para ver a todos moverse al abrir
-setTimeout(() => { if (!jobs.length) newOrder('video', '5 trucos para que tu perro beba agua en verano', { demo: true }); }, 2500);
+setTimeout(() => { if (!jobs.length) newOrder('video', '5 errores que casi todos cometen y cómo evitarlos', { demo: true }); }, 2500);
 </script>
 
 </body>

@@ -1,6 +1,6 @@
 # La oficina de Jager
 
-Empresa virtual en 3D donde trabajadores IA se reparten el trabajo:
+Empresa virtual en 3D donde trabajadores IA se reparten el trabajo de tus canales de YouTube y de tus proyectos (como la Ruleta Caliente):
 
 - **Jager** (Claude) es el director. Aparece en el ventilador holográfico con tu propio avatar, recibe tus órdenes, te responde y reparte el trabajo.
 - **Sala Proyectos**: Max (ChatGPT) ordena la idea, Leo (Claude) programa y Vera (Claude) revisa el código. Si Vera pide cambios, se lo devuelve a Leo.
@@ -41,8 +41,11 @@ El ventilador no admite HDMI, así que no puede mostrar a Jager en directo. En *
 
 ## Conexiones
 
-- **Shopify**: Sam y la mesa de análisis eligen productos reales de la tienda para cada vídeo, y el guion y el paquete para Pixelido los incluyen con su enlace.
 - **Google Drive**: al aprobar un vídeo, Paco guarda el paquete completo (encargo, guion, títulos, test de CTR y acuerdo de la mesa) en la carpeta que compartes con Pixelido.
 - **Servidor propio** (carpeta `servidor/`): con tus claves, Lía y Gema usan Gemini (con miniaturas reales) y Rui, Tito y Max usan ChatGPT. Ver `servidor/README.md`.
 
-Shopify y Drive funcionan en la versión publicada en claude.ai. El servidor propio solo funciona en la versión del repositorio abierta en tu ordenador.
+Drive funciona en la versión publicada en claude.ai. El servidor propio solo funciona en la versión del repositorio abierta en tu ordenador.
+
+## Varios canales
+
+Arriba del panel eliges el canal de YouTube con el que trabajas o creas uno nuevo. Cada canal tiene su nicho, sus vídeos, sus métricas y su propio manual de lecciones. Los proyectos de programación no dependen del canal.
