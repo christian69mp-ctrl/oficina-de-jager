@@ -180,6 +180,16 @@ button.step { font: inherit; font-size: 11.5px; }
 .thumbs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
 .thumbs figure { margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
 .thumbs img { border-radius: 8px; border: 1px solid var(--line); aspect-ratio: 16/9; width: 100%; object-fit: cover; }
+.chat { display: flex; flex-direction: column; gap: 8px; }
+.msg { border-left: 3px solid var(--line); background: var(--bg); border-radius: 0 8px 8px 0; padding: 8px 12px; font-size: 13px; line-height: 1.5; }
+.msg header { display: flex; gap: 8px; align-items: baseline; margin-bottom: 2px; }
+.msg header b { font-size: 12.5px; }
+.msg header small { color: var(--muted); font-size: 11px; }
+.msg.lia { border-color: var(--gemini); }
+.msg.rui { border-color: var(--chatgpt); }
+.msg.sam { border-color: var(--claude); }
+.msg.acuerdo { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 8%, var(--bg)); }
+.round { font-family: var(--f-display); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--lab); margin-top: 6px; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
 .field input { padding: 8px 10px; color: var(--fg); font-variant-numeric: tabular-nums; }
@@ -230,7 +240,7 @@ button.step { font: inherit; font-size: 11.5px; }
         <button type="button" class="big-btn" id="bigBtn" aria-pressed="false">Ver en grande</button>
       </div>
     </div>
-    <div class="hud say quiet" id="say" aria-live="polite"><b>Jager</b><span id="sayText">Esperando órdenes, jefe. Escríbeme abajo o elige un encargo de ejemplo.</span></div>
+    <div class="hud say quiet" id="say" aria-live="polite"><b id="sayWho">Jager</b><span id="sayText">Esperando órdenes, jefe. Escríbeme abajo o elige un encargo de ejemplo.</span></div>
     <div class="hud hud-tools">
       <div class="seg" role="group" aria-label="Vista">
         <button type="button" data-view="general" aria-pressed="true">General</button>
@@ -395,11 +405,11 @@ const WORKERS = [
     look: { skin: '#c48d64', hair: 'short', hairC: '#3a2a1a', top: 'shirt', topC: '#345d8a', pants: '#2a2a33', shoes: '#2a2a2a', beard: true } },
   { id: 'paco', name: 'Paco', role: 'Productor',               ai: 'claude',  room: 'yt', desk: [14, 4.2], rot: Math.PI, screen: 'timeline', dual: true,
     look: { skin: '#efc6a6', hair: 'short', hairC: '#8c9099', top: 'blazer', topC: '#2a2d36', pants: '#1c1d24', shoes: '#4a3424', beard: true, glasses: true } },
-  { id: 'lia',  name: 'Lía',  role: 'Analista de tendencias',  ai: 'gemini',  room: 'lab', desk: [-3.6, 3.7], rot: 0, screen: 'trends', dual: true,
+  { id: 'lia',  name: 'Lía',  role: 'Tendencias y viralidad',  ai: 'gemini',  room: 'lab', desk: [-3.6, 3.7], rot: 0, screen: 'trends', dual: true,
     look: { skin: '#e9c2a0', hair: 'long', hairC: '#1d1410', top: 'blazer', topC: '#1f3a5a', pants: '#1a1c26', shoes: '#151515', glasses: true } },
-  { id: 'rui',  name: 'Rui',  role: 'Analista de CTR',         ai: 'chatgpt', room: 'lab', desk: [0, 3.7], rot: 0, screen: 'ctr', dual: true,
+  { id: 'rui',  name: 'Rui',  role: 'CTR y empaquetado',         ai: 'chatgpt', room: 'lab', desk: [0, 3.7], rot: 0, screen: 'ctr', dual: true,
     look: { skin: '#b98660', hair: 'short', hairC: '#151515', top: 'hoodie', topC: '#3d3d48', pants: '#22242e', shoes: '#ffffff', headset: true } },
-  { id: 'sam',  name: 'Sam',  role: 'Retención y crecimiento', ai: 'claude',  room: 'lab', desk: [3.6, 3.7], rot: 0, screen: 'retention', dual: true,
+  { id: 'sam',  name: 'Sam',  role: 'Retención y rentabilidad', ai: 'claude',  room: 'lab', desk: [3.6, 3.7], rot: 0, screen: 'retention', dual: true,
     look: { skin: '#f0cdb0', hair: 'curly', hairC: '#a0522d', top: 'sweater', topC: '#1e4d5c', pants: '#262833', shoes: '#c9c2b8' } },
 ];
 
@@ -407,7 +417,7 @@ const FLOWS = {
   video: {
     label: 'Vídeo · Pixelido',
     steps: [
-      { id: 'estudio',    label: 'Estudio del tema', worker: 'lia',  deps: [],                        verb: 'Estudiando el tema',       secs: 9 },
+      { id: 'estudio',    label: 'Mesa de análisis', worker: 'lia',  deps: [], debate: 'estudio' },
       { id: 'guion',      label: 'Guion',            worker: 'nora', deps: ['estudio'],               verb: 'Escribiendo el guion',     secs: 11 },
       { id: 'miniaturas', label: 'Miniaturas',       worker: 'gema', deps: ['guion'],                 verb: 'Diseñando miniaturas',     secs: 10 },
       { id: 'titulos',    label: 'Títulos y SEO',    worker: 'tito', deps: ['guion'],                 verb: 'Probando títulos',         secs: 8 },
@@ -428,8 +438,9 @@ const FLOWS = {
   radar: {
     label: 'Temas virales',
     steps: [
-      { id: 'radar', label: 'Radar de tendencias', worker: 'lia', deps: [], verb: 'Buscando temas virales', secs: 10 },
-      { id: 'ok',    label: 'Elección',            worker: 'director', deps: ['radar'] },
+      { id: 'radar',    label: 'Radar de tendencias', worker: 'lia', deps: [], verb: 'Buscando temas virales', secs: 10 },
+      { id: 'eleccion', label: 'Debate de temas',     worker: 'lia', deps: ['radar'], debate: 'eleccion' },
+      { id: 'ok',       label: 'Elección',            worker: 'director', deps: ['eleccion'] },
     ],
   },
   analisis: {
@@ -437,7 +448,7 @@ const FLOWS = {
     steps: [
       { id: 'ctr',       label: 'Análisis de CTR',  worker: 'rui', deps: [],                   verb: 'Analizando el CTR',       secs: 8 },
       { id: 'retencion', label: 'Retención',        worker: 'sam', deps: [],                   verb: 'Analizando la retención', secs: 9 },
-      { id: 'plan',      label: 'Plan de mejora',   worker: 'sam', deps: ['ctr', 'retencion'], verb: 'Preparando el plan',      secs: 7 },
+      { id: 'plan',      label: 'Debate y plan',    worker: 'sam', deps: ['ctr', 'retencion'], debate: 'plan' },
       { id: 'ok',        label: 'Manual del canal', worker: 'director', deps: ['plan'] },
     ],
   },
@@ -453,6 +464,14 @@ const DIRECTOR_SPOT = V(0, 0, -2.4);
 const PIXELIDO_SPOT = V(OW - 1.7, 0, AISLE_Z);
 const COFFEE_SPOT = V(-4.45, 0, -5.4);
 const COFFEE_FACE = V(-5.6, 0, -5.4);
+// Mesa de debate de la Sala de Análisis: cada analista llega por su pasillo hasta su sitio
+const TABLE_POS = V(0, 0, 6.8);
+const MEMBERS = ['lia', 'rui', 'sam'];
+const MEET = {
+  lia: [V(-1.8, 0, 6.0), V(-1.15, 0, 6.35)],
+  rui: [V(1.8, 0, 6.0), V(1.15, 0, 6.35)],
+  sam: [V(1.8, 0, 6.0), V(2.1, 0, 7.6), V(0, 0, 7.75)],
+};
 
 /* ============================================================
    2. ESCENA 3D
@@ -817,6 +836,15 @@ function videoWall(x, ry, tex) {
 }
 videoWall(-HW + 0.12, Math.PI / 2, manualTex);
 videoWall(HW - 0.12, -Math.PI / 2, wallTex);
+// mesa de debate holográfica
+const debateTable = new THREE.Group(); debateTable.position.copy(TABLE_POS); scene.add(debateTable);
+cyl(0.3, 0.42, 0.06, brass, 0, 0.03, 0, debateTable, 32);
+cyl(0.08, 0.1, 0.9, blackMetal, 0, 0.48, 0, debateTable);
+const tableTop = cyl(0.78, 0.78, 0.05, new THREE.MeshStandardMaterial({ color: 0x1a1430, transparent: true, opacity: 0.85, roughness: 0.1, metalness: 0.4 }), 0, 0.95, 0, debateTable, 48);
+const tableRing = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.02, 8, 64), glow(0xb38cff, 1.4)); tableRing.rotation.x = Math.PI / 2; tableRing.position.y = 0.98; debateTable.add(tableRing);
+const tableBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.6, 1.1, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xb38cff, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+tableBeam.position.y = 1.55; tableBeam.scale.y = 1; debateTable.add(tableBeam);
+
 
 // --- Puerta de entrega a Pixelido (agencia externa)
 const portal = new THREE.Group(); portal.position.set(OW - 0.05, 0, AISLE_Z); portal.rotation.y = -Math.PI / 2; scene.add(portal);
@@ -956,6 +984,17 @@ function poseCharacter(c, mode, t, phase, extra = {}) {
       c.armL.rotation.x = -0.2; c.head.rotation.x = -sip * 0.25; c.head.rotation.y = s(t * 0.6) * 0.3;
       break;
     }
+    case 'talk':
+      c.mouth.scale.y = 1 + Math.abs(s(t * 15 + phase)) * 3;
+      c.armR.rotation.x = -1.0 + s(t * 3 + phase) * 0.35; c.armR.rotation.z = 0.2;
+      c.armL.rotation.x = -0.6 + s(t * 2.4 + phase) * 0.25; c.armL.rotation.z = -0.15;
+      c.head.rotation.y = s(t * 1.3 + phase) * 0.18; c.body.rotation.x = 0.05;
+      break;
+    case 'listen':
+      c.head.rotation.x = 0.08 + Math.max(0, s(t * 2.2 + phase)) * 0.12;
+      c.head.rotation.z = s(t * 0.7 + phase) * 0.06;
+      c.armL.rotation.x = c.armR.rotation.x = -0.35; c.armL.rotation.z = 0.25; c.armR.rotation.z = -0.25;
+      break;
     case 'celebrate':
       c.armL.rotation.x = c.armR.rotation.x = -2.9 + s(t * 12) * 0.25;
       c.armL.rotation.z = -0.4; c.armR.rotation.z = 0.4;
@@ -1136,7 +1175,7 @@ class Agent {
     this.action = a; a.t = 0;
     if (a.type === 'goto') {
       const dest = a.dest === 'home' ? this.stand : a.dest;
-      a.pts = this.pathTo(dest); if (a.dest === 'home') a.pts.push(this.seat.clone());
+      a.pts = a.fixed ? a.fixed.map(p => p.clone()) : this.pathTo(dest); if (a.dest === 'home') a.pts.push(this.seat.clone());
       a.i = 0; this.sitting = false; this.mode = 'walk'; this.carry = !!a.carry;
       this.setStatus(a.status || 'Volviendo a su mesa', a.dest === 'home' ? '#8d9abb' : '#fbbf24');
     } else if (a.type === 'work') {
@@ -1146,6 +1185,10 @@ class Agent {
       startRealWork(this, job, step);
       log(`<b>${this.def.name}</b> empieza «${step.label}» · ${esc(job.short)}`);
       markDirty();
+    } else if (a.type === 'meet') {
+      const mp = MEET[this.id];
+      a.pts = [...this.pathTo(mp[0]), ...mp.slice(1).map(p => p.clone())]; a.i = 0; a.phase = 'walk';
+      this.sitting = false; this.mode = 'walk'; this.carry = false; this.setStatus('Va a la mesa de debate', '#b38cff');
     } else if (a.type === 'do') {
       this.mode = a.pose || 'give'; this.setStatus(a.status, a.color || '#5ce8ff');
       if (a.face) this.targetYaw = Math.atan2(a.face.x - this.pos.x, a.face.z - this.pos.z);
@@ -1164,15 +1207,19 @@ class Agent {
     const a = this.action;
     const wasWork = this.mode === 'work';
     if (a?.type === 'goto') {
-      const target = a.pts[a.i]; const d = target.clone().sub(this.pos); d.y = 0;
-      const stepLen = 2.6 * dt; const dist = d.length();
-      if (dist > 0.001) this.targetYaw = Math.atan2(d.x, d.z);
-      if (dist <= stepLen) { this.pos.copy(target); a.i++; if (a.i >= a.pts.length) {
+      if (this.stepAlong(a, dt)) {
         this.action = null; this.carry = false;
         if (a.dest === 'home') { this.sitting = true; this.mode = 'idle'; this.targetYaw = this.seatYaw; this.setStatus(this.inbox.length ? 'Siguiente tarea…' : 'Libre'); }
         else this.mode = 'idle';
-      } }
-      else this.pos.addScaledVector(d.normalize(), stepLen);
+      }
+    } else if (a?.type === 'meet') {
+      const D = a.debate;
+      if (a.phase === 'walk') { if (this.stepAlong(a, dt)) { a.phase = 'at'; this.mode = 'listen'; D.arrived.add(this.id); tableDirty = true; } }
+      else {
+        this.targetYaw = Math.atan2(TABLE_POS.x - this.pos.x, TABLE_POS.z - this.pos.z);
+        this.mode = D.speaker === this.id ? 'talk' : 'listen';
+        if (D.state === 'fin') { this.action = null; this.mode = 'idle'; }
+      }
     } else if (a?.type === 'work') {
       a.t += dt;
       const step = a.task.step;
@@ -1213,10 +1260,19 @@ class Agent {
     this.screenT -= rdt;
     if ((this.mode === 'work' && this.screenT <= 0) || wasWork !== (this.mode === 'work')) { this.screenT = 0.35; this.paintScreen(t); }
   }
+  stepAlong(a, dt) {
+    const target = a.pts[a.i]; const d = target.clone().sub(this.pos); d.y = 0;
+    const stepLen = 2.6 * dt, dist = d.length();
+    if (dist > 0.001) this.targetYaw = Math.atan2(d.x, d.z);
+    if (dist <= stepLen) { this.pos.copy(target); a.i++; return a.i >= a.pts.length; }
+    this.pos.addScaledVector(d.normalize(), stepLen); return false;
+  }
   busy() { return !!this.action || this.inbox.length > 0 || this.agenda.length > 0; }
 }
 
 WORKERS.forEach(d => agents[d.id] = new Agent(d));
+const tableHolo = makeSprite(768, 300, 0.85); tableHolo.s.position.set(TABLE_POS.x, 3.45, TABLE_POS.z); scene.add(tableHolo.s);
+let tableDirty = true;
 
 /* ============================================================
    6. JAGER EN EL VENTILADOR HOLOGRÁFICO
@@ -1279,7 +1335,7 @@ const director = { mode: 'espera', modeT: 0, say: 'Esperando órdenes' };
 function directorSay(text, mode = 'habla', secs) {
   const est = Math.min(16, 1.5 + text.split(/\s+/).length * 0.38);
   director.mode = mode; director.modeT = (secs ?? est) * speed; director.say = text;
-  $('#sayText').textContent = text; $('#say').classList.remove('quiet');
+  $('#sayWho').textContent = 'Jager'; $('#sayText').textContent = text; $('#say').classList.remove('quiet');
   $('#fanSub').textContent = text;
   clearTimeout(director._q); director._q = setTimeout(() => $('#say').classList.add('quiet'), 12000);
   if (mode === 'habla') setFan('habla', true);
@@ -1371,7 +1427,7 @@ async function askClaude(prompt, opts = {}) {
 const TEAM_TXT = `Equipo:
 - Sala Proyectos (programación): Max (ChatGPT) requisitos, Leo (Claude) programa, Vera (Claude) revisa.
 - Sala YouTube (prepara los vídeos para Pixelido, la agencia externa que hace visuales y montaje): Nora (Claude) guion, Gema (Gemini) miniaturas, Tito (ChatGPT) títulos y SEO, Paco (Claude) paquete para Pixelido.
-- Sala de Análisis: Lía (Gemini) tendencias y temas virales, Rui (ChatGPT) CTR de miniaturas y títulos, Sam (Claude) retención y crecimiento.`;
+- Sala de Análisis: Lía (Gemini) tendencias y viralidad, Rui (ChatGPT) CTR y empaquetado, Sam (Claude) retención y rentabilidad. Los tres debaten en una mesa hasta acordar la opción más viral y rentable.`;
 
 async function interpret(text) {
   const st = channelStats();
@@ -1404,43 +1460,6 @@ Mensaje del jefe: «${text}»`, { json: true, tier: 'quick' });
 const J = s => JSON.stringify(s);
 const videoOf = j => store.videos.find(v => v.id === j.videoId) || { metrics: {} };
 const SPECS = {
-  estudio: {
-    json: true,
-    prompt: j => `Eres Lía, analista de tendencias de YouTube en "La oficina de Jager". Nicho del canal: ${store.nicho}.
-Lecciones del manual del canal:
-${lessonsTxt()}
-Historial de vídeos:
-${historyTxt()}
-El jefe propone el tema «${j.topic}». Estúdialo para que el vídeo tenga el máximo potencial de clics y de retención en YouTube en español. No tienes datos en tiempo real: razona con lo que sabes del nicho y del comportamiento en YouTube, y sé honesta con la incertidumbre.
-Devuelve SOLO JSON: {"tema_final":"título de trabajo mejorado","angulo":"enfoque diferencial","puntuacion_viral":0-100,"demanda":"alta|media|baja","competencia":"alta|media|baja","publico":"para quién es","gancho":"primera frase exacta del vídeo","promesa":"qué gana el espectador","duracion_ideal":"x-y min","mejor_momento":"día y hora para publicar","razones":["3 razones"],"riesgos":["2 riesgos"]}`,
-    format: (d, j) => { if (d.tema_final) j.topicFinal = d.tema_final; j.viral = d.puntuacion_viral; return `ESTUDIO DEL TEMA
-Tema final: ${d.tema_final}
-Puntuación viral: ${d.puntuacion_viral}/100 · Demanda ${d.demanda} · Competencia ${d.competencia}
-
-ÁNGULO: ${d.angulo}
-PÚBLICO: ${d.publico}
-GANCHO (0:00): «${d.gancho}»
-PROMESA: ${d.promesa}
-DURACIÓN IDEAL: ${d.duracion_ideal}
-PUBLICAR: ${d.mejor_momento}
-
-POR QUÉ PUEDE FUNCIONAR
-${(d.razones || []).map(x => '· ' + x).join('\n')}
-
-RIESGOS
-${(d.riesgos || []).map(x => '· ' + x).join('\n')}`; },
-    fallback: j => { const s = 62 + Math.round(Math.random() * 25); j.viral = s; return { kind: 'text', via: 'ejemplo', text: `ESTUDIO DEL TEMA
-Tema final: ${j.topic}
-Puntuación viral: ${s}/100 (estimación de ejemplo)
-
-ÁNGULO: experiencia real en casa con antes y después
-GANCHO (0:00): «Casi nadie hace esto bien, y tu peludo lo nota.»
-PROMESA: soluciones que puedes aplicar hoy mismo
-DURACIÓN IDEAL: 7-9 min
-PUBLICAR: jueves a las 18:00
-
-Para un estudio real hay que conectar Gemini o dejar que Claude lo sustituya.` }; },
-  },
   radar: {
     json: true,
     prompt: j => `Eres Lía, analista de tendencias de YouTube en "La oficina de Jager". Nicho del canal: ${store.nicho}.
@@ -1596,20 +1615,6 @@ Guion usado: ${(v.guion || '').slice(0, 700)}
 Diagnostica en español, texto plano, máximo 200 palabras: GANCHO (primeros 30 s), RITMO (dónde se cae la gente según el % visto), SUSCRIPTORES por cada 1.000 vistas, y 3 ACCIONES concretas para el guion y el montaje del siguiente vídeo.`; },
     fallback: j => ({ kind: 'text', via: 'reglas', text: ruleRet(videoOf(j)) }),
   },
-  plan: {
-    json: true,
-    prompt: j => { const v = videoOf(j); return `Eres Sam, responsable de crecimiento del canal en "La oficina de Jager". Junta el análisis de CTR de Rui y tu análisis de retención del vídeo «${v.title || v.topic}» en un plan para escalar el canal.
-Análisis de CTR:
-${j.step('ctr').output?.text || ''}
-Análisis de retención:
-${j.step('retencion').output?.text || ''}
-Manual actual del canal:
-${lessonsTxt()}
-Nicho: ${store.nicho}
-Devuelve SOLO JSON: {"resumen":"2 frases para que Jager se lo diga al jefe","acciones":["5 acciones concretas y priorizadas"],"lecciones":["1-3 reglas nuevas y cortas para el manual del canal, que no repitan las que ya hay"],"siguiente_video":"idea concreta para el siguiente vídeo que aproveche lo aprendido"}`; },
-    format: (d, j) => { j.plan = d; return `PLAN DE MEJORA\n${d.resumen}\n\nACCIONES\n${(d.acciones || []).map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\nNUEVAS LECCIONES PARA EL MANUAL\n${(d.lecciones || []).map(x => '· ' + x).join('\n')}\n\nSIGUIENTE VÍDEO\n${d.siguiente_video}`; },
-    fallback: j => { const p = rulePlan(videoOf(j)); j.plan = p; return { kind: 'text', via: 'reglas', text: `PLAN DE MEJORA\n${p.resumen}\n\nACCIONES\n${p.acciones.map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\nNUEVAS LECCIONES PARA EL MANUAL\n${p.lecciones.map(x => '· ' + x).join('\n')}\n\nSIGUIENTE VÍDEO\n${p.siguiente_video}` }; },
-  },
 };
 
 // Análisis por reglas (cuando no hay IA): con tus números reales y criterios orientativos
@@ -1655,6 +1660,203 @@ function startRealWork(agent, job, step) {
 }
 
 /* ============================================================
+   8b. MESA DE DEBATE: Lía (Gemini), Rui (ChatGPT) y Sam (Claude) discuten y votan
+   ============================================================ */
+const PERSONA = {
+  lia: 'Lía, analista de tendencias y viralidad (trabaja con Gemini). Tu prioridad: lo que la gente busca, comparte y está subiendo; el potencial viral y el momento de publicar.',
+  rui: 'Rui, analista de CTR y empaquetado (trabaja con ChatGPT). Tu prioridad: que el título y la miniatura den ganas de hacer clic sin engañar, y que se entiendan en un móvil en 1 segundo.',
+  sam: 'Sam, analista de retención y rentabilidad (trabaja con Claude). Tu prioridad: que la gente vea el vídeo hasta el final y que sea rentable: RPM del nicho, afiliados, productos de la tienda Reino Peludos cuando encajen, patrocinios y que pueda convertirse en serie.',
+};
+const GOAL = {
+  estudio: 'el mejor enfoque para el vídeo: que sea viral, que la gente haga clic, que se quede hasta el final y que sea rentable',
+  eleccion: 'qué tema producir primero entre los candidatos: el más viral y rentable para el canal',
+  plan: 'el plan para subir el CTR y la retención y escalar el canal al máximo',
+};
+const SCHEMA = {
+  estudio: '{"acuerdo":"1-2 frases para decir en voz alta","tema_final":"título de trabajo","angulo":"...","gancho":"primera frase exacta del vídeo","promesa":"qué gana el espectador","publico":"...","duracion_ideal":"x-y min","mejor_momento":"día y hora","puntuaciones":{"viral":0-100,"ctr_estimado":número,"retencion_30s":número,"rentabilidad":0-100},"monetizacion":["2-3 formas de ganar dinero con este vídeo"],"riesgos":["..."],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
+  eleccion: '{"acuerdo":"1-2 frases para decir en voz alta","ranking":[{"tema":"...","angulo":"...","viral":0-100,"rentabilidad":0-100,"total":0-100,"por_que":"una frase","formato":"largo|short"}],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}} con todos los candidatos ordenados de mejor a peor',
+  plan: '{"acuerdo":"2 frases para el jefe","acciones":["5 acciones concretas y priorizadas"],"lecciones":["1-3 reglas nuevas y cortas para el manual del canal que no repitan las que ya hay"],"escalar":"cómo escalar: serie, shorts, frecuencia y monetización","siguiente_video":"idea concreta","votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
+};
+const NAME = id => agents[id]?.def.name || id;
+const debateQueue = [];
+let D = null;
+
+function debateContext(d) {
+  const j = d.job;
+  const base = `Nicho del canal: ${store.nicho}\nManual del canal:\n${lessonsTxt()}\nHistorial de vídeos:\n${historyTxt()}`;
+  if (d.mode === 'estudio') return `Tema que propone el jefe: «${j.topic}».\n${base}`;
+  if (d.mode === 'eleccion') return `Temas candidatos que ha encontrado Lía:\n${(j.picks || []).map((p, i) => `${i + 1}. ${p.tema} (${p.formato}): ${p.angulo}`).join('\n')}\n${base}`;
+  const v = videoOf(j);
+  return `Vídeo publicado: «${v.title || v.topic}». Métricas: ${J(v.metrics)} (r30 = % que sigue a los 30 s; pct = % medio visto).\nCTR previsto antes de publicar: ${v.predCtr ? v.predCtr + '%' : 'no hay'}.\nAnálisis de CTR de Rui:\n${j.step('ctr').output?.text || ''}\nAnálisis de retención de Sam:\n${j.step('retencion').output?.text || ''}\n${base}`;
+}
+const transcriptTxt = d => d.transcript.map(m => `${NAME(m.who)}: ${m.text}`).join('\n');
+const useBrain = (d, id) => brainState === 'lista' && !d.job.demo && (agents[id].def.ai === 'claude' || $('#subOn').checked);
+const cleanLine = t => t ? String(t).trim().replace(/^(Lía|Rui|Sam)\s*:\s*/i, '').replace(/^["«]|["»]$/g, '') : null;
+
+function fallbackLine(d, id, r) {
+  const j = d.job, k = (keywords(j.topic)[0] || 'esto').toLowerCase();
+  if (d.mode === 'estudio') return ({
+    1: { lia: `«${j.topic}» tiene búsqueda constante y se comparte mucho. Lo enfocaría como «errores que casi todos cometen»: despierta curiosidad.`,
+         rui: `Para el clic: cara con sorpresa, máximo 3 palabras grandes y un título con número. Algo con «${k}» muy visible.`,
+         sam: `Si enseñamos el resultado en los primeros 5 segundos, retenemos. Y es rentable: podemos enlazar un producto de la tienda que encaje con el tema.` },
+    2: { lia: `Rui, de acuerdo con el número en el título. Sam, lo de la tienda me gusta, pero primero el valor para que no parezca un anuncio.`,
+         rui: `Lía, el enfoque de errores sube el CTR. Sam, el producto mejor a mitad del vídeo, nunca en la miniatura.`,
+         sam: `Entonces: errores, resultado al principio y producto en el punto 3. Si funciona, lo convertimos en serie.` },
+  })[r][id];
+  if (d.mode === 'eleccion') { const a = j.picks?.[0]?.tema || 'el primero', b = j.picks?.[1]?.tema || 'el segundo'; return ({
+    1: { lia: `«${a}» es el que más se busca ahora mismo. «${b}» también tiene tirón, pero es más de temporada.`,
+         rui: `«${a}» se entiende en una miniatura en un segundo. Eso es CTR fácil.`,
+         sam: `«${b}» deja meter producto de la tienda de forma natural, pero «${a}» retiene más. Votaría por «${a}» primero.` },
+    2: { lia: `Sam, de acuerdo: primero «${a}» y dejamos «${b}» para la semana siguiente.`,
+         rui: `Lía, perfecto. Y del segundo sacamos un short para probar el interés.`,
+         sam: `Hecho. Así el primero trae vistas y el segundo trae ventas.` },
+  })[r][id]; }
+  const m = videoOf(j).metrics || {};
+  return ({
+    1: { lia: `El tema funcionó en impresiones. Propongo repetir el formato con otro tema del mismo tipo para aprovechar el tirón.`,
+         rui: `Un CTR del ${m.ctr}% ${m.ctr >= TARGETS.ctr ? 'es bueno: mantengamos el estilo de miniatura' : 'se queda corto: probemos otra miniatura con más emoción'}.`,
+         sam: `A los 30 segundos queda el ${m.r30}% de la gente. ${m.r30 >= TARGETS.r30 ? 'El gancho funciona.' : 'Hay que enseñar el resultado antes.'} Y añadiría un producto de la tienda en la descripción.` },
+    2: { lia: `Rui, si cambias la miniatura, que mantenga la misma idea para no romper la serie.`,
+         rui: `Sam, de acuerdo con el gancho. Lo pruebo con «Probar y comparar» de YouTube.`,
+         sam: `Entonces: prueba A/B de miniatura, gancho más rápido y serie de 3 vídeos. Lo apunto en el manual.` },
+  })[r][id];
+}
+function fallbackConsensus(d) {
+  const j = d.job;
+  if (d.mode === 'estudio') { const viral = 70 + Math.round(Math.random() * 18); return { acuerdo: `Vamos con un enfoque de errores comunes, con el resultado al principio y un producto de la tienda en el punto 3.`, tema_final: j.topic, angulo: 'errores que casi todos cometen, con prueba real', gancho: 'Casi nadie hace esto bien, y tu peludo lo nota.', promesa: 'soluciones que puedes aplicar hoy mismo', publico: 'dueños de mascotas', duracion_ideal: '7-9 min', mejor_momento: 'jueves 18:00', puntuaciones: { viral, ctr_estimado: 6.5, retencion_30s: 72, rentabilidad: 68 }, monetizacion: ['producto de la tienda en el punto 3', 'enlace en la descripción y comentario fijado'], riesgos: ['que parezca un anuncio'], votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } }; }
+  if (d.mode === 'eleccion') return { acuerdo: `Primero «${j.picks?.[0]?.tema}»: es el más buscado y retiene. El segundo, la semana siguiente.`, ranking: (j.picks || []).map((p, i) => ({ tema: p.tema, angulo: p.angulo, viral: p.puntuacion, rentabilidad: 75 - i * 6, total: Math.round((p.puntuacion + 75 - i * 6) / 2), por_que: p.por_que, formato: p.formato })), votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } };
+  const pl = rulePlan(videoOf(j)); return { acuerdo: pl.resumen, acciones: pl.acciones, lecciones: pl.lecciones, escalar: 'Serie de 3 vídeos del mismo formato, un short por vídeo y publicar cada semana el mismo día.', siguiente_video: pl.siguiente_video, votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } };
+}
+
+function startDebate(job, step) {
+  step.state = 'cola';
+  debateQueue.push({ job, step, mode: step.debate, arrived: new Set(), state: 'esperando', transcript: [], show: [], speaker: null, cur: null, t: 0, round: 0, fetching: false, result: null, via: 'ejemplo' });
+  log(`La mesa de análisis se reúne: <b>${esc(job.short)}</b>`); markDirty(); tableDirty = true;
+}
+async function fetchRound(d, r) {
+  const ctx = debateContext(d), prev = transcriptTxt(d);
+  return Promise.all(MEMBERS.map(async id => {
+    let text = null;
+    if (useBrain(d, id)) text = cleanLine(await askClaude(`Estás en una reunión de "La oficina de Jager" con tus compañeros ${MEMBERS.filter(x => x !== id).map(NAME).join(' y ')} para decidir ${GOAL[d.mode]}. Eres ${PERSONA[id]}
+${ctx}
+${prev ? 'Lo dicho hasta ahora en la reunión:\n' + prev : ''}
+${r === 1 ? 'Ronda 1: da tu propuesta concreta desde tu especialidad.' : 'Ronda 2: responde a tus compañeros por su nombre: qué apoyas, qué cambiarías y por qué. Buscad juntos la opción más viral y más rentable.'}
+Habla en primera persona, en español de España, con tono de reunión y frases cortas. Máximo ${r === 1 ? 55 : 50} palabras. Escribe solo tu intervención, sin tu nombre delante.`, { tier: 'quick' }));
+    if (text) d.via = 'claude';
+    return { who: id, round: r, text: text || fallbackLine(d, id, r) };
+  }));
+}
+async function fetchConsensus(d) {
+  let res = null;
+  if (useBrain(d, 'sam')) res = await askClaude(`Eres la secretaria de la reunión de análisis de "La oficina de Jager". Lee el debate entre Lía (tendencias, Gemini), Rui (CTR, ChatGPT) y Sam (retención y rentabilidad, Claude) y redacta el acuerdo final para decidir ${GOAL[d.mode]}. Quédate con la opción más viral y rentable en la que coincidan o que mejor hayan defendido, y refleja el voto real de cada uno.
+${debateContext(d)}
+Debate:
+${transcriptTxt(d)}
+Devuelve SOLO JSON: ${SCHEMA[d.mode]}`, { json: true });
+  return res && typeof res === 'object' && res.acuerdo ? res : fallbackConsensus(d);
+}
+const VOTE_TXT = v => !v ? '' : `Votos: ${MEMBERS.map(id => `${NAME(id)} ${v[id] || 'a favor'}`).join(' · ')}`;
+function speakAs(id, text) {
+  if (!$('#voiceOn').checked || !('speechSynthesis' in window)) return;
+  try {
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES';
+    const voices = speechSynthesis.getVoices().filter(v => v.lang?.startsWith('es'));
+    const k = MEMBERS.indexOf(id); if (voices.length) u.voice = voices[(k + 1) % voices.length];
+    u.pitch = [1.2, 0.85, 1.0][k] ?? 1; u.rate = [1.06, 1.1, 0.98][k] ?? 1;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function showLine(d, m) {
+  d.cur = m; d.speaker = m.who; d.transcript.push(m);
+  d.t = Math.min(9, Math.max(4, m.text.split(/\s+/).length * 0.33));
+  d.step.progress = Math.min(1, d.transcript.length / 7);
+  MEMBERS.forEach(id => agents[id].setStatus(id === m.who ? m.text : `Escuchando a ${NAME(m.who)}`, id === m.who ? AI[agents[id].def.ai].color : '#8d9abb'));
+  $('#sayWho').textContent = `${NAME(m.who)} · ${AI[agents[m.who].def.ai].name}`; $('#sayText').textContent = m.text; $('#say').classList.remove('quiet');
+  speakAs(m.who, m.text); tableDirty = true;
+}
+function debateTick(dt) {
+  if (!D) {
+    if (!debateQueue.length) return;
+    D = debateQueue.shift(); D.step.state = 'trabajando'; D.step.progress = 0;
+    MEMBERS.forEach(id => agents[id].agenda.push({ type: 'meet', debate: D }));
+    tableDirty = true; markDirty(); return;
+  }
+  if (D.state === 'esperando') {
+    const missing = MEMBERS.filter(id => !D.arrived.has(id));
+    const txt = missing.length ? `Esperando a ${missing.map(NAME).join(' y ')}` : '';
+    if (txt !== D.waitTxt) { D.waitTxt = txt; D.arrived.forEach(id => agents[id].setStatus(txt, '#b38cff')); tableDirty = true; }
+    if (!missing.length) { D.state = 'hablando'; nextRound(D); }
+    return;
+  }
+  if (D.state !== 'hablando') return;
+  if (D.cur) { D.t -= dt; if (D.t <= 0) { D.cur = null; D.speaker = null; tableDirty = true; } return; }
+  if (D.show.length) return showLine(D, D.show.shift());
+  if (D.fetching) return;
+  if (D.round < 2) nextRound(D);
+  else if (!D.result) {
+    D.fetching = true; MEMBERS.forEach(id => agents[id].setStatus('Votando…', '#d8b46a')); tableDirty = true;
+    fetchConsensus(D).then(res => { D.result = res; D.fetching = false; D.show.push({ who: D.step.worker, round: 3, text: `Acordado: ${res.acuerdo}`, acuerdo: true }); });
+  } else endDebate(D);
+}
+function nextRound(d) {
+  d.round++; d.fetching = true; tableDirty = true;
+  MEMBERS.forEach(id => agents[id].setStatus(d.round === 1 ? 'Preparando su propuesta…' : 'Pensando su respuesta…', '#b38cff'));
+  fetchRound(d, d.round).then(msgs => { d.show.push(...msgs); d.fetching = false; });
+}
+function endDebate(d) {
+  const j = d.job, r = d.result, step = d.step;
+  let summary;
+  if (d.mode === 'estudio') {
+    j.topicFinal = r.tema_final || j.topic; j.viral = r.puntuaciones?.viral ?? null; j.study = r;
+    const pz = r.puntuaciones || {};
+    summary = `ACUERDO DE LA MESA DE ANÁLISIS\n${r.acuerdo}\n\nTema final: ${j.topicFinal}\nViral ${pz.viral ?? '?'}/100 · CTR estimado ${pz.ctr_estimado ?? '?'}% · Retención 30 s ${pz.retencion_30s ?? '?'}% · Rentabilidad ${pz.rentabilidad ?? '?'}/100\n\nÁNGULO: ${r.angulo}\nPÚBLICO: ${r.publico}\nGANCHO (0:00): «${r.gancho}»\nPROMESA: ${r.promesa}\nDURACIÓN IDEAL: ${r.duracion_ideal}\nPUBLICAR: ${r.mejor_momento}\n\nCÓMO GANAR DINERO CON ESTE VÍDEO\n${(r.monetizacion || []).map(x => '· ' + x).join('\n')}\n\nRIESGOS\n${(r.riesgos || []).map(x => '· ' + x).join('\n')}`;
+  } else if (d.mode === 'eleccion') {
+    j.picks = (r.ranking || []).slice(0, 5).map(x => ({ tema: x.tema, angulo: x.angulo, puntuacion: x.total, por_que: `${x.por_que} · viral ${x.viral} · rentable ${x.rentabilidad}`, formato: x.formato }));
+    summary = `ACUERDO: ${r.acuerdo}\n\nRANKING (viral + rentable)\n${j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100\n   ${p.por_que}`).join('\n')}`;
+  } else {
+    j.plan = { resumen: r.acuerdo, acciones: r.acciones || [], lecciones: r.lecciones || [], siguiente_video: r.siguiente_video, escalar: r.escalar };
+    summary = `PLAN ACORDADO\n${r.acuerdo}\n\nACCIONES\n${(r.acciones || []).map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\nCÓMO ESCALAR\n${r.escalar}\n\nNUEVAS LECCIONES PARA EL MANUAL\n${(r.lecciones || []).map(x => '· ' + x).join('\n')}\n\nSIGUIENTE VÍDEO\n${r.siguiente_video}`;
+  }
+  summary += `\n\n${VOTE_TXT(r.votos)}\n\nDEBATE\n${d.transcript.filter(m => !m.acuerdo).map(m => `[Ronda ${m.round}] ${NAME(m.who)}: ${m.text}`).join('\n')}`;
+  step.output = { kind: 'debate', text: summary, transcript: d.transcript, votos: r.votos, via: d.via, mode: d.mode };
+  step.preset = true; step.progress = 1;
+  d.state = 'fin'; d.speaker = null; d.cur = null;
+  log(`La mesa de análisis llega a un acuerdo sobre <b>${esc(j.short)}</b>`);
+  if (d.mode === 'estudio') directorSay(`La mesa de análisis ha decidido: ${r.acuerdo}`);
+  MEMBERS.forEach(id => {
+    const ag = agents[id]; const back = [...MEET[id]].reverse().slice(1);
+    const exits = [{ type: 'goto', fixed: back.length ? back : [MEET[id][0]], status: 'Vuelve a su mesa' }];
+    if (id !== step.worker) exits.push({ type: 'goto', dest: 'home' });
+    ag.agenda.unshift(...exits);
+  });
+  const leader = agents[step.worker];
+  setTimeout(() => finishStep(leader, { job: j, step }), 0);
+  D = null; tableDirty = true; markDirty();
+}
+function drawTable() {
+  const { g, c } = tableHolo, W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = 'rgba(16,10,36,.82)'; g.strokeStyle = '#b38cff'; g.lineWidth = 4; g.beginPath(); g.roundRect(6, 6, W - 12, H - 12, 22); g.fill(); g.stroke();
+  g.fillStyle = '#b38cff'; g.font = '700 40px "Chakra Petch", sans-serif'; g.textBaseline = 'top'; g.textAlign = 'center';
+  g.fillText('MESA DE DEBATE', W / 2, 22);
+  const d = D;
+  g.font = '500 28px Figtree, sans-serif'; g.fillStyle = '#e8edf8';
+  let line = 'Libre · esperando el próximo encargo';
+  if (d) line = d.state === 'esperando' ? (d.waitTxt || 'Reuniendo al equipo') : d.fetching ? (d.round >= 2 ? 'Votando el acuerdo…' : 'Pensando…') : d.cur?.acuerdo ? 'Acuerdo' : `Ronda ${Math.min(d.round, 2)} de 2 · ${esc(d.job.short)}`;
+  let lt = line; while (g.measureText(lt).width > W - 60 && lt.length > 6) lt = lt.slice(0, -2);
+  g.fillText(lt === line ? lt : lt + '…', W / 2, 78);
+  MEMBERS.forEach((id, i) => {
+    const x = 64 + i * 224, y = 140, on = d?.speaker === id, ai = AI[agents[id].def.ai];
+    g.fillStyle = on ? ai.color : 'rgba(255,255,255,.06)'; g.beginPath(); g.roundRect(x, y, 196, 120, 16); g.fill();
+    g.strokeStyle = ai.color; g.lineWidth = 3; g.stroke();
+    g.fillStyle = on ? '#0a0f1c' : '#e8edf8'; g.font = '700 36px "Chakra Petch", sans-serif'; g.fillText(NAME(id), x + 98, y + 18);
+    g.font = '600 24px "Chakra Petch", sans-serif'; g.fillStyle = on ? '#0a0f1c' : ai.color; g.fillText(ai.name.toUpperCase(), x + 98, y + 66);
+  });
+  g.textAlign = 'left';
+  tableHolo.tex.needsUpdate = true;
+}
+
+/* ============================================================
    9. MOTOR DE TAREAS
    ============================================================ */
 const jobs = [];
@@ -1681,7 +1883,7 @@ async function handleMessage(text) {
   text = text.trim(); if (!text || thinking) return;
   thinking = true;
   director.mode = 'escucha'; director.modeT = 99; director.say = 'Pensando…'; setFan('escucha', true);
-  $('#sayText').textContent = 'Pensando…'; $('#say').classList.remove('quiet');
+  $('#sayWho').textContent = 'Jager'; $('#sayText').textContent = 'Pensando…'; $('#say').classList.remove('quiet');
   const r = await interpret(text);
   thinking = false;
   if (r.tipo === 'charla') {
@@ -1694,10 +1896,10 @@ async function handleMessage(text) {
 }
 
 const REPLIES = {
-  video: 'Entendido, jefe. Lía estudia el tema, Nora escribe el guion, Gema y Tito preparan miniaturas y títulos, Rui los pone a prueba y Paco lo monta para Pixelido.',
+  video: 'Entendido, jefe. Lía, Rui y Sam lo debaten en la mesa de análisis; después Nora escribe el guion, Gema y Tito preparan miniaturas y títulos, Rui los pone a prueba y Paco lo monta para Pixelido.',
   proyecto: 'Entendido, jefe. Max ordena la idea, Leo la programa y Vera revisa el código antes de enseñártelo.',
-  radar: 'Entendido. Lía se pone a buscar los temas con más potencial para el canal.',
-  analisis: 'Recibido. Rui analiza el CTR y Sam la retención; luego te traigo el plan y actualizo el manual del canal.',
+  radar: 'Entendido. Lía busca temas con potencial y luego los tres analistas debaten cuál es el más viral y rentable.',
+  analisis: 'Recibido. Rui analiza el CTR, Sam la retención y luego los tres debaten el plan para escalar el canal.',
 };
 function newOrder(type, topic, o = {}) {
   const flow = FLOWS[type];
@@ -1715,6 +1917,7 @@ function newOrder(type, topic, o = {}) {
   setTimeout(() => {
     job.steps.filter(s => s.deps.length === 0).forEach(s => {
       s.state = 'cola';
+      if (s.debate) { sendOrb(TABLE_POS, 0xb38cff, () => startDebate(job, s)); return; }
       const ag = agents[s.worker];
       sendOrb(ag.seat, AI[ag.def.ai].color, () => { ag.inbox.push({ job, step: s }); ag.setStatus('¡Nueva tarea!', '#5ce8ff'); log(`Jager manda «${s.label}» a <b>${ag.def.name}</b>`); });
     });
@@ -1723,7 +1926,7 @@ function newOrder(type, topic, o = {}) {
   markDirty();
   return job;
 }
-function enqueue(job, step) { step.state = 'cola'; step.progress = 0; agents[step.worker].inbox.push({ job, step }); markDirty(); }
+function enqueue(job, step) { if (step.debate) return startDebate(job, step); step.state = 'cola'; step.progress = 0; agents[step.worker].inbox.push({ job, step }); markDirty(); }
 
 function thumbsOutput(job, via, subFor) {
   const cs = job.concepts && job.concepts.length === 3 ? job.concepts : null;
@@ -1765,7 +1968,7 @@ function finishStep(agent, task) {
     targets.push({ worker: 'leo', what: 'notas de revisión', onArrive: () => { code.verb = 'Corrigiendo lo que pidió Vera'; enqueue(job, code); } });
     log(`<b>Vera</b> pide cambios y devuelve el código a <b>Leo</b>`);
   } else {
-    step.output = buildOutput(step, job, agent);
+    if (!step.preset) step.output = buildOutput(step, job, agent);
     log(`<b>${agent.def.name}</b> termina «${step.label}»${step.output.via === 'claude' ? ' (con Claude)' : ''}`);
     job.steps.filter(s => s.deps.includes(step.id)).forEach(s => targets.push({
       worker: s.worker, what: step.label.toLowerCase(),
@@ -1895,7 +2098,7 @@ function thumb(text, variant, exact) {
 let dirty = true;
 const markDirty = () => dirty = true;
 const viaLabel = o => o.via === 'claude' ? (o.subFor ? `con Claude (sustituye a ${o.subFor})` : 'con Claude') : o.via === 'reglas' ? 'análisis por reglas con tus números' : 'resultado de ejemplo';
-const stepOwner = (s, j) => agents[s.worker]?.def.name || (j.type === 'analisis' ? 'Jager' : 'Tú');
+const stepOwner = (s, j) => s.debate ? 'Lía · Rui · Sam' : agents[s.worker]?.def.name || (j.type === 'analisis' ? 'Jager' : 'Tú');
 
 function renderJobs() {
   const boxEl = $('#jobs');
@@ -2005,6 +2208,19 @@ function openModal(title, meta, real) {
 function openOutput(jobId, stepId) {
   const j = jobs.find(x => x.id === +jobId); const s = j?.step(stepId); if (!s?.output) return;
   const by = agents[s.worker];
+  if (s.output.kind === 'debate') {
+    const o = s.output;
+    const body = openModal(`${s.label} · ${j.topicFinal || j.topic}`, `Lía (Gemini), Rui (ChatGPT) y Sam (Claude) · ${o.via === 'claude' ? 'debate real con Claude haciendo de cada IA hasta conectar Gemini y ChatGPT' : 'debate de ejemplo'}`, o.via === 'claude');
+    let lastRound = 0;
+    body.innerHTML = `<div class="chat">${o.transcript.map(m => {
+      const head = m.round !== lastRound ? `<div class="round">${m.round === 3 ? 'Acuerdo' : 'Ronda ' + m.round + (m.round === 1 ? ' · propuestas' : ' · réplicas')}</div>` : '';
+      lastRound = m.round; const ag = agents[m.who];
+      return `${head}<div class="msg ${m.acuerdo ? 'acuerdo' : m.who}"><header><b>${esc(ag.def.name)}</b><small>${esc(ag.def.role)} · ${AI[ag.def.ai].name}</small></header>${esc(m.text)}</div>`;
+    }).join('')}${o.votos ? `<div class="round">Votación</div><div class="msg acuerdo">${esc(VOTE_TXT(o.votos))}</div>` : ''}</div>
+    <div class="round" style="margin-top:14px">Resultado completo</div><pre></pre>`;
+    body.querySelector('pre').textContent = o.text.split('\n\nDEBATE\n')[0];
+    return;
+  }
   const body = openModal(`${s.label} · ${j.topicFinal || j.topic}`, `Hecho por ${by.def.name} (${by.def.role}) · ${viaLabel(s.output)}`, s.output.via === 'claude');
   if (s.output.kind === 'thumbs') {
     body.innerHTML = `<div class="thumbs">${s.output.images.map((src, i) => `<figure><img src="${src}" alt="Boceto de miniatura ${'ABC'[i]}"><figcaption>${esc(s.output.notes[i])}</figcaption></figure>`).join('')}</div>
@@ -2079,7 +2295,7 @@ const VIEWS = {
   general: { pos: V(0, 20, 24), target: V(0, 0, 0) },
   proy: { pos: V(-12, 10.5, 11.5), target: V(-12, 0.5, -1.2) },
   yt: { pos: V(12, 10.5, 11.5), target: V(12, 0.5, -1.2) },
-  lab: { pos: V(0, 6.5, 12.5), target: V(0, 1, 3) },
+  lab: { pos: V(0, 9.5, 15.5), target: V(0, 1.2, 4.8) },
   dir: { pos: V(0, 4.0, 1.2), target: V(0, 2.4, -4.8) },
 };
 const VIEWS_TALL = {
@@ -2230,6 +2446,10 @@ const clock = new THREE.Clock(); let t = 0, uiT = 0, ledT = 0;
 function loop() {
   const rdt = Math.min(clock.getDelta(), 0.1); const dt = rdt * speed; t += rdt; simClock += dt;
   for (const id in agents) agents[id].update(dt, t, rdt);
+  debateTick(dt);
+  if (tableDirty) { tableDirty = false; drawTable(); }
+  tableRing.material.emissiveIntensity = D && D.state === 'hablando' ? 1.6 + Math.sin(t * 6) * 0.6 : 1.0;
+  tableBeam.material.opacity = D && D.state === 'hablando' ? 0.09 + Math.sin(t * 4) * 0.03 : 0.04;
 
   director.modeT -= dt;
   if (director.modeT <= 0 && director.mode !== 'espera' && !thinking) {
@@ -2278,7 +2498,7 @@ function loop() {
 }
 
 drawNameTag(jagerTag, 'Jager', 'claude');
-document.fonts?.ready.then(() => { for (const id in agents) agents[id].redraw(); drawNameTag(jagerTag, 'Jager', 'claude'); signs.forEach(s => s.userData.redraw?.()); drawWalls(); });
+document.fonts?.ready.then(() => { tableDirty = true; for (const id in agents) agents[id].redraw(); drawNameTag(jagerTag, 'Jager', 'claude'); signs.forEach(s => s.userData.redraw?.()); drawWalls(); });
 renderJobs(); renderTeam(); renderChannel();
 if (isTall()) { const v = VIEWS_TALL.general; camera.position.copy(v.pos); controls.target.copy(v.target); }
 log('La oficina de Jager abre sus puertas. El equipo está en su sitio.');

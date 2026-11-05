@@ -5,7 +5,7 @@ Empresa virtual en 3D donde trabajadores IA se reparten el trabajo:
 - **Jager** (Claude) es el director. Aparece en el ventilador holográfico con tu propio avatar, recibe tus órdenes, te responde y reparte el trabajo.
 - **Sala Proyectos**: Max (ChatGPT) ordena la idea, Leo (Claude) programa y Vera (Claude) revisa el código. Si Vera pide cambios, se lo devuelve a Leo.
 - **Sala YouTube**: Nora (Claude) escribe el guion, Gema (Gemini) hace las miniaturas, Tito (ChatGPT) los títulos y el SEO, y Paco (Claude) monta el paquete y se lo lleva a **Pixelido**, la agencia que hace los visuales.
-- **Sala de Análisis**: Lía (Gemini) busca temas virales y estudia cada tema antes del guion, Rui (ChatGPT) prueba combinaciones de título y miniatura antes de publicar y analiza el CTR después, y Sam (Claude) analiza la retención y prepara el plan para escalar.
+- **Sala de Análisis**: Lía (Gemini, tendencias y viralidad), Rui (ChatGPT, CTR y empaquetado) y Sam (Claude, retención y rentabilidad). Se reúnen en la **mesa de debate**: cada uno propone desde su especialidad, se responden en una segunda ronda y votan el acuerdo más viral y rentable. Debaten el enfoque de cada vídeo, qué tema viral producir y el plan de mejora tras ver las métricas.
 
 ## Ciclo de mejora
 
