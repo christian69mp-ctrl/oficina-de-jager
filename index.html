@@ -168,6 +168,23 @@ button.step { font: inherit; font-size: 11.5px; }
 .log b { color: var(--fg); font-weight: 600; }
 .note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 0; }
 .settings { display: flex; flex-direction: column; gap: 8px; }
+.conns { display: flex; flex-direction: column; gap: 10px; }
+.conn { border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.conn-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.conn-head b { font-size: 13.5px; }
+.conn-state { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.conn-state.ok { color: var(--ok); }
+.conn-state.err { color: var(--warn); }
+.prods { display: flex; flex-direction: column; gap: 6px; }
+.prod { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 12.5px; }
+.prod img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: var(--bg); }
+.prod small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.folders { display: flex; flex-direction: column; gap: 6px; }
+.folder { text-align: left; }
+.folder[aria-pressed="true"] { border-color: var(--ok); color: var(--ok); }
+.field-row { display: flex; gap: 6px; }
+.field-row input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.video a { color: var(--holo); font-size: 12.5px; font-weight: 600; }
 
 .overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
 .modal-bg { background: rgba(3, 6, 14, .72); backdrop-filter: blur(3px); }
@@ -303,6 +320,29 @@ button.step { font: inherit; font-size: 11.5px; }
     <section>
       <h2>Registro</h2>
       <ol class="log" id="log"></ol>
+    </section>
+
+    <section>
+      <h2>Conexiones</h2>
+      <div class="conns">
+        <div class="conn" id="connShop">
+          <div class="conn-head"><b>Tienda Reino Peludos · Shopify</b><button type="button" class="btn small" id="shopBtn">Cargar productos</button></div>
+          <div class="conn-state" id="shopState">Sam usa los productos reales de la tienda para decidir cómo ganar dinero con cada vídeo.</div>
+          <div class="prods" id="prods"></div>
+        </div>
+        <div class="conn" id="connDrive">
+          <div class="conn-head"><b>Entrega a Pixelido · Google Drive</b><button type="button" class="btn small" id="driveBtn">Elegir carpeta</button></div>
+          <div class="conn-state" id="driveState">Cuando apruebes un vídeo, Paco guarda el paquete completo en la carpeta que compartes con Pixelido.</div>
+          <div class="folders" id="folders"></div>
+          <label class="toggle"><input type="checkbox" id="driveOn" checked> Guardar cada paquete aprobado en Drive</label>
+        </div>
+        <div class="conn" id="connServer" hidden>
+          <div class="conn-head"><b>Servidor de Gemini y ChatGPT</b><button type="button" class="btn small" id="srvTest">Probar</button></div>
+          <div class="conn-state" id="srvState">Con tu servidor (carpeta servidor/ del proyecto), Lía y Gema usan Gemini y Rui, Tito y Max usan ChatGPT de verdad. Gema genera miniaturas reales.</div>
+          <div class="field-row"><input id="srvUrl" placeholder="https://oficina-jager.tu-cuenta.workers.dev" aria-label="Dirección del servidor"></div>
+          <div class="field-row"><input id="srvKey" type="password" placeholder="Clave de la oficina (OFICINA_TOKEN)" aria-label="Clave de la oficina"><button type="button" class="btn small" id="srvSave">Guardar</button></div>
+        </div>
+      </div>
     </section>
 
     <section class="settings">
@@ -1376,16 +1416,22 @@ const store = {
           this.videos = snap.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
           const pb = await this.db.doc('config/manual').get();
           if (pb.exists) { const d = pb.data(); this.nicho = d.nicho || this.nicho; this.lecciones = d.lecciones || []; }
+          const dr = await this.db.doc('config/drive').get(); if (dr.exists) this.drive = dr.data();
           const av = await this.db.doc('config/avatar').get();
           if (av.exists) { const d = av.data(); applyAvatar('/_blob/' + d.id, d.kind); }
         } catch (e) {}
       }
     } else {
-      try { const raw = localStorage.getItem('oficina-jager'); if (raw) { const d = JSON.parse(raw); this.videos = d.videos || []; this.nicho = d.nicho || this.nicho; this.lecciones = d.lecciones || []; } } catch (e) {}
+      try { const raw = localStorage.getItem('oficina-jager'); if (raw) { const d = JSON.parse(raw); this.videos = d.videos || []; this.nicho = d.nicho || this.nicho; this.lecciones = d.lecciones || []; this.drive = d.drive || null; } } catch (e) {}
     }
-    renderChannel();
+    renderChannel(); renderConn();
   },
-  saveLocal() { try { localStorage.setItem('oficina-jager', JSON.stringify({ videos: this.videos, nicho: this.nicho, lecciones: this.lecciones })); } catch (e) {} },
+  saveLocal() { try { localStorage.setItem('oficina-jager', JSON.stringify({ videos: this.videos, nicho: this.nicho, lecciones: this.lecciones, drive: this.drive })); } catch (e) {} },
+  async saveDrive() {
+    renderConn();
+    if (this.db) { try { await this.db.doc('config/drive').set(this.drive ? { ...this.drive } : { id: null }); } catch (e) {} }
+    else if (!hasRuntime) this.saveLocal();
+  },
   async saveVideo(v) {
     const i = this.videos.findIndex(x => x.id === v.id); if (i >= 0) this.videos[i] = v; else this.videos.push(v);
     renderChannel();
@@ -1484,6 +1530,7 @@ Estudio de Lía:
 ${j.step('estudio').output?.text || ''}
 Lecciones del manual del canal (aplícalas):
 ${lessonsTxt()}
+Producto de la tienda acordado por la mesa: ${prodLine(j)}${j.productHow ? '. Cómo integrarlo: ' + j.productHow : ''}. Si hay producto, intégralo de forma natural y sin que parezca un anuncio.
 Objetivo: máxima retención. El gancho debe enseñar el resultado o el conflicto en los primeros 5 segundos, sin presentaciones largas; pon un motivo para seguir viendo cada 60-90 segundos y cambios visuales frecuentes.
 Formato en texto plano: marcas de tiempo, GANCHO (0:00), 5 PUNTOS, CIERRE con llamada a la acción y enlace al siguiente vídeo. Máximo 420 palabras. Sin markdown.`,
     fallback: j => ({ kind: 'text', via: 'ejemplo', text: `GUION · ${j.topicFinal || j.topic}
@@ -1558,12 +1605,14 @@ Guion de Nora:
 ${j.step('guion').output?.text || ''}
 Combinación ganadora del test de CTR de Rui: «${j.winner?.titulo}» + miniatura ${j.winner?.miniatura} (${(j.concepts || [])['ABC'.indexOf(j.winner?.miniatura)]?.escena || ''}).
 Lecciones del manual del canal: ${lessonsTxt()}
-Incluye en texto plano: TÍTULO, MINIATURA, QUÉ NECESITAMOS DE PIXELIDO (vídeo 16:9 y un short 9:16 con el gancho), RITMO Y RETENCIÓN (cambios de plano, rótulos, B-roll en los minutos clave), ESCENAS CLAVE, ESTILO VISUAL, ENTREGA. Máximo 300 palabras. Sin markdown.`,
+Producto de la tienda que debe salir en el vídeo: ${prodLine(j)}${j.productHow ? ' (' + j.productHow + ')' : ''}.
+Incluye en texto plano: TÍTULO, MINIATURA, PRODUCTO DE LA TIENDA (cuándo sale y el enlace para la descripción), QUÉ NECESITAMOS DE PIXELIDO (vídeo 16:9 y un short 9:16 con el gancho), RITMO Y RETENCIÓN (cambios de plano, rótulos, B-roll en los minutos clave), ESCENAS CLAVE, ESTILO VISUAL, ENTREGA. Máximo 300 palabras. Sin markdown.`,
     fallback: j => ({ kind: 'text', via: 'ejemplo', text: `PAQUETE PARA PIXELIDO · ${j.topicFinal || j.topic}
 Preparado el ${today()} · Encargo #${j.id}
 
 TÍTULO: ${j.winner?.titulo || j.topic}
 MINIATURA: opción ${j.winner?.miniatura || 'A'} (ver bocetos de Gema)
+PRODUCTO DE LA TIENDA: ${prodLine(j)}
 
 LO QUE NECESITAMOS DE PIXELIDO
 · Montaje 16:9 de 7-9 min siguiendo el guion
@@ -1648,15 +1697,36 @@ function rulePlan(v) {
   return { resumen: `El vídeo tuvo un CTR del ${m.ctr}% y retuvo al ${m.r30}% a los 30 segundos. ${m.ctr >= TARGETS.ctr && m.r30 >= TARGETS.r30 ? 'Toca escalar: más vídeos con este formato.' : 'Hay margen de mejora y ya sabemos dónde.'}`, acciones: acc.slice(0, 5), lecciones: les.slice(0, 3), siguiente_video: `Una segunda parte de «${v.topic}» con un ángulo más concreto` };
 }
 
+// Quién piensa de verdad: su propia IA (si hay servidor), Claude como sustituto o nadie (ejemplo)
+function routeFor(aiKey, demo) {
+  if (demo) return null;
+  if (aiKey !== 'claude' && serverReady()) return aiKey;
+  if (brainState === 'lista' && (aiKey === 'claude' || $('#subOn').checked)) return 'claude';
+  return null;
+}
+async function askAI(route, prompt, opts = {}) {
+  if (!route) return null;
+  if (route === 'claude') return askClaude(prompt, opts);
+  const txt = await askServer(route, prompt + (opts.json ? '\n\nResponde solo con el JSON, sin texto alrededor ni bloques de código.' : ''));
+  if (!opts.json || txt == null) return txt;
+  try { const m = String(txt).match(/[\[{][\s\S]*[\]}]/); return m ? JSON.parse(m[0]) : null; } catch (e) { return null; }
+}
 function startRealWork(agent, job, step) {
   const spec = SPECS[step.id];
-  if (!spec?.prompt || job.demo || brainState !== 'lista') return;
-  if (agent.def.ai !== 'claude' && !$('#subOn').checked) return;
-  step.realPending = true; step.realData = null;
-  const timeout = new Promise(r => setTimeout(() => r(null), 100000));
-  Promise.race([askClaude(spec.prompt(job), { json: !!spec.json }), timeout]).then(res => {
-    step.realData = res && (typeof res === 'object' || String(res).trim()) ? res : null; step.realPending = false;
-  });
+  const route = spec?.prompt ? routeFor(agent.def.ai, job.demo) : null;
+  if (!route && !(step.id === 'miniaturas' && serverReady() && !job.demo)) return;
+  step.realPending = true; step.realData = null; step.realVia = route;
+  const timeout = new Promise(r => setTimeout(() => r(null), 120000));
+  const work = (async () => {
+    const res = route ? await askAI(route, spec.prompt(job), { json: !!spec.json }) : null;
+    step.realData = res && (typeof res === 'object' || String(res).trim()) ? res : null;
+    if (step.id === 'miniaturas' && serverReady()) {
+      if (step.realData?.conceptos) job.concepts = step.realData.conceptos.slice(0, 3);
+      const cs = job.concepts?.length === 3 ? job.concepts : [0, 1, 2].map(i => ({ texto: (keywords(job.topicFinal || job.topic).slice(0, 2).join(' ') || 'MIRA ESTO').toUpperCase(), escena: ['cara de sorpresa en primer plano', 'antes y después', 'mascota en acción'][i], emocion: 'sorpresa' }));
+      job.realThumbs = await Promise.all(cs.map(c => askServerImage(`Miniatura de YouTube 16:9, estilo fotográfico, colores muy contrastados, para el vídeo «${job.topicFinal || job.topic}». Escena: ${c.escena}. Emoción: ${c.emocion}. Texto grande en la imagen: «${c.texto}». Fácil de entender en un móvil.`).catch(() => null)));
+    }
+  })();
+  Promise.race([work, timeout]).finally(() => { step.realPending = false; });
 }
 
 /* ============================================================
@@ -1673,7 +1743,7 @@ const GOAL = {
   plan: 'el plan para subir el CTR y la retención y escalar el canal al máximo',
 };
 const SCHEMA = {
-  estudio: '{"acuerdo":"1-2 frases para decir en voz alta","tema_final":"título de trabajo","angulo":"...","gancho":"primera frase exacta del vídeo","promesa":"qué gana el espectador","publico":"...","duracion_ideal":"x-y min","mejor_momento":"día y hora","puntuaciones":{"viral":0-100,"ctr_estimado":número,"retencion_30s":número,"rentabilidad":0-100},"monetizacion":["2-3 formas de ganar dinero con este vídeo"],"riesgos":["..."],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
+  estudio: '{"acuerdo":"1-2 frases para decir en voz alta","tema_final":"título de trabajo","angulo":"...","gancho":"primera frase exacta del vídeo","promesa":"qué gana el espectador","publico":"...","duracion_ideal":"x-y min","mejor_momento":"día y hora","puntuaciones":{"viral":0-100,"ctr_estimado":número,"retencion_30s":número,"rentabilidad":0-100},"monetizacion":["2-3 formas de ganar dinero con este vídeo"],"producto":"título exacto de un producto de la lista de la tienda que encaje con el vídeo, o ninguno","como_integrarlo":"en qué momento del vídeo y cómo mostrarlo sin que parezca un anuncio","riesgos":["..."],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
   eleccion: '{"acuerdo":"1-2 frases para decir en voz alta","ranking":[{"tema":"...","angulo":"...","viral":0-100,"rentabilidad":0-100,"total":0-100,"por_que":"una frase","formato":"largo|short"}],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}} con todos los candidatos ordenados de mejor a peor',
   plan: '{"acuerdo":"2 frases para el jefe","acciones":["5 acciones concretas y priorizadas"],"lecciones":["1-3 reglas nuevas y cortas para el manual del canal que no repitan las que ya hay"],"escalar":"cómo escalar: serie, shorts, frecuencia y monetización","siguiente_video":"idea concreta","votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
 };
@@ -1683,7 +1753,7 @@ let D = null;
 
 function debateContext(d) {
   const j = d.job;
-  const base = `Nicho del canal: ${store.nicho}\nManual del canal:\n${lessonsTxt()}\nHistorial de vídeos:\n${historyTxt()}`;
+  const base = `Nicho del canal: ${store.nicho}\nManual del canal:\n${lessonsTxt()}\nHistorial de vídeos:\n${historyTxt()}\nProductos reales de la tienda Reino Peludos (${SHOP_DOMAIN}):\n${productsTxt()}`;
   if (d.mode === 'estudio') return `Tema que propone el jefe: «${j.topic}».\n${base}`;
   if (d.mode === 'eleccion') return `Temas candidatos que ha encontrado Lía:\n${(j.picks || []).map((p, i) => `${i + 1}. ${p.tema} (${p.formato}): ${p.angulo}`).join('\n')}\n${base}`;
   const v = videoOf(j);
@@ -1723,7 +1793,7 @@ function fallbackLine(d, id, r) {
 }
 function fallbackConsensus(d) {
   const j = d.job;
-  if (d.mode === 'estudio') { const viral = 70 + Math.round(Math.random() * 18); return { acuerdo: `Vamos con un enfoque de errores comunes, con el resultado al principio y un producto de la tienda en el punto 3.`, tema_final: j.topic, angulo: 'errores que casi todos cometen, con prueba real', gancho: 'Casi nadie hace esto bien, y tu peludo lo nota.', promesa: 'soluciones que puedes aplicar hoy mismo', publico: 'dueños de mascotas', duracion_ideal: '7-9 min', mejor_momento: 'jueves 18:00', puntuaciones: { viral, ctr_estimado: 6.5, retencion_30s: 72, rentabilidad: 68 }, monetizacion: ['producto de la tienda en el punto 3', 'enlace en la descripción y comentario fijado'], riesgos: ['que parezca un anuncio'], votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } }; }
+  if (d.mode === 'estudio') { const viral = 70 + Math.round(Math.random() * 18); return { acuerdo: `Vamos con un enfoque de errores comunes, con el resultado al principio y un producto de la tienda en el punto 3.`, tema_final: j.topic, angulo: 'errores que casi todos cometen, con prueba real', gancho: 'Casi nadie hace esto bien, y tu peludo lo nota.', promesa: 'soluciones que puedes aplicar hoy mismo', publico: 'dueños de mascotas', duracion_ideal: '7-9 min', mejor_momento: 'jueves 18:00', puntuaciones: { viral, ctr_estimado: 6.5, retencion_30s: 72, rentabilidad: 68 }, monetizacion: ['producto de la tienda en el punto 3', 'enlace en la descripción y comentario fijado'], producto: pickProduct(j.topic)?.title || 'ninguno', como_integrarlo: 'en el punto 3, usándolo en la prueba real', riesgos: ['que parezca un anuncio'], votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } }; }
   if (d.mode === 'eleccion') return { acuerdo: `Primero «${j.picks?.[0]?.tema}»: es el más buscado y retiene. El segundo, la semana siguiente.`, ranking: (j.picks || []).map((p, i) => ({ tema: p.tema, angulo: p.angulo, viral: p.puntuacion, rentabilidad: 75 - i * 6, total: Math.round((p.puntuacion + 75 - i * 6) / 2), por_que: p.por_que, formato: p.formato })), votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } };
   const pl = rulePlan(videoOf(j)); return { acuerdo: pl.resumen, acciones: pl.acciones, lecciones: pl.lecciones, escalar: 'Serie de 3 vídeos del mismo formato, un short por vídeo y publicar cada semana el mismo día.', siguiente_video: pl.siguiente_video, votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } };
 }
@@ -1737,13 +1807,14 @@ async function fetchRound(d, r) {
   const ctx = debateContext(d), prev = transcriptTxt(d);
   return Promise.all(MEMBERS.map(async id => {
     let text = null;
-    if (useBrain(d, id)) text = cleanLine(await askClaude(`Estás en una reunión de "La oficina de Jager" con tus compañeros ${MEMBERS.filter(x => x !== id).map(NAME).join(' y ')} para decidir ${GOAL[d.mode]}. Eres ${PERSONA[id]}
+    const route = routeFor(agents[id].def.ai, d.job.demo);
+    if (route) text = cleanLine(await askAI(route, `Estás en una reunión de "La oficina de Jager" con tus compañeros ${MEMBERS.filter(x => x !== id).map(NAME).join(' y ')} para decidir ${GOAL[d.mode]}. Eres ${PERSONA[id]}
 ${ctx}
 ${prev ? 'Lo dicho hasta ahora en la reunión:\n' + prev : ''}
 ${r === 1 ? 'Ronda 1: da tu propuesta concreta desde tu especialidad.' : 'Ronda 2: responde a tus compañeros por su nombre: qué apoyas, qué cambiarías y por qué. Buscad juntos la opción más viral y más rentable.'}
 Habla en primera persona, en español de España, con tono de reunión y frases cortas. Máximo ${r === 1 ? 55 : 50} palabras. Escribe solo tu intervención, sin tu nombre delante.`, { tier: 'quick' }));
-    if (text) d.via = 'claude';
-    return { who: id, round: r, text: text || fallbackLine(d, id, r) };
+    if (text) d.via = 'real';
+    return { who: id, round: r, text: text || fallbackLine(d, id, r), via: text ? route : 'ejemplo' };
   }));
 }
 async function fetchConsensus(d) {
@@ -1808,8 +1879,9 @@ function endDebate(d) {
   let summary;
   if (d.mode === 'estudio') {
     j.topicFinal = r.tema_final || j.topic; j.viral = r.puntuaciones?.viral ?? null; j.study = r;
+    j.product = findProduct(r.producto) || (d.via === 'real' ? null : pickProduct(j.topic)); j.productHow = r.como_integrarlo || '';
     const pz = r.puntuaciones || {};
-    summary = `ACUERDO DE LA MESA DE ANÁLISIS\n${r.acuerdo}\n\nTema final: ${j.topicFinal}\nViral ${pz.viral ?? '?'}/100 · CTR estimado ${pz.ctr_estimado ?? '?'}% · Retención 30 s ${pz.retencion_30s ?? '?'}% · Rentabilidad ${pz.rentabilidad ?? '?'}/100\n\nÁNGULO: ${r.angulo}\nPÚBLICO: ${r.publico}\nGANCHO (0:00): «${r.gancho}»\nPROMESA: ${r.promesa}\nDURACIÓN IDEAL: ${r.duracion_ideal}\nPUBLICAR: ${r.mejor_momento}\n\nCÓMO GANAR DINERO CON ESTE VÍDEO\n${(r.monetizacion || []).map(x => '· ' + x).join('\n')}\n\nRIESGOS\n${(r.riesgos || []).map(x => '· ' + x).join('\n')}`;
+    summary = `ACUERDO DE LA MESA DE ANÁLISIS\n${r.acuerdo}\n\nTema final: ${j.topicFinal}\nViral ${pz.viral ?? '?'}/100 · CTR estimado ${pz.ctr_estimado ?? '?'}% · Retención 30 s ${pz.retencion_30s ?? '?'}% · Rentabilidad ${pz.rentabilidad ?? '?'}/100\n\nÁNGULO: ${r.angulo}\nPÚBLICO: ${r.publico}\nGANCHO (0:00): «${r.gancho}»\nPROMESA: ${r.promesa}\nDURACIÓN IDEAL: ${r.duracion_ideal}\nPUBLICAR: ${r.mejor_momento}\n\nCÓMO GANAR DINERO CON ESTE VÍDEO\n${(r.monetizacion || []).map(x => '· ' + x).join('\n')}\n\nRIESGOS\n${(r.riesgos || []).map(x => '· ' + x).join('\n')}\n\nPRODUCTO DE LA TIENDA\n${prodLine(j)}${j.productHow ? '\nCómo: ' + j.productHow : ''}`;
   } else if (d.mode === 'eleccion') {
     j.picks = (r.ranking || []).slice(0, 5).map(x => ({ tema: x.tema, angulo: x.angulo, puntuacion: x.total, por_que: `${x.por_que} · viral ${x.viral} · rentable ${x.rentabilidad}`, formato: x.formato }));
     summary = `ACUERDO: ${r.acuerdo}\n\nRANKING (viral + rentable)\n${j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100\n   ${p.por_que}`).join('\n')}`;
@@ -1855,6 +1927,134 @@ function drawTable() {
   g.textAlign = 'left';
   tableHolo.tex.needsUpdate = true;
 }
+
+/* ============================================================
+   8c. CONEXIONES: Shopify (productos reales), Google Drive (entrega a Pixelido) y servidor propio
+   ============================================================ */
+const SHOP_DOMAIN = 'reinopeludos.com';
+const SHOP_URL = `https://${SHOP_DOMAIN}/products/`;
+const conn = { mcp: null, products: [], shopMsg: '', shopOk: false, driveMsg: '', driveOk: false, folders: null };
+const mcpPromise = hasRuntime ? window.claude.use('mcp').catch(() => null) : Promise.resolve(null);
+function mcpFix(server, e) {
+  const c = e?.code;
+  return ({
+    server_not_connected: `Añade ${server} en claude.ai → Ajustes → Conectores y vuelve a intentarlo.`,
+    needs_reauth: `La conexión con ${server} ha caducado: vuelve a conectarlo en claude.ai → Ajustes → Conectores.`,
+    approval_required: `Hace falta tu permiso para usar ${server}: pulsa el botón y acepta el aviso.`,
+    consent_required: `Hace falta tu permiso para usar ${server}: pulsa el botón y acepta el aviso.`,
+    not_in_manifest: `${server} está desactivado para esta página. Actívalo en los permisos de la página.`,
+    blocked_by_policy: `Tu organización no permite usar ${server} desde aquí.`,
+    selection_required: `Tienes varias conexiones de ${server}: elige una en el aviso de claude.ai.`,
+    server_unavailable: `${server} no responde ahora mismo. Prueba otra vez en un momento.`,
+    tool_error: `${server} ha devuelto un error: ${String(e?.message || '').slice(0, 160)}`,
+    not_granted: `Esta vista no puede usar ${server}. Abre la oficina en claude.ai.`,
+    capability_disabled: `Esta vista no puede usar ${server}. Abre la oficina en claude.ai.`,
+  })[c] || `No he podido usar ${server} (${c || 'error desconocido'}).`;
+}
+const parseProducts = payload => (payload?.data?.products?.edges || []).map(e => e.node).filter(Boolean).map(n => ({
+  title: n.title, handle: n.handle, type: n.productType || '', tags: n.tags || [], desc: (n.description || '').slice(0, 160),
+  price: n.priceRangeV2?.minVariantPrice?.amount, cur: n.priceRangeV2?.minVariantPrice?.currencyCode || 'EUR', img: n.featuredMedia?.preview?.image?.url || '',
+}));
+const SHOP_INPUT = { first: 30, search_query: 'status:active', search_summary: 'Productos activos de Reino Peludos' };
+function setProducts(list) { conn.products = list; conn.shopOk = true; conn.shopMsg = `${list.length} productos activos cargados. Sam los tiene en cuenta en cada debate.`; renderConn(); }
+async function loadProducts() {
+  const mcp = await mcpPromise;
+  if (!mcp) { conn.shopMsg = 'La tienda solo se puede consultar con la oficina abierta en claude.ai.'; return renderConn(); }
+  conn.shopMsg = 'Cargando productos…'; renderConn();
+  try { const r = await mcp.callTool('Shopify', 'search_products', SHOP_INPUT, { cache: { staleTime: 600000, gcTime: 86400000 } }); setProducts(parseProducts(r.payload)); }
+  catch (e) { conn.shopOk = false; conn.shopMsg = mcpFix('Shopify', e); renderConn(); }
+}
+mcpPromise.then(mcp => {
+  conn.mcp = mcp; renderConn();
+  if (!mcp) return;
+  // Si ya diste permiso antes, los productos se cargan solos (un watch nunca pide permiso)
+  mcp.watchTool('Shopify', 'search_products', SHOP_INPUT, ev => {
+    if (ev.type === 'data') setProducts(parseProducts(ev.result.payload));
+    else if (['needs_reauth', 'server_not_connected', 'blocked_by_policy'].includes(ev.error?.code)) { conn.products = []; conn.shopOk = false; conn.shopMsg = mcpFix('Shopify', ev.error); renderConn(); }
+  }, { cache: { staleTime: 600000, gcTime: 86400000 } });
+});
+const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+function findProduct(title) { if (!title || /^ningun/i.test(title)) return null; const t = norm(title); return conn.products.find(p => norm(p.title) === t) || conn.products.find(p => t.includes(norm(p.title)) || norm(p.title).includes(t)) || null; }
+function pickProduct(topic) {
+  if (!conn.products.length) return null;
+  const words = new Set(keywords(topic).map(norm));
+  let best = null, bestScore = 0;
+  for (const p of conn.products) { const hay = norm([p.title, p.type, ...p.tags].join(' ')); let sc = 0; words.forEach(w => { if (w.length > 3 && hay.includes(w.slice(0, -1))) sc++; }); if (sc > bestScore) { best = p; bestScore = sc; } }
+  return best;
+}
+const productsTxt = () => conn.products.length ? conn.products.map(p => `- ${p.title} (${p.type}) · desde ${p.price} ${p.cur} · ${SHOP_URL}${p.handle} · ${p.desc}`).join('\n') : '(no hay productos cargados: usa solo ideas generales de monetización)';
+const prodLine = j => j.product ? `${j.product.title} · desde ${j.product.price} ${j.product.cur} · ${SHOP_URL}${j.product.handle}` : 'ninguno';
+
+async function chooseFolder() {
+  const mcp = await mcpPromise;
+  if (!mcp) { conn.driveMsg = 'Drive solo se puede usar con la oficina abierta en claude.ai.'; return renderConn(); }
+  conn.driveMsg = 'Buscando carpetas…'; renderConn();
+  try {
+    const r = await mcp.callTool('Google Drive', 'search_files', { query: "mimeType = 'application/vnd.google-apps.folder' and title contains 'Pixelido' and trashed = false", excludeContentSnippets: true, pageSize: 10 });
+    conn.folders = (r.payload?.files || []).map(f => ({ id: f.id, title: f.title, url: f.viewUrl }));
+    conn.driveMsg = conn.folders.length ? 'Elige la carpeta que compartes con Pixelido:' : 'No hay ninguna carpeta con «Pixelido» en el nombre. Crea una en tu Drive, compártela con Pixelido y vuelve a pulsar «Elegir carpeta».';
+    conn.driveOk = true;
+  } catch (e) { conn.driveOk = false; conn.driveMsg = mcpFix('Google Drive', e); }
+  renderConn();
+}
+function packageText(job) {
+  const out = (id, t) => job.step(id)?.output?.text ? `\n\n══════ ${t} ══════\n${job.step(id).output.text}` : '';
+  return `PAQUETE PARA PIXELIDO · ${job.topicFinal || job.topic}\nPreparado por La oficina de Jager el ${today()}\nTítulo elegido: ${job.winner?.titulo || '-'}\nMiniatura elegida: ${job.winner?.miniatura || '-'}\nProducto de la tienda: ${prodLine(job)}`
+    + out('brief', 'ENCARGO PARA PIXELIDO') + out('guion', 'GUION') + out('titulos', 'TÍTULOS Y SEO') + out('pretest', 'TEST DE CTR') + out('estudio', 'ACUERDO DE LA MESA DE ANÁLISIS');
+}
+async function savePackageToDrive(job, video) {
+  if (!video || !$('#driveOn').checked || job.demo) return;
+  const mcp = await mcpPromise; if (!mcp) return;
+  const folder = store.drive?.id ? store.drive : null;
+  try {
+    const r = await mcp.callTool('Google Drive', 'create_file', { title: `Paquete Pixelido · ${video.title} · ${today()}`, textContent: packageText(job), contentMimeType: 'text/plain', ...(folder ? { parentId: folder.id } : {}) });
+    const f = r.payload || {};
+    video.driveUrl = f.viewUrl || (f.id ? `https://drive.google.com/open?id=${f.id}` : null); video.driveErr = null;
+    log(`Paco guarda el paquete en Drive${folder ? ' (' + esc(folder.title) + ')' : ''}`);
+  } catch (e) {
+    // Una escritura que falla puede haberse hecho igualmente: no se repite sola
+    video.driveErr = ['server_unavailable', 'upstream_error'].includes(e?.code) ? 'Drive no respondió a tiempo: revisa la carpeta antes de volver a guardarlo.' : 'No se pudo guardar en Drive: ' + mcpFix('Google Drive', e);
+  }
+  store.saveVideo(video);
+}
+
+// Servidor propio (solo en la versión del repositorio: claude.ai no deja llamar a otros servidores)
+const srv = { url: '', key: '', ok: false, msg: '' };
+try { const s0 = JSON.parse(localStorage.getItem('oficina-servidor') || '{}'); srv.url = s0.url || ''; srv.key = s0.key || ''; } catch (e) {}
+const serverReady = () => !hasRuntime && !!srv.url && srv.ok;
+async function srvFetch(path, body) {
+  const r = await fetch(srv.url.replace(/\/$/, '') + path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(srv.key ? { 'X-Oficina-Token': srv.key } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'El servidor respondió ' + r.status);
+  return d;
+}
+async function askServer(ai, prompt) { try { return (await srvFetch('/texto', { ia: ai, prompt })).texto || null; } catch (e) { log('Servidor: ' + esc(e.message)); return null; } }
+async function askServerImage(prompt) { const d = await srvFetch('/imagen', { prompt }); return d.base64 ? `data:${d.mime || 'image/png'};base64,${d.base64}` : null; }
+async function testServer() {
+  if (!srv.url) { srv.ok = false; srv.msg = 'Escribe la dirección del servidor.'; return renderConn(); }
+  srv.msg = 'Probando…'; renderConn();
+  try { const d = await srvFetch('/salud'); srv.ok = !!(d.gemini || d.openai); srv.msg = `Conectado · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
+  catch (e) { srv.ok = false; srv.msg = 'No responde: ' + e.message; }
+  renderConn();
+}
+
+function renderConn() {
+  const st = (el, msg, ok) => { el.textContent = msg; el.className = 'conn-state' + (ok === true ? ' ok' : ok === false && msg ? ' err' : ''); };
+  if (conn.shopMsg) st($('#shopState'), conn.shopMsg, conn.shopOk);
+  $('#shopBtn').textContent = conn.products.length ? 'Actualizar' : 'Cargar productos';
+  $('#prods').innerHTML = conn.products.slice(0, 6).map(p => `<div class="prod">${p.img ? `<img src="${esc(p.img)}" alt="">` : '<span></span>'}<span>${esc(p.title)}</span><small>${esc(p.price)} €</small></div>`).join('');
+  const d = store.drive;
+  st($('#driveState'), conn.driveMsg || (d?.id ? `Carpeta: ${d.title}` : 'Cuando apruebes un vídeo, Paco guarda el paquete completo en la carpeta que compartes con Pixelido.'), conn.driveMsg ? conn.driveOk : d?.id ? true : undefined);
+  $('#folders').innerHTML = (conn.folders || []).map(f => `<button type="button" class="btn small folder" data-folder="${esc(f.id)}" aria-pressed="${d?.id === f.id}">${esc(f.title)}</button>`).join('');
+  $('#connServer').hidden = hasRuntime;
+  if (!hasRuntime) { if (document.activeElement !== $('#srvUrl')) $('#srvUrl').value = srv.url; if (srv.msg) st($('#srvState'), srv.msg, srv.ok); }
+}
+$('#shopBtn').onclick = loadProducts;
+$('#driveBtn').onclick = chooseFolder;
+$('#folders').addEventListener('click', e => { const b = e.target.closest('[data-folder]'); if (!b) return; const f = conn.folders.find(x => x.id === b.dataset.folder); store.drive = f; conn.driveMsg = `Carpeta elegida: ${f.title}. Los próximos paquetes aprobados se guardarán ahí.`; conn.driveOk = true; store.saveDrive(); });
+$('#srvSave').onclick = () => { srv.url = $('#srvUrl').value.trim(); if ($('#srvKey').value) srv.key = $('#srvKey').value; try { localStorage.setItem('oficina-servidor', JSON.stringify({ url: srv.url, key: srv.key })); } catch (e) {} $('#srvKey').value = ''; testServer(); };
+$('#srvTest').onclick = testServer;
+if (!hasRuntime && srv.url) testServer();
 
 /* ============================================================
    9. MOTOR DE TAREAS
@@ -1930,20 +2130,23 @@ function enqueue(job, step) { if (step.debate) return startDebate(job, step); st
 
 function thumbsOutput(job, via, subFor) {
   const cs = job.concepts && job.concepts.length === 3 ? job.concepts : null;
-  return { kind: 'thumbs', via, subFor, images: [0, 1, 2].map(v => thumb(cs ? cs[v].texto : job.topicFinal || job.topic, v, !!cs)),
+  const real = job.realThumbs?.filter(Boolean).length === 3;
+  if (real) { via = 'gemini'; subFor = null; }
+  return { kind: 'thumbs', via, subFor, realImages: real, images: [0, 1, 2].map(v => real ? job.realThumbs[v] : thumb(cs ? cs[v].texto : job.topicFinal || job.topic, v, !!cs)),
     notes: cs ? cs.map((c, i) => `${'ABC'[i]} · ${c.escena} · emoción: ${c.emocion}`) : ['A · cara de sorpresa + texto grande', 'B · contraste frío, texto a la derecha', 'C · morado llamativo, boca abierta'] };
 }
 function buildOutput(step, job, agent) {
   const spec = SPECS[step.id];
   const data = step.realData;
-  const subFor = agent.def.ai !== 'claude' ? AI[agent.def.ai].name : null;
+  const via = step.realVia || 'claude';
+  const subFor = via === 'claude' && agent.def.ai !== 'claude' ? AI[agent.def.ai].name : null;
   if (data && spec) {
     if (spec.json && typeof data === 'object') {
       const text = spec.format ? spec.format(data, job) : J(data);
-      if (step.id === 'miniaturas') return thumbsOutput(job, 'claude', subFor);
-      return { kind: 'text', text, via: 'claude', subFor };
+      if (step.id === 'miniaturas') return thumbsOutput(job, via, subFor);
+      return { kind: 'text', text, via, subFor };
     }
-    if (!spec.json) return { kind: 'text', text: String(data).trim().replace(/^```\w*\n?|```$/g, ''), via: 'claude', subFor };
+    if (!spec.json) return { kind: 'text', text: String(data).trim().replace(/^```\w*\n?|```$/g, ''), via, subFor };
   }
   const fb = spec.fallback(job);
   if (step.id === 'miniaturas') return thumbsOutput(job, 'ejemplo');
@@ -2035,7 +2238,9 @@ function approve(job) {
         id: 'v' + Date.now().toString(36), topic: job.topicFinal || job.topic, title: job.winner?.titulo || job.topicFinal || job.topic,
         thumb: job.winner?.miniatura || 'A', thumbIdea: job.concepts?.[ci]?.escena || '', predCtr: job.winner?.ctr_estimado ? +job.winner.ctr_estimado : null,
         viral: job.viral || null, guion: (job.step('guion').output?.text || '').slice(0, 3000), createdAt: Date.now(), metrics: null, analysis: null, demo: job.demo,
+        product: job.product ? { title: job.product.title, url: SHOP_URL + job.product.handle } : null,
       });
+      savePackageToDrive(job, store.videos[store.videos.length - 1]);
       directorSay(`Hecho. Pixelido ya tiene el paquete de «${job.short}». Cuando esté publicado, pásame sus métricas y lo analizamos.`);
       crew.forEach(a => { if (!a.busy()) a.celebrate = 2.5; }); markDirty();
     } });
@@ -2097,7 +2302,7 @@ function thumb(text, variant, exact) {
    ============================================================ */
 let dirty = true;
 const markDirty = () => dirty = true;
-const viaLabel = o => o.via === 'claude' ? (o.subFor ? `con Claude (sustituye a ${o.subFor})` : 'con Claude') : o.via === 'reglas' ? 'análisis por reglas con tus números' : 'resultado de ejemplo';
+const viaLabel = o => o.via === 'claude' ? (o.subFor ? `con Claude (sustituye a ${o.subFor})` : 'con Claude') : o.via === 'gemini' ? 'con Gemini' : o.via === 'chatgpt' ? 'con ChatGPT' : o.via === 'reglas' ? 'análisis por reglas con tus números' : 'resultado de ejemplo';
 const stepOwner = (s, j) => s.debate ? 'Lía · Rui · Sam' : agents[s.worker]?.def.name || (j.type === 'analisis' ? 'Jager' : 'Tú');
 
 function renderJobs() {
@@ -2149,7 +2354,7 @@ function renderChannel() {
     const m = v.metrics;
     return `<article class="video"><div class="video-head"><div class="job-title">${esc(v.title || v.topic)}${v.demo ? ' <small>(demo)</small>' : ''}</div></div>
       <div class="video-meta">${v.predCtr ? `<span class="pill">CTR previsto ${esc(v.predCtr)}%</span>` : ''}${m ? `<span class="pill ${grade(m.ctr, TARGETS.ctr)}">CTR ${esc(m.ctr)}%</span><span class="pill ${grade(m.r30, TARGETS.r30, 0.85)}">30 s ${esc(m.r30)}%</span><span class="pill ${grade(m.pct, TARGETS.pct, 0.75)}">visto ${esc(m.pct)}%</span><span class="pill">${Number(m.vistas).toLocaleString('es-ES')} vistas</span>` : '<span>En Pixelido o publicado · faltan métricas</span>'}</div>
-      <div class="order-row"><button type="button" class="btn small lab" data-metrics="${v.id}">${m ? 'Actualizar métricas' : 'Añadir métricas'}</button>${v.analysis ? `<button type="button" class="btn small" data-analysis="${v.id}">Ver análisis</button>` : ''}</div></article>`;
+      <div class="order-row"><button type="button" class="btn small lab" data-metrics="${v.id}">${m ? 'Actualizar métricas' : 'Añadir métricas'}</button>${v.analysis ? `<button type="button" class="btn small" data-analysis="${v.id}">Ver análisis</button>` : ''}${v.driveUrl ? `<a href="${esc(v.driveUrl)}" target="_blank" rel="noopener">Paquete en Drive</a>` : ''}</div>${v.driveErr ? `<span class="note">${esc(v.driveErr)}</span>` : ''}${v.product ? `<span class="note">Producto: <a href="${esc(v.product.url)}" target="_blank" rel="noopener">${esc(v.product.title)}</a></span>` : ''}</article>`;
   }).join('') : '<div class="empty">Cuando apruebes un vídeo y Paco lo entregue a Pixelido, aparecerá aquí. Después añade sus métricas de YouTube Studio y el equipo de Análisis las estudiará.</div>';
   $('#lessonCount').textContent = store.lecciones.length ? `${store.lecciones.length} lecciones` : '';
   if (document.activeElement !== $('#nicheInput')) $('#nicheInput').value = store.nicho;
@@ -2210,12 +2415,12 @@ function openOutput(jobId, stepId) {
   const by = agents[s.worker];
   if (s.output.kind === 'debate') {
     const o = s.output;
-    const body = openModal(`${s.label} · ${j.topicFinal || j.topic}`, `Lía (Gemini), Rui (ChatGPT) y Sam (Claude) · ${o.via === 'claude' ? 'debate real con Claude haciendo de cada IA hasta conectar Gemini y ChatGPT' : 'debate de ejemplo'}`, o.via === 'claude');
+    const body = openModal(`${s.label} · ${j.topicFinal || j.topic}`, `Lía (Gemini), Rui (ChatGPT) y Sam (Claude) · ${o.via === 'real' ? 'debate real' : 'debate de ejemplo'}`, o.via === 'claude');
     let lastRound = 0;
     body.innerHTML = `<div class="chat">${o.transcript.map(m => {
       const head = m.round !== lastRound ? `<div class="round">${m.round === 3 ? 'Acuerdo' : 'Ronda ' + m.round + (m.round === 1 ? ' · propuestas' : ' · réplicas')}</div>` : '';
       lastRound = m.round; const ag = agents[m.who];
-      return `${head}<div class="msg ${m.acuerdo ? 'acuerdo' : m.who}"><header><b>${esc(ag.def.name)}</b><small>${esc(ag.def.role)} · ${AI[ag.def.ai].name}</small></header>${esc(m.text)}</div>`;
+      return `${head}<div class="msg ${m.acuerdo ? 'acuerdo' : m.who}"><header><b>${esc(ag.def.name)}</b><small>${esc(ag.def.role)} · ${AI[ag.def.ai].name}${m.via && m.via !== 'ejemplo' && m.via !== ag.def.ai ? ' (piensa con ' + AI[m.via].name + ')' : ''}</small></header>${esc(m.text)}</div>`;
     }).join('')}${o.votos ? `<div class="round">Votación</div><div class="msg acuerdo">${esc(VOTE_TXT(o.votos))}</div>` : ''}</div>
     <div class="round" style="margin-top:14px">Resultado completo</div><pre></pre>`;
     body.querySelector('pre').textContent = o.text.split('\n\nDEBATE\n')[0];
@@ -2224,7 +2429,7 @@ function openOutput(jobId, stepId) {
   const body = openModal(`${s.label} · ${j.topicFinal || j.topic}`, `Hecho por ${by.def.name} (${by.def.role}) · ${viaLabel(s.output)}`, s.output.via === 'claude');
   if (s.output.kind === 'thumbs') {
     body.innerHTML = `<div class="thumbs">${s.output.images.map((src, i) => `<figure><img src="${src}" alt="Boceto de miniatura ${'ABC'[i]}"><figcaption>${esc(s.output.notes[i])}</figcaption></figure>`).join('')}</div>
-      <p class="note" style="margin-top:10px">Son bocetos con el texto y la idea de cada miniatura. Cuando conectemos Gemini, Gema generará aquí las imágenes reales.</p>`;
+      <p class="note" style="margin-top:10px">${s.output.realImages ? 'Imágenes generadas con Gemini.' : 'Son bocetos con el texto y la idea de cada miniatura. Con el servidor de Gemini activado, Gema genera aquí las imágenes reales.'}</p>`;
   } else { body.innerHTML = '<pre></pre>'; body.querySelector('pre').textContent = s.output.text; }
 }
 function openAnalysis(id) {
@@ -2499,7 +2704,7 @@ function loop() {
 
 drawNameTag(jagerTag, 'Jager', 'claude');
 document.fonts?.ready.then(() => { tableDirty = true; for (const id in agents) agents[id].redraw(); drawNameTag(jagerTag, 'Jager', 'claude'); signs.forEach(s => s.userData.redraw?.()); drawWalls(); });
-renderJobs(); renderTeam(); renderChannel();
+renderJobs(); renderTeam(); renderChannel(); renderConn();
 if (isTall()) { const v = VIEWS_TALL.general; camera.position.copy(v.pos); controls.target.copy(v.target); }
 log('La oficina de Jager abre sus puertas. El equipo está en su sitio.');
 store.init();

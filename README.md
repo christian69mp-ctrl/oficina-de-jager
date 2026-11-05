@@ -38,3 +38,11 @@ El ventilador no admite HDMI, así que no puede mostrar a Jager en directo. En *
 1. Servidor pequeño (Node) que guarde las claves de API y llame a Claude, Gemini y ChatGPT.
 2. Cambiar los resultados de ejemplo de `GEN` por llamadas reales.
 3. Guardar encargos y resultados para no perderlos al cerrar.
+
+## Conexiones
+
+- **Shopify**: Sam y la mesa de análisis eligen productos reales de la tienda para cada vídeo, y el guion y el paquete para Pixelido los incluyen con su enlace.
+- **Google Drive**: al aprobar un vídeo, Paco guarda el paquete completo (encargo, guion, títulos, test de CTR y acuerdo de la mesa) en la carpeta que compartes con Pixelido.
+- **Servidor propio** (carpeta `servidor/`): con tus claves, Lía y Gema usan Gemini (con miniaturas reales) y Rui, Tito y Max usan ChatGPT. Ver `servidor/README.md`.
+
+Shopify y Drive funcionan en la versión publicada en claude.ai. El servidor propio solo funciona en la versión del repositorio abierta en tu ordenador.
