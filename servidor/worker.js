@@ -135,11 +135,17 @@ async function oir(env, req) {
   if (audio.byteLength > 10_000_000) throw new Error('El audio es demasiado largo');
   const type = (req.headers.get('Content-Type') || 'audio/webm').split(';')[0];
   const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : type.includes('wav') ? 'wav' : 'webm';
-  const fd = new FormData();
-  fd.append('model_id', env.ELEVENLABS_STT_MODEL || 'scribe_v1');
-  fd.append('language_code', 'es');
-  fd.append('file', new Blob([audio], { type }), 'voz.' + ext);
-  const r = await fetch('https://api.elevenlabs.io/v1/speech-to-text', { method: 'POST', headers: { 'xi-api-key': env.ELEVENLABS_API_KEY }, body: fd });
+  const send = conClaves => {
+    const fd = new FormData();
+    fd.append('model_id', env.ELEVENLABS_STT_MODEL || 'scribe_v1');
+    fd.append('language_code', 'es');
+    // Palabras que debe reconocer bien: su nombre y el saludo del jefe
+    if (conClaves) for (const k of ['Nyx', 'Qué pasa Nyx', 'Jager', 'Pixelido']) fd.append('keyterms', k);
+    fd.append('file', new Blob([audio], { type }), 'voz.' + ext);
+    return fetch('https://api.elevenlabs.io/v1/speech-to-text', { method: 'POST', headers: { 'xi-api-key': env.ELEVENLABS_API_KEY }, body: fd });
+  };
+  let r = await send(true);
+  if (r.status === 400 || r.status === 422) r = await send(false); // si el modelo no admite palabras clave, sin ellas
   const d = await r.json().catch(() => ({}));
   if (!r.ok) {
     const msg = typeof d.detail === 'string' ? d.detail : d.detail?.message || d.detail?.status || String(r.status);

@@ -1759,7 +1759,25 @@ Di en voz alta lo que dirías tú ahora, en 1 o 2 frases. Incluye los datos impo
   return nyxQueue;
 }
 
+// Jager siempre empieza con «¿Qué pasa, Nyx?». El dictado a veces escribe su nombre mal (Nix, Nick, Niks…):
+// lo reconocemos, lo dejamos bien escrito y lo separamos del encargo para que no se mezcle con el tema.
+const NYX_ALIAS = '(?:nyx|nyxx|nix|nixx|nics|nicks|niks|nyks|nyc|nick|nik|nike|nikes|nis|niz|nex|next|mix|lynx|linx|onyx|ni\\s?x|en\\s?ix)';
+const GREET_RE = new RegExp('^\\s*[¿¡]?\\s*(?:(?:hola|oye|eh|ey|buenas)[\\s,]+)?(?:qu[eé]|k|ke|q)\\s+pas(?:a|ó|o)?[\\s,.?!¿¡]*' + NYX_ALIAS + '(?![a-záéíóúñ])[\\s,.;:!?¿¡]*', 'i');
+const NAME_RE = new RegExp('(^|[\\s,¿¡])(?:nix|nixx|nics|nicks|niks|nyks|nyxx)(?![a-záéíóúñ])', 'gi');
+function splitGreeting(text) {
+  const t = String(text || '').trim(); const m = t.match(GREET_RE);
+  let resto = (m ? t.slice(m[0].length) : t).replace(NAME_RE, '$1Nyx').trim();
+  if (resto) resto = resto.charAt(0).toUpperCase() + resto.slice(1);
+  if (m && /\?$/.test(resto) && !resto.includes('¿')) resto = '¿' + resto;
+  return { saludo: !!m, resto };
+}
+// Texto tal como se muestra: con el saludo bien escrito
+function fixNyx(text) { const g = splitGreeting(text); return g.saludo ? ('¿Qué pasa, Nyx?' + (g.resto ? ' ' + g.resto : '')) : g.resto; }
+
 async function interpret(text) {
+  const g = splitGreeting(text);
+  if (g.saludo) text = '¿Qué pasa, Nyx?' + (g.resto ? ' ' + g.resto : '');
+  const plain = g.resto || text;
   const st = channelStats();
   const enCurso = jobs.slice(0, 6).map(j => `#${j.id} ${j.type} «${j.topic}»: ${STATUS_TXT[j.status]}`).join('\n') || 'ninguno';
   const r = await askClaude(`${NYX_PERSONA} Primero respondes lo que te pide.
@@ -1776,7 +1794,9 @@ ${enCurso}
 Conversación reciente:
 ${chatTxt()}
 
-Clasifica el mensaje del jefe:
+Cómo te habla el jefe: siempre empieza con «¿Qué pasa, Nyx?». Es su forma de llamarte a ti: no es una pregunta sobre qué ocurre ni forma parte del encargo o del tema. Si solo dice eso, te está saludando para hablar contigo: salúdale con tu estilo (cada vez distinto) y pregúntale qué necesita. Si después pide algo, eso es lo que tienes que entender. El mensaje viene de un dictado por voz: si aparece «Nix», «Nick», «Niks» o parecido, se refiere a ti, Nyx.
+
+Clasifica el mensaje del jefe (lo que va después del saludo):
 - "video": encargo de un vídeo concreto de YouTube
 - "tendencias": pide buscar temas, ideas o qué puede ser viral
 - "proyecto": programación, app, web, la web Ruleta Caliente u otro proyecto técnico
@@ -1785,8 +1805,9 @@ Clasifica el mensaje del jefe:
 Devuelve SOLO JSON: {"tipo":"video|tendencias|proyecto|charla","tema":"tema del encargo, corto y claro; vacío si es charla","respuesta":"lo que dices en voz alta: si es charla, la respuesta de verdad a lo que pregunta (máximo 4 frases); si hay encargo, máximo 2 frases y di a quién se lo repartes"}
 
 Mensaje del jefe: «${text}»`, { json: true, tier: 'quick' });
-  if (r && ['video', 'proyecto', 'charla', 'tendencias'].includes(r.tipo)) return { tipo: r.tipo, tema: (r.tema || '').trim() || cleanTopic(text), respuesta: r.respuesta };
-  return { tipo: classify(text), tema: cleanTopic(text), respuesta: null };
+  if (r && ['video', 'proyecto', 'charla', 'tendencias'].includes(r.tipo)) return { tipo: r.tipo, tema: (r.tema || '').trim() || cleanTopic(plain), respuesta: r.respuesta };
+  if (g.saludo && !g.resto) return { tipo: 'charla', tema: '', respuesta: 'Aquí estoy, jefe. ¿Qué necesitas?' };
+  return { tipo: classify(plain), tema: cleanTopic(plain), respuesta: null };
 }
 
 // Cómo trabaja cada puesto: instrucciones para la IA, forma del resultado y respaldo sin IA
@@ -2368,13 +2389,13 @@ function classify(text) {
 }
 function cleanTopic(text) {
   let t = text.trim().replace(/^(v[ií]deo|proyecto|idea)\s*[:\-–]\s*/i, '');
-  t = t.replace(/^(prepara|haz|hazme|crea|monta|programa)\s+(un|una)?\s*(v[ií]deo|proyecto)?\s*(sobre|de|para)?\s*/i, '');
+  t = t.replace(/^(prep[aá]rame|prepara|haz|hazme|cr[eé]ame|crea|m[oó]ntame|monta|programa|progr[aá]mame|quiero)\s+(un|una)?\s*(v[ií]deo|proyecto)?\s*(sobre|de|para)?\s*/i, '');
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 let thinking = false;
 async function handleMessage(text) {
-  text = text.trim(); if (!text || thinking) return;
+  text = fixNyx(text.trim()); if (!text || thinking) return;
   thinking = true;
   director.mode = 'escucha'; director.modeT = 99; director.say = 'Pensando…'; setFan('escucha', true);
   $('#sayWho').textContent = 'Nyx'; $('#sayText').textContent = 'Pensando…'; $('#say').classList.remove('quiet');
@@ -2843,7 +2864,7 @@ async function listenServer() {
       if (!r.ok) throw new Error(d.error || 'el servidor respondió ' + r.status);
       const txt = (d.texto || '').trim();
       if (!txt) { directorSay(MIC_ERR['no-speech']); return; }
-      $('#sayWho').textContent = 'Tú'; $('#sayText').textContent = txt; $('#fanSub').textContent = txt;
+      $('#sayWho').textContent = 'Tú'; $('#sayText').textContent = fixNyx(txt); $('#fanSub').textContent = fixNyx(txt);
       handleMessage(txt);
     } catch (e) { log('Micrófono: ' + esc(e.message)); directorSay('No he podido entenderte: ' + e.message); }
   };
@@ -2877,7 +2898,7 @@ $$('.mic').forEach(mic => {
       r.onresult = ev => {
         let txt = ''; final = '';
         for (let i = 0; i < ev.results.length; i++) { txt += ev.results[i][0].transcript; if (ev.results[i].isFinal) final += ev.results[i][0].transcript; }
-        heard = txt; $('#sayWho').textContent = 'Tú'; $('#sayText').textContent = txt; $('#fanSub').textContent = txt;
+        heard = txt; $('#sayWho').textContent = 'Tú'; $('#sayText').textContent = fixNyx(txt); $('#fanSub').textContent = fixNyx(txt);
       };
       r.onerror = ev => { failed = true; if (ev.error !== 'aborted') directorSay(MIC_ERR[ev.error] || 'No puedo usar el micrófono ahora mismo (' + ev.error + '). Escríbeme lo que necesites.'); };
       r.onend = () => {
