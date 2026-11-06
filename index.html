@@ -2778,16 +2778,46 @@ $('#orderText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.m
 $('#fanTalk').addEventListener('submit', e => { e.preventDefault(); const t = $('#fanText'); if (t.value.trim()) { handleMessage(t.value); t.value = ''; } });
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SR) $$('.mic').forEach(mic => {
+// Micrófono: pulsas, hablas y Nyx te contesta. Mientras hablas se ve lo que va entendiendo.
+const MIC_ERR = {
+  'not-allowed': 'El navegador no me deja usar el micrófono. Pulsa el candado de la barra de direcciones, pon Micrófono en «Permitir» y recarga la página.',
+  'service-not-allowed': 'El navegador no me deja usar el micrófono. Pulsa el candado de la barra de direcciones, pon Micrófono en «Permitir» y recarga la página.',
+  'audio-capture': 'No encuentro ningún micrófono. Comprueba que está conectado y elegido en Windows (Configuración, Sonido, Entrada).',
+  'network': 'El reconocimiento de voz necesita internet y este navegador no lo permite. Usa Google Chrome o Microsoft Edge.',
+  'no-speech': 'No te he oído, jefe. Pulsa el micrófono y habla un poco más cerca.',
+  'language-not-supported': 'Este navegador no entiende español por voz. Usa Google Chrome o Microsoft Edge.',
+};
+let micRec = null;
+function micState(on) { $$('.mic').forEach(b => { b.classList.toggle('primary', on); b.setAttribute('aria-pressed', on); }); }
+$$('.mic').forEach(mic => {
   mic.hidden = false;
   mic.onclick = () => {
+    if (!SR) { directorSay('Este navegador no tiene reconocimiento de voz. Ábreme en Google Chrome o Microsoft Edge y podrás hablarme.'); return; }
+    if (micRec) { micRec.stop(); return; }   // segunda pulsación: dejar de escuchar
+    if (thinking) return;
+    // Nyx se calla para no oírse a sí misma
+    try { speechSynthesis.cancel(); } catch (e) {}
+    if (voiceAudio) { voiceAudio.pause(); voiceAudio.onended?.(); }
     try {
-      const r = new SR(); r.lang = 'es-ES'; r.interimResults = false;
-      setFan('escucha', true); director.mode = 'escucha'; director.modeT = 8; $('#sayText').textContent = 'Te escucho, jefe…';
-      r.onresult = ev => handleMessage(ev.results[0][0].transcript);
-      r.onerror = () => directorSay('No puedo usar el micrófono aquí. Escríbeme lo que necesites.');
+      const r = new SR(); micRec = r; r.lang = 'es-ES'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
+      let final = '', heard = '', failed = false;
+      setFan('escucha', true); director.mode = 'escucha'; director.modeT = 99; director.speaking = false;
+      $('#sayWho').textContent = 'Nyx'; $('#sayText').textContent = 'Te escucho, jefe…'; $('#say').classList.remove('quiet'); $('#fanSub').textContent = 'Te escucho, jefe…';
+      micState(true);
+      r.onresult = ev => {
+        let txt = ''; final = '';
+        for (let i = 0; i < ev.results.length; i++) { txt += ev.results[i][0].transcript; if (ev.results[i].isFinal) final += ev.results[i][0].transcript; }
+        heard = txt; $('#sayWho').textContent = 'Tú'; $('#sayText').textContent = txt; $('#fanSub').textContent = txt;
+      };
+      r.onerror = ev => { failed = true; if (ev.error !== 'aborted') directorSay(MIC_ERR[ev.error] || 'No puedo usar el micrófono ahora mismo (' + ev.error + '). Escríbeme lo que necesites.'); };
+      r.onend = () => {
+        micRec = null; micState(false);
+        const said = (final || heard).trim();
+        if (said) handleMessage(said);
+        else if (!failed) directorSay(MIC_ERR['no-speech']);
+      };
       r.start();
-    } catch (err) { directorSay('No puedo usar el micrófono aquí. Escríbeme lo que necesites.'); }
+    } catch (err) { micRec = null; micState(false); directorSay('No puedo usar el micrófono aquí. Escríbeme lo que necesites.'); }
   };
 });
 
