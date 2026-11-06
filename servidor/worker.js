@@ -1,4 +1,4 @@
-// Servidor de La oficina de Jager: llama a Gemini y a ChatGPT con tus claves.
+// Servidor de La oficina de Jager: llama a Gemini, a ChatGPT y a la voz realista (ElevenLabs u OpenAI) con tus claves.
 // Se publica gratis en Cloudflare Workers (ver servidor/README.md).
 // Las claves nunca llegan al navegador: se guardan como secretos del Worker.
 
@@ -16,7 +16,7 @@ export default {
     if (env.OFICINA_TOKEN && req.headers.get('X-Oficina-Token') !== env.OFICINA_TOKEN) return json({ error: 'Clave de la oficina incorrecta' }, 401);
 
     const path = new URL(req.url).pathname;
-    if (path === '/salud') return json({ ok: true, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY });
+    if (path === '/salud') return json({ ok: true, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null });
     if (req.method !== 'POST') return json({ error: 'Usa POST' }, 405);
 
     const body = await req.json().catch(() => ({}));
@@ -30,6 +30,7 @@ export default {
         return json({ error: 'IA desconocida: usa gemini o chatgpt' }, 400);
       }
       if (path === '/imagen') return json(await geminiImage(env, body.prompt));
+      if (path === '/voz') { if (body.prompt.length > 1500) return json({ error: 'Texto demasiado largo para la voz' }, 413); return await voz(env, body.prompt, body.quien, cors); }
       return json({ error: 'Ruta desconocida' }, 404);
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
@@ -76,4 +77,37 @@ async function chatgpt(env, prompt) {
   const d = await r.json();
   if (!r.ok) throw new Error('ChatGPT: ' + (d.error?.message || r.status));
   return (d.choices?.[0]?.message?.content || '').trim();
+}
+
+// ---------- Voz realista ----------
+// Cada personaje tiene su voz. Con ElevenLabs, pon el ID de cada voz en los secretos
+// ELEVENLABS_VOICE_NYX, ELEVENLABS_VOICE_LIA, ELEVENLABS_VOICE_RUI y ELEVENLABS_VOICE_SAM
+// (si falta alguna, usa la de Nyx). Sin ElevenLabs, usa las voces de OpenAI con su personalidad.
+const OPENAI_VOCES = {
+  nyx: { voice: 'nova', instructions: 'Eres Nyx, una IA hacker que dirige una oficina. Habla en español de España, segura, rápida y con un punto de ironía, tono cálido pero con autoridad.' },
+  lia: { voice: 'coral', instructions: 'Eres Lía, analista de tendencias. Español de España, entusiasta, enérgica y curiosa.' },
+  rui: { voice: 'ash', instructions: 'Eres Rui, analista de CTR. Español de España, directo, práctico y algo bromista.' },
+  sam: { voice: 'sage', instructions: 'Eres Sam, analista de retención y rentabilidad. Español de España, calmado, reflexivo y convincente.' },
+};
+async function voz(env, text, quien = 'nyx', cors) {
+  quien = OPENAI_VOCES[quien] ? quien : 'nyx';
+  let r;
+  if (env.ELEVENLABS_API_KEY) {
+    const id = env['ELEVENLABS_VOICE_' + quien.toUpperCase()] || env.ELEVENLABS_VOICE_NYX;
+    if (!id) throw new Error('Falta ELEVENLABS_VOICE_NYX con el ID de la voz de Nyx');
+    r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(id)}?output_format=mp3_44100_128`, {
+      method: 'POST',
+      headers: { 'xi-api-key': env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      body: JSON.stringify({ text, model_id: env.ELEVENLABS_MODEL || 'eleven_multilingual_v2', voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.45, use_speaker_boost: true } }),
+    });
+  } else if (env.OPENAI_API_KEY) {
+    const v = OPENAI_VOCES[quien];
+    r = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.OPENAI_API_KEY}` },
+      body: JSON.stringify({ model: env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts', voice: v.voice, input: text, instructions: v.instructions, response_format: 'mp3' }),
+    });
+  } else throw new Error('No hay clave de voz: añade ELEVENLABS_API_KEY u OPENAI_API_KEY');
+  if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error('Voz: ' + (t.slice(0, 200) || r.status)); }
+  return new Response(r.body, { headers: { ...cors, 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' } });
 }

@@ -358,6 +358,7 @@ button.step { font: inherit; font-size: 11.5px; }
         <b>Voz de Nyx</b>
         <div class="field-row"><select id="voiceSel" aria-label="Voz de Nyx"></select><button type="button" class="btn small primary" id="voiceTest">Escuchar a Nyx</button></div>
         <div class="field-row"><label class="toggle" for="voicePitch">Tono</label><input type="range" id="voicePitch" min="0.7" max="1.5" step="0.05" value="1.08"><label class="toggle" for="voiceRate">Velocidad</label><input type="range" id="voiceRate" min="0.8" max="1.3" step="0.02" value="1.04"></div>
+        <label class="toggle" id="voiceSrvRow" hidden><input type="checkbox" id="voiceSrv" checked> Usar la voz realista del servidor</label>
         <p class="note" id="voiceNote">Son las voces en español de este dispositivo: en otro ordenador o móvil pueden ser distintas.</p>
       </div>
       <label class="toggle"><input type="checkbox" id="hqOn"> Calidad alta (brillos y reflejos)</label>
@@ -1376,7 +1377,7 @@ function drawFace(ctx, m, dx, dy, dw, dh, t, talking, glow) {
   if (!face) return;
   const [mw, mh] = mediaSize(m); const F = face.mouth;
   if (talking) {
-    const open = mouthOpen(t) * 0.03 * dh;
+    const open = (voiceLevel >= 0 ? voiceLevel : mouthOpen(t)) * 0.03 * dh;
     if (open > 0.6) {
       const cx = dx + F.x * dw, ly = dy + F.y * dh, w = F.w * dw, h = F.h * dh;
       ctx.save(); ctx.fillStyle = '#1b0c10'; ctx.beginPath(); ctx.ellipse(cx, ly + open * 0.45, w * 0.34, open * 0.62, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
@@ -1468,6 +1469,11 @@ function directorSay(text, mode = 'habla', secs) {
   $('#fanSub').textContent = text;
   clearTimeout(director._q); director._q = setTimeout(() => $('#say').classList.add('quiet'), 12000);
   if (mode === 'habla') setFan('habla', true);
+  if ($('#voiceOn').checked && serverVoice()) speakServer(text, 'nyx').catch(() => browserSpeak(text));
+  else browserSpeak(text);
+  markDirty();
+}
+function browserSpeak(text) {
   if ($('#voiceOn').checked && 'speechSynthesis' in window) {
     try {
       speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES'; u.rate = +$('#voiceRate').value || 1.04; u.pitch = +$('#voicePitch').value || 1.08;
@@ -1480,6 +1486,7 @@ function directorSay(text, mode = 'habla', secs) {
       speechSynthesis.speak(u);
     } catch (e) {}
   }
+  return;
   markDirty();
 }
 
@@ -1806,7 +1813,7 @@ function rulePlan(v) {
 // Quién piensa de verdad: su propia IA (si hay servidor), Claude como sustituto o nadie (ejemplo)
 function routeFor(aiKey, demo) {
   if (demo) return null;
-  if (aiKey !== 'claude' && serverReady()) return aiKey;
+  if (aiKey !== 'claude' && serverReady() && srv.caps[aiKey === 'gemini' ? 'gemini' : 'openai']) return aiKey;
   if (brainState === 'lista' && (aiKey === 'claude' || $('#subOn').checked)) return 'claude';
   return null;
 }
@@ -1934,6 +1941,7 @@ Devuelve SOLO JSON: ${SCHEMA[d.mode]}`, { json: true });
 }
 const VOTE_TXT = v => !v ? '' : `Votos: ${MEMBERS.map(id => `${NAME(id)} ${v[id] || 'a favor'}`).join(' · ')}`;
 function speakAs(id, text) {
+  if ($('#voiceOn').checked && serverVoice()) { speakServer(text, id).catch(() => {}); return; }
   if (!$('#voiceOn').checked || !('speechSynthesis' in window)) return;
   try {
     const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES';
@@ -2090,9 +2098,45 @@ async function savePackageToDrive(job, video) {
 }
 
 // Servidor propio (solo en la versión del repositorio: claude.ai no deja llamar a otros servidores)
-const srv = { url: '', key: '', ok: false, msg: '' };
+const srv = { url: '', key: '', ok: false, msg: '', caps: {} };
 try { const s0 = JSON.parse(localStorage.getItem('oficina-servidor') || '{}'); srv.url = s0.url || ''; srv.key = s0.key || ''; } catch (e) {}
 const serverReady = () => !hasRuntime && !!srv.url && srv.ok;
+const serverVoice = () => serverReady() && !!srv.caps.voz && $('#voiceSrv').checked;
+let voiceAudio = null, voiceLevel = -1, audioCtx = null, analyser = null, levelBuf = null, voiceSeq = 0;
+async function speakServer(text, who) {
+  const seq = ++voiceSeq;
+  const r = await fetch(srv.url.replace(/\/$/, '') + '/voz', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(srv.key ? { 'X-Oficina-Token': srv.key } : {}) }, body: JSON.stringify({ prompt: text, quien: who }) });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); log('Voz: ' + esc(d.error || r.status)); throw new Error('voz'); }
+  const url = URL.createObjectURL(await r.blob());
+  if (seq !== voiceSeq) return; // ya ha empezado a hablar otra persona
+  if (voiceAudio) { voiceAudio.pause(); voiceAudio = null; }
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  const a = new Audio(url); voiceAudio = a; a.dataset.who = who;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    const src = audioCtx.createMediaElementSource(a); analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
+    levelBuf = new Uint8Array(analyser.fftSize); src.connect(analyser); analyser.connect(audioCtx.destination);
+  } catch (e) { analyser = null; }
+  a.onended = () => { URL.revokeObjectURL(url); if (voiceAudio === a) { voiceAudio = null; voiceLevel = -1; } if (who === 'nyx') { director.speaking = false; if (director.mode === 'habla') director.modeT = 0; } };
+  a.onerror = a.onended;
+  if (who === 'nyx') director.speaking = true;
+  try { await a.play(); }
+  catch (e) { a.onended(); throw e; }
+}
+// Volumen de la voz de Nyx en cada fotograma (0-1): mueve la boca de verdad
+function updateVoiceLevel() {
+  if (!voiceAudio || voiceAudio.paused || voiceAudio.dataset.who !== 'nyx' || !analyser) { if (!voiceAudio || voiceAudio.dataset.who !== 'nyx') voiceLevel = -1; return; }
+  analyser.getByteTimeDomainData(levelBuf);
+  let sum = 0; for (let i = 0; i < levelBuf.length; i++) { const v = (levelBuf[i] - 128) / 128; sum += v * v; }
+  const target = Math.min(1, Math.sqrt(sum / levelBuf.length) * 5);
+  voiceLevel = voiceLevel < 0 ? target : voiceLevel + (target - voiceLevel) * 0.5;
+}
+function updateVoiceNote() {
+  if (hasRuntime) return;
+  $('#voiceSrvRow').hidden = !srv.caps.voz;
+  if (srv.caps.voz) $('#voiceNote').textContent = `Voz realista activada con ${srv.caps.voz === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI'}: Nyx, Lía, Rui y Sam tienen cada uno su voz. Si la desmarcas, se usan las voces del dispositivo.`;
+}
 async function srvFetch(path, body) {
   const r = await fetch(srv.url.replace(/\/$/, '') + path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(srv.key ? { 'X-Oficina-Token': srv.key } : {}) }, body: body ? JSON.stringify(body) : undefined });
   const d = await r.json().catch(() => ({}));
@@ -2104,7 +2148,7 @@ async function askServerImage(prompt) { const d = await srvFetch('/imagen', { pr
 async function testServer() {
   if (!srv.url) { srv.ok = false; srv.msg = 'Escribe la dirección del servidor.'; return renderConn(); }
   srv.msg = 'Probando…'; renderConn();
-  try { const d = await srvFetch('/salud'); srv.ok = !!(d.gemini || d.openai); srv.msg = `Conectado · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
+  try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz); updateVoiceNote(); srv.msg = `Conectado · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
   catch (e) { srv.ok = false; srv.msg = 'No responde: ' + e.message; }
   renderConn();
 }
@@ -2747,13 +2791,14 @@ const clock = new THREE.Clock(); let t = 0, uiT = 0, ledT = 0, bustPaintT = 0;
 function loop() {
   const rdt = Math.min(clock.getDelta(), 0.1); const dt = rdt * speed; t += rdt; simClock += dt;
   for (const id in agents) agents[id].update(dt, t, rdt);
+  updateVoiceLevel();
   debateTick(dt);
   if (tableDirty) { tableDirty = false; drawTable(); }
   tableRing.material.emissiveIntensity = D && D.state === 'hablando' ? 1.6 + Math.sin(t * 6) * 0.6 : 1.0;
   tableBeam.material.opacity = D && D.state === 'hablando' ? 0.09 + Math.sin(t * 4) * 0.03 : 0.04;
 
   director.modeT -= dt;
-  if (director.modeT <= 0 && director.mode !== 'espera' && !thinking) {
+  if (director.modeT <= 0 && director.mode !== 'espera' && !thinking && !director.speaking) {
     const waiting = jobs.some(j => ['esperando', 'elige'].includes(j.status));
     director.mode = 'espera'; director.say = waiting ? 'Esperando tu decisión' : 'Esperando órdenes';
     setFan(waiting ? 'listo' : 'espera', true); director.modeT = 1e9; markDirty();
