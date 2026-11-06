@@ -1676,15 +1676,16 @@ const store = {
     } else {
       try { const raw = localStorage.getItem('oficina-jager'); if (raw) { const d = JSON.parse(raw); this.videos = d.videos || []; const vacio = d.channels?.length === 1 && d.channels[0].name === 'Mi canal' && !d.channels[0].nicho && !d.channels[0].lecciones?.length; if (!vacio) this.loadChannels(d); this.drive = d.drive || null; } } catch (e) {}
     }
-    renderChannel(); renderConn();
+    renderChannel(); renderConn(); snapChannels();
   },
-  saveLocal() { try { localStorage.setItem('oficina-jager', JSON.stringify({ videos: this.videos, channels: this.channels, active: this.active, drive: this.drive })); } catch (e) {} },
+  saveLocal(fromSync) { if (!fromSync) stampChannels(); try { localStorage.setItem('oficina-jager', JSON.stringify({ videos: this.videos, channels: this.channels, active: this.active, drive: this.drive })); } catch (e) {} if (!fromSync) scheduleSyncPush(); },
   async saveDrive() {
     renderConn();
     if (this.db) { try { await this.db.doc('config/drive').set(this.drive ? { ...this.drive } : { id: null }); } catch (e) {} }
     else if (!hasRuntime) this.saveLocal();
   },
   async saveVideo(v) {
+    if (!hasRuntime) v.upd = Date.now();
     const i = this.videos.findIndex(x => x.id === v.id); if (i >= 0) this.videos[i] = v; else this.videos.push(v);
     renderChannel();
     if (this.db) { try { const { id, ...data } = v; await this.db.collection('videos').doc(id).set(JSON.parse(JSON.stringify(data))); } catch (e) { log('No he podido guardar el vídeo (hace falta permiso de edición)'); } }
@@ -1696,6 +1697,55 @@ const store = {
     else if (!hasRuntime) this.saveLocal();
   },
 };
+// ---------- Móvil y ordenador comparten canales, vídeos, métricas y manual a través del servidor ----------
+const sync = { timer: null, busy: false, snap: {}, ok: null };
+const syncReady = () => serverReady() && !!srv.caps.datos;
+const chanJson = c => { const { upd, ...rest } = c; return JSON.stringify(rest); };
+// Recuerda cómo estaba cada canal para saber cuál ha cambiado de verdad
+function snapChannels() { sync.snap = {}; for (const c of store.channels) sync.snap[c.id] = chanJson(c); }
+function stampChannels() { for (const c of store.channels) { const j = chanJson(c); if (sync.snap[c.id] !== j) { c.upd = Date.now(); sync.snap[c.id] = j; } } }
+// Une dos copias: de cada canal y cada vídeo se queda la versión más reciente
+function mergeState(a = {}, b = {}) {
+  const t = x => x?.upd || x?.createdAt || 0;
+  const byId = (xs, ys) => { const m = new Map(); for (const x of xs || []) if (x?.id) m.set(x.id, x); for (const y of ys || []) if (y?.id) m.set(y.id, !m.has(y.id) || t(y) >= t(m.get(y.id)) ? y : m.get(y.id)); return [...m.values()]; };
+  return { channels: byId(a.channels, b.channels), videos: byId(a.videos, b.videos).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)) };
+}
+function applyState(m) {
+  const local = JSON.stringify({ channels: store.channels, videos: store.videos });
+  if (JSON.stringify(m) === local) return false;
+  store.channels = m.channels.length ? m.channels : store.channels; store.videos = m.videos;
+  if (!store.channels.some(c => c.id === store.active)) store.active = store.channels[0].id;
+  snapChannels(); store.saveLocal(true); renderChannel(); markDirty();
+  return true;
+}
+async function syncPull() {
+  if (!syncReady() || sync.busy) return; sync.busy = true;
+  try {
+    const remote = await srvFetch('/datos');
+    const m = mergeState({ channels: store.channels, videos: store.videos }, remote);
+    applyState(m);
+    if (JSON.stringify(m) !== JSON.stringify(mergeState({}, remote))) await syncPush(); // aquí hay cosas que el servidor no tiene
+    setSyncOk(true);
+  } catch (e) { setSyncOk(false, e.message); }
+  finally { sync.busy = false; }
+}
+async function syncPush() {
+  const merged = await srvFetch('/datos', { channels: store.channels, videos: store.videos });
+  applyState(mergeState({ channels: store.channels, videos: store.videos }, merged));
+}
+function scheduleSyncPush() {
+  if (!syncReady()) return;
+  clearTimeout(sync.timer);
+  sync.timer = setTimeout(async () => { if (sync.busy) return scheduleSyncPush(); sync.busy = true; try { await syncPush(); setSyncOk(true); } catch (e) { setSyncOk(false, e.message); } finally { sync.busy = false; } }, 1500);
+}
+function setSyncOk(ok, msg) {
+  if (sync.ok === ok) return; sync.ok = ok;
+  if (!ok) log('Sincronización: ' + esc(msg || 'sin conexión'));
+  if (srv.ok && srv.msg) { srv.msg = srv.msg.replace(/ · (Sincronizado|Sin sincronizar)$/, '') + (ok ? ' · Sincronizado' : ' · Sin sincronizar'); renderConn(); }
+}
+setInterval(syncPull, 60000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncPull(); });
+
 const chanVideos = () => store.videos.filter(v => (v.channelId || store.channels[0].id) === store.active);
 const withMetrics = () => chanVideos().filter(v => v.metrics);
 // Cada encargo trabaja con su canal aunque cambies de canal mientras tanto
@@ -2356,6 +2406,7 @@ async function testServer() {
   try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz || d.claude); if (d.claude && !hasRuntime) { brainState = 'lista'; updateBadge(); } updateVoiceNote(); srv.msg = `Conectado · Claude ${d.claude ? 'sí' : 'sin clave'} · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
   catch (e) { srv.ok = false; srv.msg = /Clave de la oficina incorrecta/.test(e.message) ? 'Clave de la oficina incorrecta: escríbela exactamente igual que en OFICINA_TOKEN (mayúsculas y minúsculas cuentan). Pulsa «Ver» para comprobarla.' : 'No responde: ' + e.message; }
   renderConn();
+  if (srv.ok && srv.caps.datos) { sync.ok = null; syncPull(); }
 }
 
 function renderConn() {

@@ -8,3 +8,6 @@ CLAUDE_MODEL = "claude-opus-5-5"
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"
 OPENAI_MODEL = "gpt-4.1-mini"
+
+# Almacén para compartir datos entre el móvil y el ordenador.
+# Lo crea `npx wrangler kv namespace create DATOS` (ver README).

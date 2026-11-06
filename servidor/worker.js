@@ -16,7 +16,20 @@ export default {
     if (env.OFICINA_TOKEN && req.headers.get('X-Oficina-Token') !== env.OFICINA_TOKEN) return json({ error: 'Clave de la oficina incorrecta' }, 401);
 
     const path = new URL(req.url).pathname;
-    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY });
+    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS });
+    // Datos compartidos entre el móvil y el ordenador (canales, vídeos, métricas y manual)
+    if (path === '/datos') {
+      if (!env.DATOS) return json({ error: 'Falta el almacén DATOS en el servidor (ver servidor/README.md)' }, 400);
+      const guardado = JSON.parse((await env.DATOS.get('estado')) || '{}');
+      if (req.method === 'GET') return json(guardado);
+      const entra = await req.json().catch(() => null);
+      if (!entra || typeof entra !== 'object') return json({ error: 'Datos no válidos' }, 400);
+      const unido = { ...mezclar(guardado, entra), updatedAt: Date.now() };
+      const txt = JSON.stringify(unido);
+      if (txt.length > 20_000_000) return json({ error: 'Hay demasiados datos guardados' }, 413);
+      await env.DATOS.put('estado', txt);
+      return json(unido);
+    }
     if (req.method !== 'POST') return json({ error: 'Usa POST' }, 405);
 
     if (path === '/oir') { try { return json(await oir(env, req)); } catch (e) { return json({ error: String(e.message || e) }, 502); } }
@@ -153,4 +166,12 @@ async function oir(env, req) {
     throw new Error('ElevenLabs: ' + msg);
   }
   return { texto: (d.text || '').trim() };
+}
+
+// ---------- Datos compartidos ----------
+// De cada canal y cada vídeo se queda la versión más reciente (campo upd), así no se pisan los cambios.
+function mezclar(a = {}, b = {}) {
+  const t = x => x?.upd || x?.createdAt || 0;
+  const porId = (xs, ys) => { const m = new Map(); for (const x of xs || []) if (x?.id) m.set(x.id, x); for (const y of ys || []) if (y?.id) m.set(y.id, !m.has(y.id) || t(y) >= t(m.get(y.id)) ? y : m.get(y.id)); return [...m.values()]; };
+  return { channels: porId(a.channels, b.channels), videos: porId(a.videos, b.videos).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)) };
 }

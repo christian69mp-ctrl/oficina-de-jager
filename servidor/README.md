@@ -55,6 +55,18 @@ Con el servidor conectado, al tocar el micro la oficina graba tu voz y el servid
 
 Necesita que tu clave de ElevenLabs tenga activado el permiso **«De voz a texto»** (además de «De texto a voz»).
 
+## Compartir datos entre el móvil y el ordenador
+
+El servidor puede guardar tus canales, vídeos, métricas y el manual de cada canal, para que el móvil y el ordenador vean lo mismo. Se guarda gratis en Cloudflare (KV).
+
+```bash
+cd servidor
+npx wrangler kv namespace create DATOS   # si pregunta si lo añade a wrangler.toml, responde y
+npx wrangler deploy
+```
+
+En **Conexiones → Servidor** saldrá «Sincronizado». Cada dispositivo envía sus cambios al momento y recoge los de los demás cada minuto y al volver a abrir la oficina.
+
 ## Coste aproximado
 
 Cloudflare Workers es gratis hasta 100.000 peticiones al día. Lo que pagas son las IAs: un vídeo completo hace unas 15 peticiones de texto y 3 imágenes, y cada frase de Nyx es una petición corta a Claude más unos segundos de voz de ElevenLabs. El precio exacto depende de los modelos que elijas en `wrangler.toml`.
