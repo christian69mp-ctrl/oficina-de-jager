@@ -70,13 +70,14 @@ button:disabled { opacity: .6; cursor: default; }
 .seg button { border: 0; background: transparent; padding: 6px 9px; border-radius: 6px; font-family: var(--f-display); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line); }
 .fan-btn { border: 1px solid color-mix(in srgb, var(--holo) 60%, transparent); background: color-mix(in srgb, var(--holo) 14%, var(--panel)); color: var(--holo); padding: 9px 14px; border-radius: 8px; font-family: var(--f-display); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; font-size: 12px; }
-.say { top: 56px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100% - 24px)); background: color-mix(in srgb, var(--panel) 85%, transparent); border: 1px solid color-mix(in srgb, var(--holo) 40%, transparent); border-radius: 10px; padding: 10px 14px; font-size: 13.5px; line-height: 1.45; backdrop-filter: blur(6px); transition: opacity .3s; }
+.say { bottom: 62px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100% - 24px)); background: color-mix(in srgb, var(--panel) 85%, transparent); border: 1px solid color-mix(in srgb, var(--holo) 40%, transparent); border-radius: 10px; padding: 10px 14px; font-size: 13.5px; line-height: 1.45; backdrop-filter: blur(6px); transition: opacity .3s; }
 .say b { font-family: var(--f-display); color: var(--holo); letter-spacing: .05em; text-transform: uppercase; font-size: 12px; margin-right: 6px; }
-.say.quiet { opacity: .55; }
+.say { transition: opacity .6s; }
+.say.quiet { opacity: 0; pointer-events: none; }
 .tap-hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid color-mix(in srgb, var(--holo) 50%, transparent); color: var(--fg); border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: none; white-space: nowrap; }
 .stage.big { position: fixed; inset: 0; z-index: 40; height: 100% !important; min-height: 0; }
 .stage.big .hud-top { top: calc(12px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); }
-.stage.big .say { top: calc(56px + env(safe-area-inset-top, 0px)); }
+.stage.big .say { bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
 .stage.big .hud-tools { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); }
 body.no-scroll { overflow: hidden; }
 
@@ -243,16 +244,16 @@ button.step { font: inherit; font-size: 11.5px; }
 @media (max-width: 900px) {
   html, body { height: auto; }
   .app { grid-template-columns: 1fr; height: auto; }
-  .stage { height: 62vh; min-height: 360px; }
+  .stage { height: 54vh; min-height: 330px; }
   .panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
   .fan { grid-template-columns: 1fr; justify-items: center; align-content: start; }
   .fan-side { width: 100%; max-width: 420px; }
   .brand h1 { font-size: 17px; }
-  .say { top: 50px; font-size: 12.5px; padding: 8px 12px; }
+  .say { bottom: 108px; font-size: 12.5px; padding: 8px 12px; }
   .say span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .stage:not(.big) .tap-hint { display: block; }
   .stage:not(.big) .say { display: none; }
-  .stage.big .say { top: calc(96px + env(safe-area-inset-top, 0px)); }
+  .stage.big .say { bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -264,7 +265,7 @@ button.step { font: inherit; font-size: 11.5px; }
     <div class="hud hud-top">
       <div class="brand"><h1>La oficina de <span>Jager</span></h1></div>
       <div class="top-right">
-        <span class="sim-badge" id="modeBadge">Modo simulación</span>
+        <span class="sim-badge" id="modeBadge">Sin IA conectada</span>
         <button type="button" class="big-btn" id="bigBtn" aria-pressed="false">Ver en grande</button>
       </div>
     </div>
@@ -289,7 +290,7 @@ button.step { font: inherit; font-size: 11.5px; }
   <aside class="panel">
     <form class="order" id="orderForm">
       <label class="title" for="orderText">Orden para <span>Nyx</span></label>
-      <textarea id="orderText" placeholder="Ej.: Prepara un vídeo sobre los errores que todos cometemos al empezar"></textarea>
+      <textarea id="orderText" placeholder="Ej.: ¿Qué pasa, Nyx? Prepárame un vídeo sobre el vuelo JAL 123"></textarea>
       <div class="order-row">
         <button type="button" class="btn ghost mic" hidden>🎙 Hablar</button>
         <label class="toggle"><input type="checkbox" id="voiceOn" checked> Voz de Nyx</label>
@@ -297,7 +298,7 @@ button.step { font: inherit; font-size: 11.5px; }
       </div>
       <div class="chips" aria-label="Encargos de ejemplo">
         <button type="button" class="chip lab" data-order="Busca temas virales para el canal">Buscar temas virales</button>
-        <button type="button" class="chip" data-order="Vídeo: 5 errores que casi todos cometen y cómo evitarlos">Vídeo · 5 errores comunes</button>
+        <button type="button" class="chip" data-order="Analiza qué tal va el canal y qué deberíamos hacer ahora">Cómo va el canal</button>
         <button type="button" class="chip" data-order="Proyecto: nueva función para la Ruleta Caliente">Proyecto · Ruleta Caliente</button>
       </div>
     </form>
@@ -361,7 +362,7 @@ button.step { font: inherit; font-size: 11.5px; }
 
     <section class="settings">
       <h2>Ajustes</h2>
-      <label class="toggle"><input type="checkbox" id="subOn" checked> Si falta Gemini o ChatGPT, Claude hace su trabajo</label>
+      <input type="checkbox" id="subOn" checked hidden>
       <div class="voice-box">
         <b>Voz de Nyx</b>
         <div class="field-row"><select id="voiceSel" aria-label="Voz de Nyx"></select><button type="button" class="btn small primary" id="voiceTest">Escuchar a Nyx</button></div>
@@ -370,7 +371,7 @@ button.step { font: inherit; font-size: 11.5px; }
         <p class="note" id="voiceNote">Solo habla Nyx; el resto del equipo trabaja en silencio. Aquí usa las voces en español de este dispositivo (en otro ordenador o móvil pueden ser distintas).</p>
       </div>
       <label class="toggle"><input type="checkbox" id="hqOn"> Calidad alta (brillos y reflejos)</label>
-      <p class="note" id="brainNote">Nyx y su equipo usan Claude de verdad cuando la página tiene permiso. Gemini y ChatGPT todavía no están conectados: mientras tanto Claude hace su trabajo (o salen resultados de ejemplo si lo desactivas). Las miniaturas son bocetos hasta conectar Gemini. Nada se envía sin tu aprobación.</p>
+      <p class="note" id="brainNote">Todo lo que hace el equipo es trabajo real con IA: sin IA conectada no se aceptan encargos. Mientras Gemini y ChatGPT no estén conectados, Claude hace su trabajo. Nada se envía a Pixelido sin tu aprobación.</p>
     </section>
   </aside>
 </div>
@@ -399,7 +400,7 @@ button.step { font: inherit; font-size: 11.5px; }
     </div>
     <h4>Háblale a Nyx <button type="button" class="btn small" id="voiceTest2">Escuchar su voz</button></h4>
     <form class="fan-talk" id="fanTalk">
-      <input id="fanText" placeholder="Ej.: ¿Qué tal funcionó el último vídeo?" autocomplete="off">
+      <input id="fanText" placeholder="Ej.: ¿Qué pasa, Nyx? ¿Cómo va el canal?" autocomplete="off">
       <button type="button" class="btn mic" hidden aria-label="Hablar con el micrófono">🎙</button>
       <button type="submit" class="btn primary">Decir</button>
     </form>
@@ -559,7 +560,7 @@ controls.target.set(0, 0, 0);
 controls.enableDamping = true;
 controls.maxPolarAngle = 1.32;
 controls.minDistance = 3;
-controls.maxDistance = 55;
+controls.maxDistance = 85;
 
 // Calidad alta: brillo (bloom) en luces, pantallas y neones
 let composer = null;
@@ -1160,6 +1161,14 @@ function buildDesk(def) {
   box(1.7, 0.045, 0.85, def.room === 'lab' ? whiteTop : oak, 0, 0.78, 0, g);
   for (const sx of [-0.8, 0.8]) { box(0.05, 0.74, 0.05, blackMetal, sx, 0.38, -0.36, g); box(0.05, 0.74, 0.05, blackMetal, sx, 0.38, 0.36, g); box(0.05, 0.05, 0.74, blackMetal, sx, 0.06, 0, g, false); }
   box(1.6, 0.02, 0.02, glow(roomLed[def.room], 1.1), 0, 0.74, 0.4, g, false);
+  // placa del puesto (por las dos caras)
+  const pc = document.createElement('canvas'); pc.width = 512; pc.height = 128; const pg2 = pc.getContext('2d');
+  pg2.fillStyle = '#0b0f1c'; pg2.fillRect(0, 0, 512, 128); pg2.fillStyle = AI[def.ai].color; pg2.fillRect(0, 0, 10, 128);
+  pg2.fillStyle = '#f4f1ea'; pg2.font = '700 54px "Chakra Petch", sans-serif'; pg2.textBaseline = 'middle'; pg2.fillText(def.name, 30, 44);
+  pg2.fillStyle = '#d8b46a'; pg2.font = '600 30px Figtree, sans-serif'; pg2.fillText(def.role, 30, 96);
+  const ptex = new THREE.CanvasTexture(pc); ptex.colorSpace = THREE.SRGBColorSpace; ptex.anisotropy = 4;
+  const pmat = new THREE.MeshBasicMaterial({ map: ptex });
+  for (const side of [1, -1]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.155), pmat); pl.position.set(0.45 * side, 0.66, 0.428 * side); if (side < 0) pl.rotation.y = Math.PI; g.add(pl); }
   const sc = document.createElement('canvas'); sc.width = 320; sc.height = 180;
   const screenTex = new THREE.CanvasTexture(sc); screenTex.colorSpace = THREE.SRGBColorSpace;
   const screenMat = new THREE.MeshBasicMaterial({ map: screenTex, color: 0x9aa4b8 });
@@ -1187,9 +1196,9 @@ function buildDesk(def) {
   // lámpara colgante de anillo LED
   g.updateMatrixWorld(true);
   const top = g.localToWorld(V(0, 0, 0.1));
-  box(0.012, 1.2, 0.012, blackMetal, top.x, 3.7, top.z, scene, false);
+  box(0.012, 0.5, 0.012, blackMetal, top.x, 3.85, top.z, scene, false);
   const ringL = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.022, 8, 40), new THREE.MeshStandardMaterial({ color: 0xc9a45c, metalness: 1, roughness: 0.3, emissive: 0xffe2b0, emissiveIntensity: 0.55 }));
-  ringL.rotation.x = Math.PI / 2; ringL.position.set(top.x, 3.08, top.z); scene.add(ringL);
+  ringL.rotation.x = Math.PI / 2; ringL.position.set(top.x, 3.6, top.z); scene.add(ringL);
   return { g, screenMat, screenTex, sc };
 }
 
@@ -1315,8 +1324,8 @@ class Agent {
     if (mode === 'idle' && this.celebrate > 0) mode = 'celebrate';
     poseCharacter(this.c, mode, t, this.phase, { sitting: this.sitting && mode !== 'celebrate', carry: this.carry, stretch: this.stretch });
     this.tag.s.position.set(this.pos.x, 2.15, this.pos.z);
-    this.bubble.s.position.set(this.pos.x, 2.72, this.pos.z);
-    this.bubble.s.material.opacity = this.status === 'Libre' ? 0.55 : 1;
+    this.bubble.s.position.set(this.pos.x, 2.78, this.pos.z);
+    this.bubble.s.material.opacity = this.status === 'Libre' ? 0 : 1;
     if (this.mode === 'work') this.drawStatus(false);
     this.screenT -= rdt;
     if ((this.mode === 'work' && this.screenT <= 0) || wasWork !== (this.mode === 'work')) { this.screenT = 0.35; this.paintScreen(t); }
@@ -1604,20 +1613,25 @@ function saveVoicePrefs() { try { localStorage.setItem(VOICE_KEY, JSON.stringify
 if ('speechSynthesis' in window) { fillVoices(); speechSynthesis.addEventListener?.('voiceschanged', fillVoices); setTimeout(fillVoices, 800); }
 else $('#voiceNote').textContent = 'Este navegador no puede hablar. Prueba con Chrome o Safari.';
 ['voiceSel', 'voicePitch', 'voiceRate'].forEach(id => $('#' + id).addEventListener('change', saveVoicePrefs));
-const sayHello = () => { $('#voiceOn').checked = true; nyxSay('El jefe acaba de pulsar «Escuchar a Nyx» para oír tu voz. Salúdale a tu manera, con descaro, y pregúntale qué hacemos hoy. Cada vez dilo distinto.', 'Aquí Nyx, jefe. ¿Qué hacemos hoy?'); };
+const sayHello = () => { $('#voiceOn').checked = true; nyxSay('El jefe acaba de pulsar «Escuchar a Nyx» para oír tu voz. Salúdale a tu manera, con descaro, y pregúntale qué hacemos hoy. Cada vez dilo distinto.', 'Aquí Nyx, jefe. ¿Qué hacemos hoy?', 'habla', undefined, true); };
 $('#voiceTest').onclick = sayHello;
 $('#voiceTest2').onclick = sayHello;
 
 const director = { mode: 'espera', modeT: 0, say: 'Esperando órdenes' };
-function directorSay(text, mode = 'habla', secs) {
+// voz = true solo cuando responde a algo que el jefe le ha dicho (escrito o por micro) o pulsa «Escuchar».
+// El resto (avisos de la oficina) se muestra por escrito y en silencio, para no gastar créditos de voz.
+function directorSay(text, mode = 'habla', secs, voz = false) {
+  if (!voz && mode === 'habla') mode = 'aviso';
   const est = Math.min(16, 1.5 + text.split(/\s+/).length * 0.38);
   director.mode = mode; director.modeT = (secs ?? est) * speed; director.say = text;
   $('#sayWho').textContent = 'Nyx'; $('#sayText').textContent = text; $('#say').classList.remove('quiet');
   $('#fanSub').textContent = text;
   clearTimeout(director._q); director._q = setTimeout(() => $('#say').classList.add('quiet'), 12000);
   if (mode === 'habla') setFan('habla', true);
-  if ($('#voiceOn').checked && serverVoice()) speakServer(text, 'nyx').catch(() => browserSpeak(text));
-  else browserSpeak(text);
+  if (voz) {
+    if ($('#voiceOn').checked && serverVoice()) speakServer(text, 'nyx').catch(() => browserSpeak(text));
+    else browserSpeak(text);
+  }
   markDirty();
 }
 function browserSpeak(text) {
@@ -1672,7 +1686,7 @@ const store = {
       if (this.db) {
         try {
           const snap = await this.db.collection('videos').get();
-          this.videos = snap.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+          this.videos = snap.docs.map(d => ({ ...d.data(), id: d.id })).filter(v => !v.demo).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
           const cn = await this.db.doc('config/canales').get();
           if (cn.exists) this.loadChannels(cn.data());
           else { const pb = await this.db.doc('config/manual').get(); if (pb.exists) this.loadChannels(pb.data()); }
@@ -1682,7 +1696,7 @@ const store = {
         } catch (e) {}
       }
     } else {
-      try { const raw = localStorage.getItem('oficina-jager'); if (raw) { const d = JSON.parse(raw); this.videos = d.videos || []; const vacio = d.channels?.length === 1 && d.channels[0].name === 'Mi canal' && !d.channels[0].nicho && !d.channels[0].lecciones?.length; if (!vacio) this.loadChannels(d); this.drive = d.drive || null; this.driveUpd = d.driveUpd || 0; } } catch (e) {}
+      try { const raw = localStorage.getItem('oficina-jager'); if (raw) { const d = JSON.parse(raw); this.videos = (d.videos || []).filter(v => !v.demo); const vacio = d.channels?.length === 1 && d.channels[0].name === 'Mi canal' && !d.channels[0].nicho && !d.channels[0].lecciones?.length; if (!vacio) this.loadChannels(d); this.drive = d.drive || null; this.driveUpd = d.driveUpd || 0; } } catch (e) {}
     }
     renderChannel(); renderConn(); snapChannels();
   },
@@ -1718,7 +1732,7 @@ function mergeState(a = {}, b = {}) {
   const t = x => x?.upd || x?.createdAt || 0;
   const byId = (xs, ys) => { const m = new Map(); for (const x of xs || []) if (x?.id) m.set(x.id, x); for (const y of ys || []) if (y?.id) m.set(y.id, !m.has(y.id) || t(y) >= t(m.get(y.id)) ? y : m.get(y.id)); return [...m.values()]; };
   const bd = (b.driveUpd || 0) >= (a.driveUpd || 0);
-  return { channels: byId(a.channels, b.channels), videos: byId(a.videos, b.videos).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)), drive: (bd ? b.drive : a.drive) || null, driveUpd: Math.max(a.driveUpd || 0, b.driveUpd || 0) };
+  return { channels: byId(a.channels, b.channels), videos: byId(a.videos, b.videos).filter(v => !v.demo).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)), drive: (bd ? b.drive : a.drive) || null, driveUpd: Math.max(a.driveUpd || 0, b.driveUpd || 0) };
 }
 const syncState = () => ({ channels: store.channels, videos: store.videos, drive: store.drive || null, driveUpd: store.driveUpd || 0 });
 function applyState(m) {
@@ -1779,7 +1793,7 @@ samplePromise.then(s => { brainState = s ? 'lista' : 'off'; updateBadge(); });
 function updateBadge() {
   const b = $('#modeBadge');
   if (brainState === 'lista') { b.textContent = 'Claude conectado'; b.title = 'Gemini y ChatGPT todavía no están conectados'; b.classList.add('live'); }
-  else { b.textContent = 'Modo simulación'; b.classList.remove('live'); }
+  else { b.textContent = 'Sin IA conectada'; b.title = 'Conecta el servidor en Conexiones para que el equipo pueda trabajar'; b.classList.remove('live'); }
 }
 function parseJsonText(t) {
   if (!t) return null; t = String(t).replace(/```(?:json)?/g, '');
@@ -1806,7 +1820,8 @@ const chatTxt = () => nyxChat.length ? nyxChat.slice(-8).map(m => `${m.de}: ${m.
 function rememberChat(de, texto) { if (!texto) return; nyxChat.push({ de, texto: String(texto).slice(0, 400) }); if (nyxChat.length > 16) nyxChat.shift(); }
 // Todo lo que Nyx dice en voz alta lo piensa Claude en el momento; sin Claude usa una frase de respaldo.
 let nyxQueue = Promise.resolve();
-function nyxSay(situacion, respaldo, mode, secs) {
+function nyxSay(situacion, respaldo, mode, secs, voz = false) {
+  if (!voz) { rememberChat('Nyx', respaldo); directorSay(respaldo, mode, secs); return Promise.resolve(); }
   const pensando = askClaude(`${NYX_PERSONA}
 Canal activo: ${store.ch.name}.
 Conversación reciente:
@@ -1817,7 +1832,7 @@ Di en voz alta lo que dirías tú ahora, en 1 o 2 frases. Incluye los datos impo
   nyxQueue = nyxQueue.then(async () => {
     const txt = String((await pensando) || '').trim().replace(/^["«]|["»]$/g, '');
     const final = txt || respaldo;
-    rememberChat('Nyx', final); directorSay(final, mode, secs);
+    rememberChat('Nyx', final); directorSay(final, mode, secs, true);
   });
   return nyxQueue;
 }
@@ -1873,163 +1888,164 @@ Mensaje del jefe: «${text}»`, { json: true, tier: 'quick' });
   return { tipo: classify(plain), tema: cleanTopic(plain), respuesta: null };
 }
 
-// Cómo trabaja cada puesto: instrucciones para la IA, forma del resultado y respaldo sin IA
 const J = s => JSON.stringify(s);
 const videoOf = j => store.videos.find(v => v.id === j.videoId) || { metrics: {} };
+// FORMACIÓN DEL EQUIPO: lo que sabe cada puesto y cómo trabaja para dar el mejor resultado posible.
+// Va dentro de cada encargo, junto con el canal, su manual de lecciones y su historial.
+const NORMAS_CANAL = `Normas de la casa (todos los canales de Jager):
+- Español de España, para adultos hispanohablantes. Rigor ante todo: distingue siempre hechos probados, versiones oficiales y teorías.
+- No tienes acceso a internet en este encargo: no inventes datos, nombres, cifras ni citas. Si un dato concreto es importante y no estás seguro, márcalo con [VERIFICAR] para que el jefe lo compruebe.
+- Temas sensibles (accidentes, crímenes, religión): respeto a víctimas y familias, sin morbo ni detalles gráficos y con lenguaje apto para anunciantes (por ejemplo «perdieron la vida» en vez de descripciones explícitas). Así no se pierde la monetización.
+- Nada de clickbait engañoso: la miniatura y el título prometen lo que el vídeo cumple.`;
+const canalTxt = () => `Canal: ${store.ch.name}\nDe qué va el canal: ${store.nicho}`;
+const FORMACION = {
+  lia: `Eres Lía, estratega de contenidos y tendencias de YouTube. Sabes detectar temas con demanda sostenida (búsquedas que no caducan), picos por actualidad, aniversarios y estrenos relacionados, y huecos donde la competencia en español lo ha contado mal o no lo ha contado. Priorizas temas con un misterio o conflicto claro que se pueda contar en una frase, con material visual disponible (archivo, mapas, documentos, recreaciones) y con potencial de serie. Evitas repetir temas que el canal ya ha hecho. Cuando algo depende de datos en tiempo real, lo dices: «comprobar en vidIQ o Google Trends».`,
+  nora: `Eres Nora, guionista de documentales para YouTube con años de experiencia en divulgación, true crime y aviación. Dominas la retención: abres con el momento más fuerte o la gran pregunta (sin saludos ni presentaciones), haces una promesa clara en los primeros 30 segundos, construyes la historia en actos que escalan, dejas un bucle abierto cada 60-90 segundos («pero lo que nadie sabía todavía es que…»), cierras todos los bucles con un desenlace satisfactorio y terminas con qué cambió después y una invitación natural al siguiente vídeo. Escribes para ser narrado en voz alta: frases cortas, ritmo, sin cifras imposibles de seguir de oído. Cada bloque lleva indicaciones visuales para la agencia de montaje.`,
+  gema: `Eres Gema, directora de arte especializada en miniaturas de YouTube de documental. Sabes que la miniatura se juega en un móvil a 120 píxeles: un solo punto focal (avión, objeto, lugar, documento o silueta), contraste muy alto, máximo 3 palabras grandes y legibles, una emoción o un misterio evidente en 1 segundo, y colores coherentes con la marca del canal. La miniatura complementa al título, no lo repite. No usas fotos reales de víctimas ni imágenes violentas. Diseñas pensando en que Pixelido o un generador de imágenes lo produzcan tal cual.`,
+  tito: `Eres Tito, especialista en títulos, SEO y empaquetado de YouTube en español. Tus títulos tienen menos de 60 caracteres, ponen la palabra clave pronto, combinan especificidad (nombres, lugares, fechas, cifras) con un hueco de curiosidad, y nunca engañan. Escribes descripciones cuyas 2 primeras líneas enganchan y contienen las palabras clave, con capítulos sacados del guion y 3 hashtags. Conoces cómo busca la gente en español de España y Latinoamérica.`,
+  rui: `Eres Rui, analista de CTR y empaquetado de YouTube. Evalúas título y miniatura como un conjunto: claridad en 1 segundo en un móvil, curiosidad, coherencia con lo que el vídeo cumple y diferencia frente a lo que ya hay en el nicho. Sabes que en canales documentales en crecimiento un CTR del 4-10 % es lo habitual y calibras tus previsiones con el historial real del canal. Recomiendas siempre la prueba «Probar y comparar» de YouTube Studio con 3 miniaturas.`,
+  paco: `Eres Paco, productor. Preparas encargos para Pixelido (la agencia externa que hace los visuales y el montaje) tan claros que puedan producir sin hacer preguntas: entregables exactos, guion con indicaciones visuales, lista de material necesario (archivo, mapas, documentos, recreaciones 3D, imágenes de stock), estilo, música y efectos, ritmo para la retención (un cambio visual cada 3-6 segundos, rótulos en los datos clave), subtítulos, miniatura a 1280×720 y un short 9:16 con el gancho. Pides que el material tenga licencia o sea de dominio público y que se anoten las fuentes.`,
+  sam: `Eres Sam, analista de retención, crecimiento y rentabilidad de YouTube. Lees las métricas como en YouTube Studio: retención a los 30 s, duración media vista, retención relativa, momentos clave (picos y caídas), suscriptores por cada 1.000 vistas y espectadores recurrentes. Conviertes cada dato en una acción concreta para el siguiente guion o montaje. Piensas en ingresos: RPM del nicho, patrocinios que encajan sin romper el ritmo y series que fidelizan.`,
+  max: `Eres Max, product manager. Conviertes ideas en requisitos claros, pequeños y comprobables. Priorizas lo que da valor antes, piensas primero en móvil, y defines criterios de aceptación que se puedan probar uno a uno. La Ruleta Caliente es una web del jefe.`,
+  leo: `Eres Leo, desarrollador web sénior (HTML, CSS y JavaScript moderno, sin dependencias innecesarias). Escribes código claro, comentado en español, accesible, seguro (nada de inyectar HTML sin escapar) y que funciona en móvil. Entregas código completo que se pueda copiar y probar, nunca fragmentos con «aquí va el resto».`,
+  vera: `Eres Vera, revisora de código sénior. Revisas por orden: fallos que rompen la función, seguridad (XSS, datos del usuario), accesibilidad, rendimiento y móvil, y por último estilo. Eres exigente pero justa: apruebas cuando no queda nada grave y explicas cada cambio con la línea concreta y cómo arreglarlo.`,
+};
+
 const SPECS = {
   radar: {
     json: true,
-    prompt: j => `Eres Lía, analista de tendencias de YouTube en "La oficina de Jager". Nicho del canal: ${store.nicho}.
+    prompt: j => `${FORMACION.lia}
+${NORMAS_CANAL}
+${canalTxt()}
 Petición del jefe: «${j.topic}».
-Lecciones del manual del canal:
+Lecciones del manual del canal (lo que ya sabemos que funciona):
 ${lessonsTxt()}
-Historial de vídeos:
+Vídeos ya hechos y sus resultados (no repitas temas):
 ${historyTxt()}
-Propón 5 temas con alto potencial viral para este canal en español. Combina búsquedas que la gente hace siempre, problemas comunes con solución visual y formatos que generan curiosidad. Ten en cuenta lo que ha funcionado en el historial. No tienes datos en tiempo real: sé honesta.
-Devuelve SOLO JSON: {"temas":[{"tema":"título de trabajo","angulo":"enfoque","puntuacion":0-100,"por_que":"una frase","formato":"largo|short"}]} ordenado de mayor a menor puntuación.`,
-    format: (d, j) => { j.picks = (d.temas || []).slice(0, 5); return 'TEMAS CON POTENCIAL VIRAL\n\n' + j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100 · ${p.formato}\n   Ángulo: ${p.angulo}\n   Por qué: ${p.por_que}`).join('\n\n'); },
-    fallback: j => {
-      const base = ['5 errores que casi todos cometen (y cómo evitarlos)', 'Probé lo más viral del momento: ¿merece la pena?', 'Lo que nadie te cuenta antes de empezar', 'Reto de 24 horas: ¿lo consigo?', 'Mitos que todo el mundo se cree'];
-      j.picks = base.map((t, i) => ({ tema: t, angulo: 'prueba real con antes y después', puntuacion: 88 - i * 5, por_que: 'problema común con solución visual (ejemplo)', formato: i === 3 ? 'short' : 'largo' }));
-      return { kind: 'text', via: 'ejemplo', text: 'TEMAS CON POTENCIAL VIRAL (ejemplo)\n\n' + j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100`).join('\n') };
-    },
+Propón 5 temas para este canal con el máximo potencial de visualizaciones, retención y rentabilidad. Mezcla: temas con demanda constante, alguno ligado a actualidad o aniversario próximo, y alguno que pueda convertirse en serie. Para cada uno, el ángulo concreto que lo hace diferente y el gancho de los primeros segundos.
+Devuelve SOLO JSON: {"temas":[{"tema":"título de trabajo","angulo":"enfoque concreto","gancho":"primera frase del vídeo","puntuacion":0-100,"por_que":"una frase con el motivo","formato":"largo|short","comprobar":"qué conviene confirmar en vidIQ o Google Trends"}]} ordenado de mayor a menor puntuación.`,
+    format: (d, j) => { j.picks = (d.temas || []).slice(0, 5); return 'TEMAS CON POTENCIAL VIRAL\n\n' + j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100 · ${p.formato}\n   Ángulo: ${p.angulo}${p.gancho ? `\n   Gancho: «${p.gancho}»` : ''}\n   Por qué: ${p.por_que}${p.comprobar ? `\n   Comprobar: ${p.comprobar}` : ''}`).join('\n\n'); },
   },
   guion: {
-    prompt: j => `Eres Nora, guionista de YouTube en "La oficina de Jager". Nicho: ${store.nicho}.
-Escribe en español de España el guion de un vídeo sobre «${j.topicFinal || j.topic}». La agencia Pixelido hará los visuales, así que indica entre corchetes qué se ve en pantalla.
-Estudio de Lía:
-${j.step('estudio').output?.text || ''}
-Lecciones del manual del canal (aplícalas):
+    prompt: j => `${FORMACION.nora}
+${NORMAS_CANAL}
+${canalTxt()}
+Vídeo: «${j.topicFinal || j.topic}».
+Acuerdo de la mesa de análisis (enfoque, gancho, promesa y público):
+${j.step('estudio').output?.text || '(sin estudio)'}
+Lecciones del manual del canal (aplícalas todas):
 ${lessonsTxt()}
-Objetivo: máxima retención. El gancho debe enseñar el resultado o el conflicto en los primeros 5 segundos, sin presentaciones largas; pon un motivo para seguir viendo cada 60-90 segundos y cambios visuales frecuentes.
-Formato en texto plano: marcas de tiempo, GANCHO (0:00), 5 PUNTOS, CIERRE con llamada a la acción y enlace al siguiente vídeo. Máximo 420 palabras. Sin markdown.`,
-    fallback: j => ({ kind: 'text', via: 'ejemplo', text: `GUION · ${j.topicFinal || j.topic}
-Duración objetivo: 8 min · Tono: cercano y con humor
-
-[0:00] GANCHO
-«Casi nadie hace esto bien. Mira el resultado final.»
-[Plano del resultado final, texto grande en pantalla]
-
-[0:12] Sin presentación: directos al primer error.
-[1:00] PUNTO 1 · El error más común  [cambio de plano cada 5 s]
-[2:30] PUNTO 2 · Lo que dicen los expertos  («y el 4 te va a sorprender»)
-[4:00] PUNTO 3 · Prueba real en casa [B-roll para Pixelido]
-[5:30] PUNTO 4 · Trucos rápidos en pantalla
-[6:45] PUNTO 5 · Resultado y comparativa antes / después
-
-[7:30] CIERRE
-Resumen en 3 frases + pregunta para comentarios.
-CTA: «En este vídeo te enseño el siguiente paso» [pantalla final]` }),
+Escribe el guion completo, listo para narrar, de unos 10-12 minutos (entre 1.400 y 1.800 palabras de narración), salvo que el estudio pida otra duración.
+Formato en texto plano, sin markdown:
+- Bloques con marca de tiempo aproximada: [0:00] APERTURA, [0:30] PROMESA Y CONTEXTO, actos con título propio, [mm:ss] DESENLACE, [mm:ss] QUÉ CAMBIÓ DESPUÉS, [mm:ss] CIERRE.
+- Debajo de cada párrafo de narración, una línea VISUAL: con lo que se ve (archivo, mapa, documento, recreación 3D, rótulo con dato…).
+- Un bucle abierto cada 60-90 segundos.
+- Al final: FUENTES (informes oficiales, sentencias o libros que respaldan los datos; si no estás seguro de una, márcala con [VERIFICAR]) y SHORT (guion de 30-45 s con el gancho, para formato vertical).`,
   },
   miniaturas: {
     json: true,
-    prompt: j => `Eres Gema, diseñadora de miniaturas de YouTube. Vídeo: «${j.topicFinal || j.topic}». Nicho: ${store.nicho}.
-Estudio: ${(j.step('estudio').output?.text || '').split('\n').slice(0, 8).join(' ')}
+    prompt: j => `${FORMACION.gema}
+${NORMAS_CANAL}
+${canalTxt()}
+Vídeo: «${j.topicFinal || j.topic}».
+Acuerdo de la mesa: ${(j.step('estudio').output?.text || '').split('\n').slice(0, 10).join(' ')}
 Lecciones del manual: ${lessonsTxt()}
-Diseña 3 conceptos de miniatura muy distintos entre sí, pensados para el máximo CTR en móvil: una idea clara, cara con emoción, como mucho 3 palabras grandes, contraste alto.
-Devuelve SOLO JSON: {"conceptos":[{"texto":"máximo 3 palabras en MAYÚSCULAS","escena":"qué se ve","emocion":"emoción de la cara","colores":"paleta"}]}`,
+Diseña 3 conceptos de miniatura muy distintos entre sí (por ejemplo: objeto o lugar protagonista, documento o dato impactante, silueta o escena con misterio).
+Devuelve SOLO JSON: {"conceptos":[{"texto":"máximo 3 palabras en MAYÚSCULAS (o vacío)","escena":"qué se ve, encuadre y punto focal","emocion":"emoción o sensación que transmite","colores":"paleta","prompt_imagen":"descripción en inglés lista para un generador de imágenes, 16:9, sin texto"}]}`,
     format: (d, j) => { j.concepts = (d.conceptos || []).slice(0, 3); return null; },
-    fallback: j => { j.concepts = null; return null; },
   },
   titulos: {
     json: true,
-    prompt: j => `Eres Tito, experto en títulos y SEO de YouTube. Vídeo: «${j.topicFinal || j.topic}». Nicho: ${store.nicho}.
-Guion (resumen): ${(j.step('guion').output?.text || '').slice(0, 900)}
+    prompt: j => `${FORMACION.tito}
+${NORMAS_CANAL}
+${canalTxt()}
+Vídeo: «${j.topicFinal || j.topic}».
+Guion (inicio): ${(j.step('guion').output?.text || '').slice(0, 1500)}
 Lecciones del manual: ${lessonsTxt()}
-Escribe 10 títulos en español de menos de 60 caracteres que maximicen el CTR sin ser engañosos (curiosidad, beneficio claro, números, conflicto), una descripción SEO de 2-3 frases y 10 etiquetas.
-Devuelve SOLO JSON: {"titulos":["..."],"descripcion":"...","etiquetas":["..."]}`,
-    format: (d, j) => { j.titles = (d.titulos || []).slice(0, 10); return `TÍTULOS\n${j.titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n\nDESCRIPCIÓN\n${d.descripcion}\n\nETIQUETAS\n${(d.etiquetas || []).join(', ')}`; },
-    fallback: j => { const t = j.topicFinal || j.topic; const k = (keywords(t)[0] || t).toLowerCase();
-      j.titles = [`${t}: lo que nadie te cuenta`, `Probé ${t.toLowerCase()} y esto pasó`, `5 errores con ${k} que debes evitar`, `${t} explicado en 8 minutos`, `¿Merece la pena? ${t}`, `Lo hice mal durante años: ${k}`, `El truco de ${k} que lo cambia todo`, `${t} (guía rápida 2026)`, `No hagas esto con ${k}`, `${t}: antes y después`];
-      return { kind: 'text', via: 'ejemplo', text: `TÍTULOS (ejemplo)\n${j.titles.map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\nDESCRIPCIÓN\nEn este vídeo vemos ${t.toLowerCase()} paso a paso, con pruebas reales.\n\nETIQUETAS\n${keywords(t).slice(0, 5).map(w => w.toLowerCase()).join(', ')}, consejos, tutorial` }; },
+Escribe 10 títulos (menos de 60 caracteres, muy distintos entre sí), la descripción completa (2 primeras líneas que enganchen, resumen, capítulos con las marcas de tiempo del guion y 3 hashtags), 15 etiquetas y un título para el short.
+Devuelve SOLO JSON: {"titulos":["..."],"descripcion":"...","etiquetas":["..."],"titulo_short":"..."}`,
+    format: (d, j) => { j.titles = (d.titulos || []).slice(0, 10); return `TÍTULOS\n${j.titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n\nDESCRIPCIÓN\n${d.descripcion}\n\nETIQUETAS\n${(d.etiquetas || []).join(', ')}${d.titulo_short ? `\n\nTÍTULO DEL SHORT\n${d.titulo_short}` : ''}`; },
   },
   pretest: {
     json: true,
-    prompt: j => `Eres Rui, analista de CTR de YouTube. Antes de publicar, compara combinaciones de título y miniatura del vídeo «${j.topicFinal || j.topic}».
+    prompt: j => `${FORMACION.rui}
+${canalTxt()}
+Vídeo: «${j.topicFinal || j.topic}». Compara combinaciones de título y miniatura antes de publicar.
 Títulos de Tito:
 ${(j.titles || []).map((t, i) => `${i + 1}. ${t}`).join('\n')}
 Miniaturas de Gema:
-${(j.concepts || []).map((c, i) => `${'ABC'[i]}: texto «${c.texto}», ${c.escena}, emoción ${c.emocion}`).join('\n') || 'A: cara de sorpresa y texto grande · B: contraste frío, texto a la derecha · C: morado llamativo, boca abierta'}
-Historial de CTR del canal (incluye el CTR que previmos y el real; úsalo para calibrar):
+${(j.concepts || []).map((c, i) => `${'ABC'[i]}: texto «${c.texto}», ${c.escena}, ${c.emocion}`).join('\n') || '(sin conceptos de miniatura)'}
+Historial de CTR del canal (previsto y real, para calibrar):
 ${historyTxt()}
 Lecciones del manual: ${lessonsTxt()}
-Estima el CTR de las 5 mejores combinaciones. El título y la miniatura deben complementarse, no repetir lo mismo. Sé realista: en canales pequeños lo normal es 2-8%.
-Devuelve SOLO JSON: {"combinaciones":[{"titulo":"...","miniatura":"A|B|C","ctr_estimado":número,"motivo":"..."}],"ganador":{"titulo":"...","miniatura":"A|B|C","ctr_estimado":número},"consejos":["2-3 consejos para la prueba A/B en YouTube"]}`,
+Estima el CTR de las 5 mejores combinaciones y elige la ganadora. Sé realista y explica el motivo de cada una.
+Devuelve SOLO JSON: {"combinaciones":[{"titulo":"...","miniatura":"A|B|C","ctr_estimado":número,"motivo":"..."}],"ganador":{"titulo":"...","miniatura":"A|B|C","ctr_estimado":número},"consejos":["2-3 consejos para «Probar y comparar» en YouTube Studio"]}`,
     format: (d, j) => { j.winner = d.ganador; return `TEST DE CTR ANTES DE PUBLICAR
 GANADOR: «${d.ganador?.titulo}» + miniatura ${d.ganador?.miniatura} · CTR estimado ${d.ganador?.ctr_estimado}%
 
 COMBINACIONES
 ${(d.combinaciones || []).map(c => `· ${c.ctr_estimado}% · ${c.miniatura} · «${c.titulo}»\n  ${c.motivo}`).join('\n')}
 
-PARA LA PRUEBA A/B EN YOUTUBE
+PARA LA PRUEBA EN YOUTUBE STUDIO
 ${(d.consejos || []).map(x => '· ' + x).join('\n')}`; },
-    fallback: j => { const ts = (j.titles || ['Título A', 'Título B', 'Título C']).slice(0, 3); const combos = ts.flatMap((t, i) => ['A', 'B', 'C'].map((m, k) => ({ titulo: t, miniatura: m, ctr: +(4 + ((i * 3 + k * 7) % 9) * 0.4).toFixed(1) }))).sort((a, b) => b.ctr - a.ctr).slice(0, 5);
-      j.winner = { titulo: combos[0].titulo, miniatura: combos[0].miniatura, ctr_estimado: combos[0].ctr };
-      return { kind: 'text', via: 'ejemplo', text: `TEST DE CTR (estimación de ejemplo)\nGANADOR: «${j.winner.titulo}» + miniatura ${j.winner.miniatura} · ${j.winner.ctr_estimado}%\n\n${combos.map(c => `· ${c.ctr}% · ${c.miniatura} · «${c.titulo}»`).join('\n')}\n\nUsa «Probar y comparar» de YouTube Studio con las 3 miniaturas.` }; },
   },
   brief: {
-    prompt: j => `Eres Paco, productor en "La oficina de Jager". Prepara en español el paquete de encargo para Pixelido (agencia externa que hace los visuales y el montaje) del vídeo «${j.topicFinal || j.topic}».
-Estudio de Lía:
+    prompt: j => `${FORMACION.paco}
+${NORMAS_CANAL}
+${canalTxt()}
+Prepara el encargo para Pixelido del vídeo «${j.topicFinal || j.topic}» (encargo #${j.id}, ${today()}).
+Acuerdo de la mesa:
 ${j.step('estudio').output?.text || ''}
 Guion de Nora:
 ${j.step('guion').output?.text || ''}
-Combinación ganadora del test de CTR de Rui: «${j.winner?.titulo}» + miniatura ${j.winner?.miniatura} (${(j.concepts || [])['ABC'.indexOf(j.winner?.miniatura)]?.escena || ''}).
-Lecciones del manual del canal: ${lessonsTxt()}
-Incluye en texto plano: TÍTULO, MINIATURA, QUÉ NECESITAMOS DE PIXELIDO (vídeo 16:9 y un short 9:16 con el gancho), RITMO Y RETENCIÓN (cambios de plano, rótulos, B-roll en los minutos clave), ESCENAS CLAVE, ESTILO VISUAL, ENTREGA. Máximo 300 palabras. Sin markdown.`,
-    fallback: j => ({ kind: 'text', via: 'ejemplo', text: `PAQUETE PARA PIXELIDO · ${j.topicFinal || j.topic}
-Preparado el ${today()} · Encargo #${j.id}
-
-TÍTULO: ${j.winner?.titulo || j.topic}
-MINIATURA: opción ${j.winner?.miniatura || 'A'} (ver bocetos de Gema)
-
-LO QUE NECESITAMOS DE PIXELIDO
-· Montaje 16:9 de 7-9 min siguiendo el guion
-· 1 short vertical 9:16 de 30-45 s con el gancho
-· Rótulos con el estilo del canal y subtítulos
-
-RITMO Y RETENCIÓN
-· Resultado final en los primeros 5 s
-· Cambio de plano o zoom cada 5-8 s
-· B-roll en los puntos 3 y 5
-
-ENTREGA: primera versión en 5 días.` }),
+Ganador del test de CTR: «${j.winner?.titulo}» + miniatura ${j.winner?.miniatura} (${(j.concepts || [])['ABC'.indexOf(j.winner?.miniatura)]?.escena || ''}).
+Lecciones del manual: ${lessonsTxt()}
+En texto plano, sin markdown, con estos apartados: TÍTULO · ENTREGABLES (vídeo 16:9 con duración, short 9:16, miniatura 1280×720 y sus variantes B y C) · ESTILO VISUAL Y MARCA · MATERIAL NECESARIO (lista por escenas: archivo, mapas, documentos, recreaciones 3D, stock; con licencia o dominio público) · RITMO Y RETENCIÓN (dónde van rótulos, zooms, cambios de plano y los bucles abiertos) · MÚSICA Y SONIDO · SUBTÍTULOS · MINIATURA (cómo debe ser la ganadora) · SHORT · DATOS A VERIFICAR (todo lo marcado con [VERIFICAR]) · PLAZO Y CÓMO ENTREGAR. Máximo 550 palabras: el guion completo ya va aparte en el paquete.`,
   },
   requisitos: {
-    prompt: j => `Eres Max, analista de producto. Proyectos del jefe: la Ruleta Caliente es una web. Convierte esta idea en requisitos claros: «${j.topic}». Incluye OBJETIVO, HISTORIAS DE USUARIO (3-5), CRITERIOS DE ACEPTACIÓN numerados y FUERA DE ALCANCE. Español, texto plano, máximo 220 palabras.`,
-    fallback: j => ({ kind: 'text', via: 'ejemplo', text: `REQUISITOS · ${j.topic}\n\nOBJETIVO\nQue la idea funcione de forma sencilla y se pueda probar en un día.\n\nHISTORIAS DE USUARIO\n· Como cliente quiero ver la función sin buscarla\n· Como dueño quiero activarla o quitarla desde el panel\n· En móvil tiene que verse igual de bien\n\nCRITERIOS DE ACEPTACIÓN\n1. Carga en menos de 1 segundo\n2. Sin errores en la consola\n3. Probado en móvil y ordenador` }),
+    prompt: j => `${FORMACION.max}
+Idea del jefe: «${j.topic}».
+Escribe en español y texto plano: OBJETIVO (una frase), HISTORIAS DE USUARIO (3-6), CRITERIOS DE ACEPTACIÓN numerados y comprobables, DETALLES TÉCNICOS (qué hay que tocar, datos, móvil, accesibilidad) y FUERA DE ALCANCE. Máximo 300 palabras.`,
   },
   codigo: {
-    prompt: j => `Eres Leo, programador en "La oficina de Jager". Tarea: «${j.topic}».
+    prompt: j => `${FORMACION.leo}
+Tarea: «${j.topic}».
 Requisitos de Max:
 ${j.step('requisitos').output?.text || ''}
-${j.round > 0 ? '\nVera pidió estos cambios en la revisión, corrígelos:\n' + (j.reviewNotes || '') : ''}
-Escribe una primera versión en JavaScript, clara y comentada en español, de 70 líneas como máximo. Devuelve solo el código, sin bloques markdown.`,
-    fallback: j => ({ kind: 'text', via: 'ejemplo', text: `// ${j.topic}\n// ${j.round > 0 ? 'Con las correcciones de Vera' : 'Primera versión, lista para revisión'}\n\nexport function iniciar(config = {}) {\n  const opciones = { activo: true, ...config };\n  if (!opciones.activo) return null;\n\n  const contenedor = document.querySelector('[data-funcion]');\n  if (!contenedor) {\n    console.warn('No encuentro el contenedor [data-funcion]');\n    return null;\n  }\n\n  contenedor.classList.add('listo');\n  return { opciones, contenedor };\n}` }),
+${j.round > 0 ? '\nVera pidió estos cambios en la revisión; corrígelos todos:\n' + (j.reviewNotes || '') : ''}
+Escribe la solución completa (como máximo unas 200 líneas). Si necesita varios archivos, sepáralos con una línea «// ===== nombre-del-archivo =====». Devuelve solo el código, sin bloques markdown.`,
   },
   review: {
-    prompt: j => `Eres Vera, revisora de código. Revisa este código para «${j.topic}»:
+    prompt: j => `${FORMACION.vera}
+Código para «${j.topic}»:
 
 ${j.step('codigo').output?.text || ''}
 
-${j.round > 0 ? 'Es la segunda revisión, tras correcciones. Si los fallos graves están resueltos, apruébalo.' : 'Sé exigente pero justa.'}
-La primera línea debe ser exactamente "APROBADO" o "CAMBIOS". Después, en español, de 3 a 6 puntos breves. Máximo 140 palabras. Sin markdown.`,
-    fallback: j => ({ kind: 'text', via: 'ejemplo', text: `APROBADO\n\n· Estructura clara y fácil de mantener\n· Gestiona bien el caso sin contenedor\n${j.round > 0 ? '· Las correcciones de la primera revisión están hechas\n' : ''}· Listo para que Nyx se lo enseñe al jefe` }),
+Requisitos que debe cumplir:
+${j.step('requisitos').output?.text || ''}
+
+${j.round > 0 ? 'Es la segunda revisión, tras correcciones. Si no queda nada grave, apruébalo.' : ''}
+La primera línea debe ser exactamente «APROBADO» o «CAMBIOS». Después, en español y texto plano, de 3 a 8 puntos con el problema, dónde está y cómo arreglarlo (o qué está bien si apruebas). Máximo 220 palabras.`,
   },
   ctr: {
-    prompt: j => { const v = videoOf(j); const st = channelStats(); return `Eres Rui, analista de CTR de YouTube en "La oficina de Jager". Analiza el CTR del vídeo publicado «${v.title || v.topic}» (miniatura ${v.thumb || '?'}: ${v.thumbIdea || ''}).
+    prompt: j => { const v = videoOf(j); const st = channelStats(); return `${FORMACION.rui}
+${canalTxt()}
+Analiza el CTR del vídeo publicado «${v.title || v.topic}» (miniatura ${v.thumb || '?'}: ${v.thumbIdea || ''}).
 Métricas: ${J(v.metrics)}
 CTR que previmos antes de publicar: ${v.predCtr ? v.predCtr + '%' : 'no hay'}
 Media del canal: ${st.n > 1 ? `CTR ${st.ctr.toFixed(1)}%` : 'aún no hay suficiente historial'} · Objetivo orientativo: ${TARGETS.ctr}%
 Historial: ${historyTxt()}
-Diagnostica en español y en texto plano (máximo 200 palabras): DIAGNÓSTICO (¿es problema de miniatura, de título, de tema o de alcance según las impresiones?), PREVISTO VS REAL (qué nos enseña para calibrar), 3 ACCIONES concretas para subir el CTR de este vídeo (cambiar miniatura o título, prueba A/B) y del siguiente.`; },
+En español y texto plano (máximo 220 palabras): DIAGNÓSTICO (¿miniatura, título, tema o alcance según las impresiones?), PREVISTO VS REAL (qué aprendemos para calibrar), 3 ACCIONES concretas para este vídeo (nueva miniatura o título, prueba en Studio) y para el siguiente.`; },
     fallback: j => ({ kind: 'text', via: 'reglas', text: ruleCtr(videoOf(j)) }),
   },
   retencion: {
-    prompt: j => { const v = videoOf(j); const st = channelStats(); return `Eres Sam, analista de retención y crecimiento de YouTube en "La oficina de Jager". Analiza la retención del vídeo «${v.title || v.topic}».
-Métricas: ${J(v.metrics)} (r30 = % que sigue viendo a los 30 s; pct = % medio visto; duracion en minutos)
+    prompt: j => { const v = videoOf(j); const st = channelStats(); return `${FORMACION.sam}
+${canalTxt()}
+Analiza la retención del vídeo «${v.title || v.topic}».
+Métricas: ${J(v.metrics)} (r30 = % que sigue a los 30 s; pct = % medio visto; duracion en minutos)
 Media del canal: ${st.n > 1 ? `retención 30 s ${st.r30.toFixed(0)}%, visto medio ${st.pct.toFixed(0)}%` : 'aún no hay suficiente historial'} · Objetivos orientativos: 30 s ≥ ${TARGETS.r30}%, visto medio ≥ ${TARGETS.pct}%
-Guion usado: ${(v.guion || '').slice(0, 700)}
-Diagnostica en español, texto plano, máximo 200 palabras: GANCHO (primeros 30 s), RITMO (dónde se cae la gente según el % visto), SUSCRIPTORES por cada 1.000 vistas, y 3 ACCIONES concretas para el guion y el montaje del siguiente vídeo.`; },
+Guion usado: ${(v.guion || '').slice(0, 1200)}
+En español y texto plano (máximo 220 palabras): GANCHO (primeros 30 s), RITMO (dónde se cae la gente según el % visto y el guion), CRECIMIENTO (suscriptores por cada 1.000 vistas), RENTABILIDAD (qué encaja: patrocinio, serie…) y 3 ACCIONES concretas para el guion y el montaje del siguiente vídeo.`; },
     fallback: j => ({ kind: 'text', via: 'reglas', text: ruleRet(videoOf(j)) }),
   },
 };
@@ -2084,7 +2100,7 @@ function startRealWork(agent, job, step) {
   const route = spec?.prompt ? routeFor(agent.def.ai, job.demo) : null;
   if (!route && !(step.id === 'miniaturas' && serverReady() && !job.demo)) return;
   step.realPending = true; step.realData = null; step.realVia = route;
-  const timeout = new Promise(r => setTimeout(() => r(null), 120000));
+  const timeout = new Promise(r => setTimeout(() => r(null), 240000));
   const work = (async () => {
     const res = route ? await askAI(route, inChannel(job, () => spec.prompt(job)), { json: !!spec.json }) : null;
     step.realData = res && (typeof res === 'object' || String(res).trim()) ? res : null;
@@ -2101,9 +2117,9 @@ function startRealWork(agent, job, step) {
    8b. MESA DE DEBATE: Lía (Gemini), Rui (ChatGPT) y Sam (Claude) discuten y votan
    ============================================================ */
 const PERSONA = {
-  lia: 'Lía, analista de tendencias y viralidad (trabaja con Gemini). Tu prioridad: lo que la gente busca, comparte y está subiendo; el potencial viral y el momento de publicar.',
-  rui: 'Rui, analista de CTR y empaquetado (trabaja con ChatGPT). Tu prioridad: que el título y la miniatura den ganas de hacer clic sin engañar, y que se entiendan en un móvil en 1 segundo.',
-  sam: 'Sam, analista de retención y rentabilidad (trabaja con Claude). Tu prioridad: que la gente vea el vídeo hasta el final y que sea rentable: RPM del nicho, patrocinios, afiliados, productos o servicios propios cuando encajen, y que pueda convertirse en serie.',
+  lia: FORMACION.lia.replace(/^Eres /, ''),
+  rui: FORMACION.rui.replace(/^Eres /, ''),
+  sam: FORMACION.sam.replace(/^Eres /, ''),
 };
 const GOAL = {
   estudio: 'el mejor enfoque para el vídeo: que sea viral, que la gente haga clic, que se quede hasta el final y que sea rentable',
@@ -2121,7 +2137,7 @@ let D = null;
 
 function debateContext(d) {
   const j = d.job;
-  const base = `Nicho del canal: ${store.nicho}\nManual del canal:\n${lessonsTxt()}\nHistorial de vídeos:\n${historyTxt()}`;
+  const base = `${NORMAS_CANAL}\n${canalTxt()}\nManual del canal:\n${lessonsTxt()}\nHistorial de vídeos:\n${historyTxt()}`;
   if (d.mode === 'estudio') return `Tema que propone el jefe: «${j.topic}».\n${base}`;
   if (d.mode === 'eleccion') return `Temas candidatos que ha encontrado Lía:\n${(j.picks || []).map((p, i) => `${i + 1}. ${p.tema} (${p.formato}): ${p.angulo}`).join('\n')}\n${base}`;
   const v = videoOf(j);
@@ -2131,44 +2147,17 @@ const transcriptTxt = d => d.transcript.map(m => `${NAME(m.who)}: ${m.text}`).jo
 const useBrain = (d, id) => brainState === 'lista' && !d.job.demo && (agents[id].def.ai === 'claude' || $('#subOn').checked);
 const cleanLine = t => t ? String(t).trim().replace(/^(Lía|Rui|Sam)\s*:\s*/i, '').replace(/^["«]|["»]$/g, '') : null;
 
-function fallbackLine(d, id, r) {
-  const j = d.job, k = (keywords(j.topic)[0] || 'esto').toLowerCase();
-  if (d.mode === 'estudio') return ({
-    1: { lia: `«${j.topic}» tiene búsqueda constante y se comparte mucho. Lo enfocaría como «errores que casi todos cometen»: despierta curiosidad.`,
-         rui: `Para el clic: cara con sorpresa, máximo 3 palabras grandes y un título con número. Algo con «${k}» muy visible.`,
-         sam: `Si enseñamos el resultado en los primeros 5 segundos, retenemos. Y es rentable: cabe una mención de patrocinio o un enlace de afiliado sin cortar el ritmo.` },
-    2: { lia: `Rui, de acuerdo con el número en el título. Sam, lo del patrocinio me gusta, pero primero el valor para que no parezca un anuncio.`,
-         rui: `Lía, el enfoque de errores sube el CTR. Sam, la mención comercial mejor a mitad del vídeo, nunca en la miniatura.`,
-         sam: `Entonces: errores, resultado al principio y patrocinio en el punto 3. Si funciona, lo convertimos en serie.` },
-  })[r][id];
-  if (d.mode === 'eleccion') { const a = j.picks?.[0]?.tema || 'el primero', b = j.picks?.[1]?.tema || 'el segundo'; return ({
-    1: { lia: `«${a}» es el que más se busca ahora mismo. «${b}» también tiene tirón, pero es más de temporada.`,
-         rui: `«${a}» se entiende en una miniatura en un segundo. Eso es CTR fácil.`,
-         sam: `«${b}» deja meter un patrocinio de forma natural, pero «${a}» retiene más. Votaría por «${a}» primero.` },
-    2: { lia: `Sam, de acuerdo: primero «${a}» y dejamos «${b}» para la semana siguiente.`,
-         rui: `Lía, perfecto. Y del segundo sacamos un short para probar el interés.`,
-         sam: `Hecho. Así el primero trae vistas y el segundo trae ventas.` },
-  })[r][id]; }
-  const m = videoOf(j).metrics || {};
-  return ({
-    1: { lia: `El tema funcionó en impresiones. Propongo repetir el formato con otro tema del mismo tipo para aprovechar el tirón.`,
-         rui: `Un CTR del ${m.ctr}% ${m.ctr >= TARGETS.ctr ? 'es bueno: mantengamos el estilo de miniatura' : 'se queda corto: probemos otra miniatura con más emoción'}.`,
-         sam: `A los 30 segundos queda el ${m.r30}% de la gente. ${m.r30 >= TARGETS.r30 ? 'El gancho funciona.' : 'Hay que enseñar el resultado antes.'} Y añadiría un enlace de afiliado en la descripción.` },
-    2: { lia: `Rui, si cambias la miniatura, que mantenga la misma idea para no romper la serie.`,
-         rui: `Sam, de acuerdo con el gancho. Lo pruebo con «Probar y comparar» de YouTube.`,
-         sam: `Entonces: prueba A/B de miniatura, gancho más rápido y serie de 3 vídeos. Lo apunto en el manual.` },
-  })[r][id];
-}
+function fallbackLine(d, id) { return `(${NAME(id)} no ha podido conectar con su IA en esta ronda.)`; }
 function fallbackConsensus(d) {
   const j = d.job;
-  if (d.mode === 'estudio') { const viral = 70 + Math.round(Math.random() * 18); return { acuerdo: `Vamos con un enfoque de errores comunes, con el resultado al principio y un patrocinio en el punto 3.`, tema_final: j.topic, angulo: 'errores que casi todos cometen, con prueba real', gancho: 'Casi nadie hace esto bien, y se nota.', promesa: 'soluciones que puedes aplicar hoy mismo', publico: 'el público del canal', duracion_ideal: '7-9 min', mejor_momento: 'jueves 18:00', puntuaciones: { viral, ctr_estimado: 6.5, retencion_30s: 72, rentabilidad: 68 }, monetizacion: ['patrocinio en el punto 3', 'enlace de afiliado en la descripción y comentario fijado'], riesgos: ['que parezca un anuncio'], votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } }; }
-  if (d.mode === 'eleccion') return { acuerdo: `Primero «${j.picks?.[0]?.tema}»: es el más buscado y retiene. El segundo, la semana siguiente.`, ranking: (j.picks || []).map((p, i) => ({ tema: p.tema, angulo: p.angulo, viral: p.puntuacion, rentabilidad: 75 - i * 6, total: Math.round((p.puntuacion + 75 - i * 6) / 2), por_que: p.por_que, formato: p.formato })), votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } };
-  const pl = rulePlan(videoOf(j)); return { acuerdo: pl.resumen, acciones: pl.acciones, lecciones: pl.lecciones, escalar: 'Serie de 3 vídeos del mismo formato, un short por vídeo y publicar cada semana el mismo día.', siguiente_video: pl.siguiente_video, votos: { lia: 'a favor', rui: 'a favor', sam: 'a favor' } };
+  if (d.mode === 'estudio') return { acuerdo: 'La mesa no ha podido cerrar un acuerdo porque la IA no respondió. Seguimos con el tema tal cual.', tema_final: j.topic, angulo: '', gancho: '', promesa: '', publico: '', viral: null, rentabilidad: null, votos: null, sinIA: true };
+  if (d.mode === 'eleccion') return { acuerdo: 'La mesa no ha podido votar porque la IA no respondió. Elige tú el tema.', ranking: (j.picks || []).map(p => ({ tema: p.tema, angulo: p.angulo, viral: p.puntuacion, rentabilidad: null, total: p.puntuacion, por_que: p.por_que, formato: p.formato })), votos: null, sinIA: true };
+  const pl = rulePlan(videoOf(j)); return { acuerdo: pl.resumen, acciones: pl.acciones, lecciones: pl.lecciones, escalar: '', siguiente_video: pl.siguiente || '', votos: null };
 }
 
 function startDebate(job, step) {
   step.state = 'cola';
-  debateQueue.push({ job, step, mode: step.debate, arrived: new Set(), state: 'esperando', transcript: [], show: [], speaker: null, cur: null, t: 0, round: 0, fetching: false, result: null, via: 'ejemplo' });
+  debateQueue.push({ job, step, mode: step.debate, arrived: new Set(), state: 'esperando', transcript: [], show: [], speaker: null, cur: null, t: 0, round: 0, fetching: false, result: null, via: 'error' });
   log(`La mesa de análisis se reúne: <b>${esc(job.short)}</b>`); markDirty(); tableDirty = true;
 }
 async function fetchRound(d, r) {
@@ -2182,7 +2171,7 @@ ${prev ? 'Lo dicho hasta ahora en la reunión:\n' + prev : ''}
 ${r === 1 ? 'Ronda 1: da tu propuesta concreta desde tu especialidad.' : 'Ronda 2: responde a tus compañeros por su nombre: qué apoyas, qué cambiarías y por qué. Buscad juntos la opción más viral y más rentable.'}
 Habla en primera persona, en español de España, con tono de reunión y frases cortas. Máximo ${r === 1 ? 55 : 50} palabras. Escribe solo tu intervención, sin tu nombre delante.`, { tier: 'quick' }));
     if (text) d.via = 'real';
-    return { who: id, round: r, text: text || fallbackLine(d, id, r), via: text ? route : 'ejemplo' };
+    return { who: id, round: r, text: text || fallbackLine(d, id), via: text ? route : 'error' };
   }));
 }
 async function fetchConsensus(d) {
@@ -2336,7 +2325,7 @@ async function chooseFolder() {
 function packageText(job) {
   const out = (id, t) => job.step(id)?.output?.text ? `\n\n══════ ${t} ══════\n${job.step(id).output.text}` : '';
   return `PAQUETE PARA PIXELIDO · ${job.topicFinal || job.topic}\nPreparado por La oficina de Jager el ${today()}\nTítulo elegido: ${job.winner?.titulo || '-'}\nMiniatura elegida: ${job.winner?.miniatura || '-'}`
-    + out('brief', 'ENCARGO PARA PIXELIDO') + out('guion', 'GUION') + out('titulos', 'TÍTULOS Y SEO') + out('pretest', 'TEST DE CTR') + out('estudio', 'ACUERDO DE LA MESA DE ANÁLISIS');
+    + out('brief', 'ENCARGO PARA PIXELIDO') + out('guion', 'GUION') + (job.concepts?.length ? `\n\n══════ MINIATURAS (A, B, C) ══════\n${job.concepts.map((c, i) => `${'ABC'[i]} · ${c.texto || '(sin texto)'} · ${c.escena} · ${c.emocion} · colores: ${c.colores || '-'}${c.prompt_imagen ? `\n   Prompt para generar la imagen: ${c.prompt_imagen}` : ''}`).join('\n')}` : '') + out('titulos', 'TÍTULOS Y SEO') + out('pretest', 'TEST DE CTR') + out('estudio', 'ACUERDO DE LA MESA DE ANÁLISIS');
 }
 async function savePackageToDrive(job, video) {
   if (!video || !$('#driveOn').checked || job.demo) return;
@@ -2480,7 +2469,7 @@ function cleanTopic(text) {
 }
 
 let thinking = false;
-async function handleMessage(text) {
+async function handleMessage(text, o = { voz: true }) {
   text = fixNyx(text.trim()); if (!text || thinking) return;
   thinking = true;
   director.mode = 'escucha'; director.modeT = 99; director.say = 'Pensando…'; setFan('escucha', true);
@@ -2489,12 +2478,12 @@ async function handleMessage(text) {
   thinking = false;
   rememberChat('Jager', text); if (r.respuesta) rememberChat('Nyx', r.respuesta);
   if (r.tipo === 'charla') {
-    directorSay(r.respuesta || 'Me encanta que me hables, jefe, pero para charlar de verdad necesito conectarme a Claude. Mientras tanto, pídeme un vídeo, un proyecto o temas virales.');
+    directorSay(r.respuesta || 'Para hablar contigo de verdad necesito estar conectada a Claude, jefe. Conecta el servidor en «Conexiones».', 'habla', undefined, !!(o.voz && r.respuesta));
     log(`Hablas con Nyx: «${esc(text)}»`);
     return;
   }
-  if (r.tipo === 'tendencias') { newOrder('radar', r.tema || 'Temas virales para el canal', { reply: r.respuesta }); return; }
-  newOrder(r.tipo, r.tema, { reply: r.respuesta });
+  if (r.tipo === 'tendencias') { newOrder('radar', r.tema || 'Temas virales para el canal', { reply: r.respuesta, voz: o.voz }); return; }
+  newOrder(r.tipo, r.tema, { reply: r.respuesta, voz: o.voz });
 }
 
 // Solo de respaldo cuando Claude no responde
@@ -2505,6 +2494,7 @@ const REPLIES = {
   analisis: 'Números recibidos. Rui mira el CTR, Sam la retención y te traemos el plan.',
 };
 function newOrder(type, topic, o = {}) {
+  if (brainState !== 'lista') { directorSay('No puedo poner al equipo a trabajar sin IA conectada, jefe. Conecta el servidor en «Conexiones» y empezamos.', 'aviso'); return null; }
   const flow = FLOWS[type];
   const job = {
     channelId: store.active,
@@ -2517,7 +2507,7 @@ function newOrder(type, topic, o = {}) {
   job.step = id => job.steps.find(s => s.id === id);
   jobs.unshift(job);
   log(`Orden recibida: <b>${esc(topic)}</b>${job.version > 1 ? ' (v' + job.version + ')' : ''}`);
-  if (o.reply) directorSay(o.reply);
+  if (o.reply) directorSay(o.reply, 'habla', undefined, !!o.voz);
   else nyxSay(`El jefe te ha hecho un encargo de tipo «${type}»: «${topic}». Díselo a tu manera y cuéntale quién se encarga (${REPLIES[type]}).`, REPLIES[type]);
   setTimeout(() => {
     job.steps.filter(s => s.deps.length === 0).forEach(s => {
@@ -2553,9 +2543,10 @@ function buildOutput(step, job, agent) {
     }
     if (!spec.json) return { kind: 'text', text: String(data).trim().replace(/^```\w*\n?|```$/g, ''), via, subFor };
   }
-  const fb = spec.fallback(job);
-  if (step.id === 'miniaturas') return thumbsOutput(job, 'ejemplo');
-  return fb;
+  // Análisis hechos con reglas sobre métricas reales: son válidos sin IA
+  if (spec.fallback && ['ctr', 'retencion'].includes(step.id)) return spec.fallback(job);
+  job.fallos = (job.fallos || 0) + 1;
+  return { kind: 'text', via: 'error', text: `⚠ ${agent.def.name} no ha podido hacer «${step.label}»: su IA no ha respondido a tiempo. No se ha inventado nada. Pide a Nyx que lo rehaga.` };
 }
 
 function finishStep(agent, task) {
@@ -2565,7 +2556,7 @@ function finishStep(agent, task) {
   let failed = false;
   if (step.id === 'review') {
     if (typeof step.realData === 'string') failed = /^\s*CAMBIOS/i.test(step.realData) && job.round < 2;
-    else failed = job.round === 0 && Math.random() < 0.5;
+
   }
   if (failed) {
     job.round++;
@@ -2647,7 +2638,7 @@ function approve(job) {
       store.saveVideo({
         id: 'v' + Date.now().toString(36), topic: job.topicFinal || job.topic, title: job.winner?.titulo || job.topicFinal || job.topic,
         thumb: job.winner?.miniatura || 'A', thumbIdea: job.concepts?.[ci]?.escena || '', predCtr: job.winner?.ctr_estimado ? +job.winner.ctr_estimado : null,
-        viral: job.viral || null, guion: (job.step('guion').output?.text || '').slice(0, 3000), createdAt: Date.now(), metrics: null, analysis: null, demo: job.demo, channelId: job.channelId,
+        viral: job.viral || null, guion: (job.step('guion').output?.text || '').slice(0, 14000), createdAt: Date.now(), metrics: null, analysis: null, demo: job.demo, channelId: job.channelId,
       });
       savePackageToDrive(job, store.videos[store.videos.length - 1]);
       nyxSay(`Paco acaba de entregar a Pixelido el paquete de «${job.short}». Pide al jefe que, cuando lo publiquen, te pase las métricas.`, `Entregado. Pixelido ya tiene «${job.short}». Cuando lo publiquen, pásame las métricas.`);
@@ -2880,7 +2871,7 @@ document.addEventListener('click', e => {
   const an = e.target.closest('[data-analysis]'); if (an) return openAnalysis(an.dataset.analysis);
   const dl = e.target.closest('[data-dellesson]'); if (dl) { store.lecciones.splice(+dl.dataset.dellesson, 1); return store.saveManual(); }
   const fo = e.target.closest('[data-focus]'); if (fo) return focusOn(fo.dataset.focus);
-  const od = e.target.closest('[data-order]'); if (od) return handleMessage(od.dataset.order);
+  const od = e.target.closest('[data-order]'); if (od) return handleMessage(od.dataset.order, { voz: false });
   const vw = e.target.closest('[data-view]'); if (vw) return setView(vw.dataset.view);
   const sp = e.target.closest('[data-speed]'); if (sp) { speed = +sp.dataset.speed; $$('[data-speed]').forEach(b => b.setAttribute('aria-pressed', b === sp)); }
 });
@@ -3000,24 +2991,48 @@ $$('.mic').forEach(mic => {
 
 // Cámara
 const VIEWS = {
-  general: { pos: V(0, 20, 24), target: V(0, 0, 0) },
+  general: { pos: V(0, 27, 14), target: V(0, 0, 0.6) },
   proy: { pos: V(-12, 10.5, 11.5), target: V(-12, 0.5, -1.2) },
   yt: { pos: V(12, 10.5, 11.5), target: V(12, 0.5, -1.2) },
   lab: { pos: V(0, 9.5, 15.5), target: V(0, 1.2, 4.8) },
   dir: { pos: V(0, 4.0, 1.2), target: V(0, 2.4, -4.8) },
 };
 const VIEWS_TALL = {
-  general: { pos: V(10, 36, 0.2), target: V(0, 0, 0.2) },
+  general: { pos: V(0, 30, 9), target: V(0, 0, 0.6) },
   proy: { pos: V(-12, 15, 15), target: V(-12, 0.5, -0.5) },
   yt: { pos: V(12, 15, 15), target: V(12, 0.5, -0.5) },
   lab: { pos: V(0, 9, 16), target: V(0, 1, 3) },
 };
 const isTall = () => host.clientWidth / Math.max(1, host.clientHeight) < 0.8;
 let camAnim = null, currentView = 'general';
+// Aleja la cámara lo justo para que quepa toda la oficina entre los menús de arriba y abajo
+function fitGeneral(view) {
+  const w = host.clientWidth, h = Math.max(1, host.clientHeight);
+  const topPx = ($('.hud-top')?.offsetHeight || 40) + 16, botPx = ($('.hud-tools')?.offsetHeight || 40) + 16;
+  const yMax = 1 - 2 * topPx / h, yMin = -1 + 2 * botPx / h;
+  const dir = view.pos.clone().sub(view.target).normalize();
+  const cam = camera.clone(); cam.aspect = w / h; cam.fov = w / h < 1 ? 58 : 42; cam.updateProjectionMatrix();
+  const corners = []; for (const x of [-OW - 0.4, OW + 0.4]) for (const z of [-8.4, 8.6]) for (const y of [0, 3.3]) corners.push(V(x, y, z));
+  for (let d = 12; d < 90; d += 0.5) {
+    let best = null;
+    for (let shift = -16; shift <= 16; shift += 0.4) {
+      const tg = view.target.clone(); if (Math.abs(dir.z) > 0.3) tg.z += shift; else tg.x += shift;
+      cam.position.copy(tg.clone().add(dir.clone().multiplyScalar(d))); cam.lookAt(tg); cam.updateMatrixWorld(true);
+      let ok = true, lo = 9, hi = -9;
+      for (const c of corners) { const q = c.clone().project(cam); if (Math.abs(q.x) > 0.97) { ok = false; break; } lo = Math.min(lo, q.y); hi = Math.max(hi, q.y); }
+      if (!ok || hi > yMax || lo < yMin) continue;
+      const off = Math.abs((yMax + yMin) - (hi + lo));
+      if (!best || off < best.off) best = { pos: cam.position.clone(), target: tg, off };
+    }
+    if (best && best.off < 0.12) return best;
+  }
+  return view;
+}
 function setView(v) {
-  currentView = v;
+  currentView = v; userMovedCam = false;
   $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v));
-  const view = (isTall() && VIEWS_TALL[v]) || VIEWS[v];
+  let view = (isTall() && VIEWS_TALL[v]) || VIEWS[v];
+  if (v === 'general') view = fitGeneral(view);
   camAnim = { pos: view.pos.clone(), target: view.target.clone() };
 }
 function focusOn(id) {
@@ -3025,11 +3040,14 @@ function focusOn(id) {
   const a = agents[id]; $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', false));
   camAnim = { pos: V(a.pos.x + 0.5, 3.6, a.pos.z + 4.2), target: V(a.pos.x, 1.1, a.pos.z - 0.4) };
 }
-controls.addEventListener('start', () => camAnim = null);
+let userMovedCam = false;
+controls.addEventListener('start', () => { camAnim = null; userMovedCam = true; });
 function resize() {
   const w = host.clientWidth, h = Math.max(1, host.clientHeight);
   renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 1 ? 58 : 42; camera.updateProjectionMatrix();
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
+  // al abrir o cambiar el tamaño, la vista general vuelve a encuadrar toda la oficina
+  if (!userMovedCam && currentView === 'general') { clearTimeout(resize._t); resize._t = setTimeout(() => setView('general'), 120); }
 }
 new ResizeObserver(resize).observe(host);
 
@@ -3225,8 +3243,7 @@ store.init();
 resize();
 loop();
 
-// Encargo de demostración (sin IA) para ver a todos moverse al abrir
-setTimeout(() => { if (!jobs.length) newOrder('video', '5 errores que casi todos cometen y cómo evitarlos', { demo: true }); }, 2500);
+// La oficina arranca vacía: solo trabaja con encargos reales del jefe
 </script>
 </body>
 </html>

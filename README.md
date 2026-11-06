@@ -30,9 +30,9 @@ El ventilador no admite HDMI, así que no puede mostrar a Jager en directo. En *
 
 ## Estado actual
 
-- Gemini y ChatGPT: resultados de ejemplo hasta conectar sus claves.
-- Claude: responde de verdad en la versión publicada en claude.ai. En esta copia local piensa con el servidor (secreto `ANTHROPIC_API_KEY`); sin él, va en modo simulación.
-- Voz de Nyx: en claude.ai usa la voz del dispositivo. Con el servidor y ElevenLabs habla con su voz real todo lo que piensa.
+- Sin simulación: la oficina arranca vacía y solo trabaja con encargos reales. Sin IA conectada, Nyx no acepta encargos; si una IA falla, se avisa en lugar de inventar.
+- Nyx solo habla cuando el jefe le pregunta (por escrito o con el micro) o pulsa «Escuchar a Nyx». Los avisos de la oficina salen por escrito, sin gastar voz.
+- Cada puesto tiene su formación (constante `FORMACION` en `index.html`): estrategia de tendencias, guion documental con retención, miniaturas, títulos y SEO, test de CTR, encargo para Pixelido, retención y rentabilidad, y desarrollo web.
 
 ## Siguientes pasos
 

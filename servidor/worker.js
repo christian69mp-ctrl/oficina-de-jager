@@ -183,5 +183,5 @@ function mezclar(a = {}, b = {}) {
   const t = x => x?.upd || x?.createdAt || 0;
   const porId = (xs, ys) => { const m = new Map(); for (const x of xs || []) if (x?.id) m.set(x.id, x); for (const y of ys || []) if (y?.id) m.set(y.id, !m.has(y.id) || t(y) >= t(m.get(y.id)) ? y : m.get(y.id)); return [...m.values()]; };
   const bd = (b.driveUpd || 0) >= (a.driveUpd || 0);
-  return { channels: porId(a.channels, b.channels), videos: porId(a.videos, b.videos).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)), drive: (bd ? b.drive : a.drive) || null, driveUpd: Math.max(a.driveUpd || 0, b.driveUpd || 0) };
+  return { channels: porId(a.channels, b.channels), videos: porId(a.videos, b.videos).filter(v => !v.demo).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)), drive: (bd ? b.drive : a.drive) || null, driveUpd: Math.max(a.driveUpd || 0, b.driveUpd || 0) };
 }
