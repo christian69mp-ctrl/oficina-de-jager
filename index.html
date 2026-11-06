@@ -345,8 +345,8 @@ button.step { font: inherit; font-size: 11.5px; }
         <div class="conn" id="connServer" hidden>
           <div class="conn-head"><b>Servidor de Gemini y ChatGPT</b><button type="button" class="btn small" id="srvTest">Probar</button></div>
           <div class="conn-state" id="srvState">Con tu servidor (carpeta servidor/ del proyecto), Lía y Gema usan Gemini y Rui, Tito y Max usan ChatGPT de verdad. Gema genera miniaturas reales.</div>
-          <div class="field-row"><input id="srvUrl" placeholder="https://oficina-jager.tu-cuenta.workers.dev" aria-label="Dirección del servidor"></div>
-          <div class="field-row"><input id="srvKey" type="password" placeholder="Clave de la oficina (OFICINA_TOKEN)" aria-label="Clave de la oficina"><button type="button" class="btn small" id="srvSave">Guardar</button></div>
+          <div class="field-row"><input id="srvUrl" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://oficina-jager.tu-cuenta.workers.dev" aria-label="Dirección del servidor"></div>
+          <div class="field-row"><input id="srvKey" type="password" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="Clave de la oficina (OFICINA_TOKEN)" aria-label="Clave de la oficina"><button type="button" class="btn small" id="srvShow" aria-pressed="false">Ver</button><button type="button" class="btn small" id="srvSave">Guardar</button></div>
         </div>
       </div>
     </section>
@@ -2331,7 +2331,7 @@ async function testServer() {
   if (!srv.url) { srv.ok = false; srv.msg = 'Escribe la dirección del servidor.'; return renderConn(); }
   srv.msg = 'Probando…'; renderConn();
   try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz || d.claude); if (d.claude && !hasRuntime) { brainState = 'lista'; updateBadge(); } updateVoiceNote(); srv.msg = `Conectado · Claude ${d.claude ? 'sí' : 'sin clave'} · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
-  catch (e) { srv.ok = false; srv.msg = 'No responde: ' + e.message; }
+  catch (e) { srv.ok = false; srv.msg = /Clave de la oficina incorrecta/.test(e.message) ? 'Clave de la oficina incorrecta: escríbela exactamente igual que en OFICINA_TOKEN (mayúsculas y minúsculas cuentan). Pulsa «Ver» para comprobarla.' : 'No responde: ' + e.message; }
   renderConn();
 }
 
@@ -2345,8 +2345,9 @@ function renderConn() {
 }
 $('#driveBtn').onclick = chooseFolder;
 $('#folders').addEventListener('click', e => { const b = e.target.closest('[data-folder]'); if (!b) return; const f = conn.folders.find(x => x.id === b.dataset.folder); store.drive = f; conn.driveMsg = `Carpeta elegida: ${f.title}. Los próximos paquetes aprobados se guardarán ahí.`; conn.driveOk = true; store.saveDrive(); });
-$('#srvSave').onclick = () => { srv.url = $('#srvUrl').value.trim(); if ($('#srvKey').value) srv.key = $('#srvKey').value; try { localStorage.setItem('oficina-servidor', JSON.stringify({ url: srv.url, key: srv.key })); } catch (e) {} $('#srvKey').value = ''; testServer(); };
+$('#srvSave').onclick = () => { srv.url = $('#srvUrl').value.trim(); if ($('#srvKey').value.trim()) srv.key = $('#srvKey').value.trim(); try { localStorage.setItem('oficina-servidor', JSON.stringify({ url: srv.url, key: srv.key })); } catch (e) {} $('#srvKey').value = ''; testServer(); };
 $('#srvTest').onclick = testServer;
+$('#srvShow').onclick = () => { const k = $('#srvKey'), show = k.type === 'password'; k.type = show ? 'text' : 'password'; $('#srvShow').setAttribute('aria-pressed', show); $('#srvShow').textContent = show ? 'Ocultar' : 'Ver'; };
 if (!hasRuntime && srv.url) testServer();
 
 /* ============================================================
