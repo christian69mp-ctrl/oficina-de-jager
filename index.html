@@ -170,6 +170,10 @@ button.step { font: inherit; font-size: 11.5px; }
 .settings { display: flex; flex-direction: column; gap: 8px; }
 .chan-bar { display: flex; flex-direction: column; gap: 6px; border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); border-radius: 10px; padding: 10px 12px; background: var(--panel-2); }
 .chan-bar label { font-family: var(--f-display); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.voice-box { display: flex; flex-direction: column; gap: 8px; border: 1px solid color-mix(in srgb, var(--holo) 35%, transparent); border-radius: 10px; padding: 10px 12px; }
+.voice-box b { font-size: 13px; }
+.voice-box select { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.voice-box input[type=range] { flex: 1; }
 .chan-bar select { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .conns { display: flex; flex-direction: column; gap: 10px; }
 .conn { border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
@@ -350,6 +354,12 @@ button.step { font: inherit; font-size: 11.5px; }
     <section class="settings">
       <h2>Ajustes</h2>
       <label class="toggle"><input type="checkbox" id="subOn" checked> Si falta Gemini o ChatGPT, Claude hace su trabajo</label>
+      <div class="voice-box">
+        <b>Voz de Nyx</b>
+        <div class="field-row"><select id="voiceSel" aria-label="Voz de Nyx"></select><button type="button" class="btn small primary" id="voiceTest">Escuchar a Nyx</button></div>
+        <div class="field-row"><label class="toggle" for="voicePitch">Tono</label><input type="range" id="voicePitch" min="0.7" max="1.5" step="0.05" value="1.08"><label class="toggle" for="voiceRate">Velocidad</label><input type="range" id="voiceRate" min="0.8" max="1.3" step="0.02" value="1.04"></div>
+        <p class="note" id="voiceNote">Son las voces en español de este dispositivo: en otro ordenador o móvil pueden ser distintas.</p>
+      </div>
       <label class="toggle"><input type="checkbox" id="hqOn"> Calidad alta (brillos y reflejos)</label>
       <p class="note" id="brainNote">Nyx y su equipo usan Claude de verdad cuando la página tiene permiso. Gemini y ChatGPT todavía no están conectados: mientras tanto Claude hace su trabajo (o salen resultados de ejemplo si lo desactivas). Las miniaturas son bocetos hasta conectar Gemini. Nada se envía sin tu aprobación.</p>
     </section>
@@ -379,7 +389,7 @@ button.step { font: inherit; font-size: 11.5px; }
       <label class="toggle"><input type="checkbox" id="fxOn" checked> Efectos holograma</label>
       <button type="button" class="btn small" id="calibBtn">Ajustar boca y ojos</button>
     </div>
-    <h4>Háblale a Nyx</h4>
+    <h4>Háblale a Nyx <button type="button" class="btn small" id="voiceTest2">Escuchar su voz</button></h4>
     <form class="fan-talk" id="fanTalk">
       <input id="fanText" placeholder="Ej.: ¿Qué tal funcionó el último vídeo?" autocomplete="off">
       <button type="button" class="btn mic" hidden aria-label="Hablar con el micrófono">🎙</button>
@@ -1429,6 +1439,27 @@ function setAvatarMedia(el, tex, aspect) {
 }
 function setAvatarHint(t) { $('#avatarHint').textContent = t; }
 
+// Voz de Nyx: el jefe elige entre las voces en español de su dispositivo (se recuerda en este navegador)
+const VOICE_KEY = 'oficina-voz-nyx';
+const spanishVoices = () => ('speechSynthesis' in window ? speechSynthesis.getVoices() : []).filter(v => v.lang?.toLowerCase().startsWith('es'));
+function voicePrefs() { try { return JSON.parse(localStorage.getItem(VOICE_KEY) || '{}'); } catch (e) { return {}; } }
+function nyxVoice() {
+  const vs = spanishVoices(), saved = voicePrefs().name;
+  return vs.find(v => v.name === saved) || vs.find(v => /helena|elvira|laura|m[oó]nica|paulina|luc[ií]a|sabina|marisol|elena|dalia|female|mujer/i.test(v.name)) || vs.find(v => /google/i.test(v.name)) || vs[0] || null;
+}
+function fillVoices() {
+  const sel = $('#voiceSel'), vs = spanishVoices(), cur = nyxVoice();
+  sel.innerHTML = vs.length ? vs.map(v => `<option value="${esc(v.name)}"${v === cur ? ' selected' : ''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('') : '<option>Este dispositivo no tiene voces en español</option>';
+  const p = voicePrefs(); if (p.pitch) $('#voicePitch').value = p.pitch; if (p.rate) $('#voiceRate').value = p.rate;
+}
+function saveVoicePrefs() { try { localStorage.setItem(VOICE_KEY, JSON.stringify({ name: $('#voiceSel').value, pitch: $('#voicePitch').value, rate: $('#voiceRate').value })); } catch (e) {} }
+if ('speechSynthesis' in window) { fillVoices(); speechSynthesis.addEventListener?.('voiceschanged', fillVoices); setTimeout(fillVoices, 800); }
+else $('#voiceNote').textContent = 'Este navegador no puede hablar. Prueba con Chrome o Safari.';
+['voiceSel', 'voicePitch', 'voiceRate'].forEach(id => $('#' + id).addEventListener('change', saveVoicePrefs));
+const sayHello = () => { $('#voiceOn').checked = true; directorSay('Hola, jefe. Soy Nyx, la directora de tu oficina. Tengo a Lía, Rui y Sam listos en la mesa de análisis, y a todo el equipo esperando. ¿Qué preparamos hoy?'); };
+$('#voiceTest').onclick = sayHello;
+$('#voiceTest2').onclick = sayHello;
+
 const director = { mode: 'espera', modeT: 0, say: 'Esperando órdenes' };
 function directorSay(text, mode = 'habla', secs) {
   const est = Math.min(16, 1.5 + text.split(/\s+/).length * 0.38);
@@ -1439,9 +1470,9 @@ function directorSay(text, mode = 'habla', secs) {
   if (mode === 'habla') setFan('habla', true);
   if ($('#voiceOn').checked && 'speechSynthesis' in window) {
     try {
-      speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES'; u.rate = 1.04; u.pitch = 1.08;
-      const vs = speechSynthesis.getVoices().filter(v => v.lang?.startsWith('es'));
-      const fem = vs.find(v => /helena|elvira|laura|m[oó]nica|paulina|luc[ií]a|sabina|marisol|elena|dalia|female|mujer/i.test(v.name)) || vs.find(v => /google/i.test(v.name)) || vs[0];
+      speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES'; u.rate = +$('#voiceRate').value || 1.04; u.pitch = +$('#voicePitch').value || 1.08;
+      const vs = [];
+      const fem = nyxVoice();
       if (fem) u.voice = fem;
       u.onstart = () => { director.speaking = true; };
       u.onerror = () => { director.speaking = false; };
