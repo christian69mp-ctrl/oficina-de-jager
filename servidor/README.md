@@ -48,7 +48,7 @@ El servidor también da voz realista a Nyx, Lía, Rui y Sam (cada uno con la suy
 
 1. Crea una cuenta en [elevenlabs.io](https://elevenlabs.io) y copia tu clave en **Profile → API Keys**.
 2. Diseña las voces en **Voices → Voice Design**, describiéndolas con palabras. Propuestas:
-   - **Nyx**: «Mujer de unos 30 años, española, voz clara y algo grave, segura y con autoridad, ritmo ágil y un punto irónico, como una hacker que lo controla todo.»
+   - **Nyx**: «Mujer de unos 30 años, española, voz sensual, segura y algo grave, chula y con descaro, como la hacker invencible de una película de acción. Habla pausada, con seguridad y una sonrisa en la voz cuando bromea.»
    - **Lía**: «Mujer joven, española, enérgica y entusiasta, habla rápido y con curiosidad.»
    - **Rui**: «Hombre joven, español, directo y práctico, con un toque bromista.»
    - **Sam**: «Hombre de unos 35 años, español, calmado, reflexivo y convincente.»

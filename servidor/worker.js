@@ -84,7 +84,7 @@ async function chatgpt(env, prompt) {
 // ELEVENLABS_VOICE_NYX, ELEVENLABS_VOICE_LIA, ELEVENLABS_VOICE_RUI y ELEVENLABS_VOICE_SAM
 // (si falta alguna, usa la de Nyx). Sin ElevenLabs, usa las voces de OpenAI con su personalidad.
 const OPENAI_VOCES = {
-  nyx: { voice: 'nova', instructions: 'Eres Nyx, una IA hacker que dirige una oficina. Habla en español de España, segura, rápida y con un punto de ironía, tono cálido pero con autoridad.' },
+  nyx: { voice: 'shimmer', instructions: 'Eres Nyx, una hacker de película de unos 30 años que dirige una oficina. Habla en español de España con voz sensual, segura y un poco grave, chula y con descaro, como alguien invencible. Ritmo pausado y seguro, con sonrisa en la voz cuando bromea o coquetea con su jefe.' },
   lia: { voice: 'coral', instructions: 'Eres Lía, analista de tendencias. Español de España, entusiasta, enérgica y curiosa.' },
   rui: { voice: 'ash', instructions: 'Eres Rui, analista de CTR. Español de España, directo, práctico y algo bromista.' },
   sam: { voice: 'sage', instructions: 'Eres Sam, analista de retención y rentabilidad. Español de España, calmado, reflexivo y convincente.' },

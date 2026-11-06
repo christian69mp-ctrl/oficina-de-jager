@@ -260,7 +260,7 @@ button.step { font: inherit; font-size: 11.5px; }
         <button type="button" class="big-btn" id="bigBtn" aria-pressed="false">Ver en grande</button>
       </div>
     </div>
-    <div class="hud say quiet" id="say" aria-live="polite"><b id="sayWho">Nyx</b><span id="sayText">Esperando órdenes, jefe. Escríbeme abajo o elige un encargo de ejemplo.</span></div>
+    <div class="hud say quiet" id="say" aria-live="polite"><b id="sayWho">Nyx</b><span id="sayText">Aquí estoy, jefe. Dime qué quieres y yo me encargo del resto.</span></div>
     <div class="hud hud-tools">
       <div class="seg" role="group" aria-label="Vista">
         <button type="button" data-view="general" aria-pressed="true">General</button>
@@ -357,7 +357,7 @@ button.step { font: inherit; font-size: 11.5px; }
       <div class="voice-box">
         <b>Voz de Nyx</b>
         <div class="field-row"><select id="voiceSel" aria-label="Voz de Nyx"></select><button type="button" class="btn small primary" id="voiceTest">Escuchar a Nyx</button></div>
-        <div class="field-row"><label class="toggle" for="voicePitch">Tono</label><input type="range" id="voicePitch" min="0.7" max="1.5" step="0.05" value="1.08"><label class="toggle" for="voiceRate">Velocidad</label><input type="range" id="voiceRate" min="0.8" max="1.3" step="0.02" value="1.04"></div>
+        <div class="field-row"><label class="toggle" for="voicePitch">Tono</label><input type="range" id="voicePitch" min="0.7" max="1.5" step="0.05" value="0.95"><label class="toggle" for="voiceRate">Velocidad</label><input type="range" id="voiceRate" min="0.8" max="1.3" step="0.02" value="1.04"></div>
         <label class="toggle" id="voiceSrvRow" hidden><input type="checkbox" id="voiceSrv" checked> Usar la voz realista del servidor</label>
         <p class="note" id="voiceNote">Son las voces en español de este dispositivo: en otro ordenador o móvil pueden ser distintas.</p>
       </div>
@@ -1457,7 +1457,12 @@ function saveVoicePrefs() { try { localStorage.setItem(VOICE_KEY, JSON.stringify
 if ('speechSynthesis' in window) { fillVoices(); speechSynthesis.addEventListener?.('voiceschanged', fillVoices); setTimeout(fillVoices, 800); }
 else $('#voiceNote').textContent = 'Este navegador no puede hablar. Prueba con Chrome o Safari.';
 ['voiceSel', 'voicePitch', 'voiceRate'].forEach(id => $('#' + id).addEventListener('change', saveVoicePrefs));
-const sayHello = () => { $('#voiceOn').checked = true; directorSay('Hola, jefe. Soy Nyx, la directora de tu oficina. Tengo a Lía, Rui y Sam listos en la mesa de análisis, y a todo el equipo esperando. ¿Qué preparamos hoy?'); };
+const NYX_HELLOS = [
+  'Hola, jefe. Soy Nyx. He hackeado medio internet esta mañana, pero tranquilo, para ti siempre tengo un hueco. ¿Qué preparamos hoy?',
+  'Por fin apareces, Jager. La oficina funciona sola, pero contigo delante se pone más interesante. ¿Qué vídeo hacemos?',
+  'Aquí Nyx, indestructible como siempre. El equipo está listo y yo, más. Tú dirás, jefe.',
+];
+const sayHello = () => { $('#voiceOn').checked = true; directorSay(NYX_HELLOS[Math.floor(Math.random() * NYX_HELLOS.length)]); };;
 $('#voiceTest').onclick = sayHello;
 $('#voiceTest2').onclick = sayHello;
 
@@ -1476,7 +1481,7 @@ function directorSay(text, mode = 'habla', secs) {
 function browserSpeak(text) {
   if ($('#voiceOn').checked && 'speechSynthesis' in window) {
     try {
-      speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES'; u.rate = +$('#voiceRate').value || 1.04; u.pitch = +$('#voicePitch').value || 1.08;
+      speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES'; u.rate = +$('#voiceRate').value || 1.04; u.pitch = +$('#voicePitch').value || 0.95;
       const vs = [];
       const fem = nyxVoice();
       if (fem) u.voice = fem;
@@ -1593,7 +1598,7 @@ const TEAM_TXT = `Equipo:
 async function interpret(text) {
   const st = channelStats();
   const enCurso = jobs.slice(0, 6).map(j => `#${j.id} ${j.type} «${j.topic}»: ${STATUS_TXT[j.status]}`).join('\n') || 'ninguno';
-  const r = await askClaude(`Eres Nyx, la directora de "La oficina de Jager", una empresa virtual. Eres una IA con estética hacker: segura, rápida, directa y con un punto de ironía. Tu jefe se llama Jager; te habla y respondes en voz alta desde un ventilador holográfico. Español de España, cercana y profesional, frases cortas.
+  const r = await askClaude(`Eres Nyx, la directora de "La oficina de Jager", una empresa virtual. Eres una hacker de película: sexy, chula, segurísima de ti misma e indestructible; nada te asusta y todo lo tienes bajo control. Tu jefe se llama Jager; te habla y respondes en voz alta desde un ventilador holográfico. Hablas con descaro y elegancia, y de vez en cuando (no en cada frase) le tiras la caña con un piropo ingenioso o una broma pícara, siempre con gracia y sin nada explícito. Pero nunca descuidas el trabajo: primero respondes lo que te pide. Español de España, frases cortas y con chispa.
 ${TEAM_TXT}
 Canales del jefe: ${store.channels.map(c => c.name).join(', ')}. Canal activo: ${store.ch.name}.
 Nicho del canal activo: ${store.nicho}
@@ -2198,7 +2203,7 @@ async function handleMessage(text) {
   const r = await interpret(text);
   thinking = false;
   if (r.tipo === 'charla') {
-    directorSay(r.respuesta || 'Te escucho, jefe. Para charlar de verdad necesito estar conectado a Claude; mientras tanto, mándame un vídeo, un proyecto o pídeme temas virales.');
+    directorSay(r.respuesta || 'Me encanta que me hables, jefe, pero para charlar de verdad necesito conectarme a Claude. Mientras tanto, pídeme un vídeo, un proyecto o temas virales.');
     log(`Hablas con Nyx: «${esc(text)}»`);
     return;
   }
@@ -2207,10 +2212,10 @@ async function handleMessage(text) {
 }
 
 const REPLIES = {
-  video: 'Entendido, jefe. Lía, Rui y Sam lo debaten en la mesa de análisis; después Nora escribe el guion, Gema y Tito preparan miniaturas y títulos, Rui los pone a prueba y Paco lo monta para Pixelido.',
-  proyecto: 'Entendido, jefe. Max ordena la idea, Leo la programa y Vera revisa el código antes de enseñártelo.',
-  radar: 'Entendido. Lía busca temas con potencial y luego los tres analistas debaten cuál es el más viral y rentable.',
-  analisis: 'Recibido. Rui analiza el CTR, Sam la retención y luego los tres debaten el plan para escalar el canal.',
+  video: 'Hecho, jefe. Lía, Rui y Sam lo destripan en la mesa, Nora lo escribe, Gema y Tito lo visten y Paco se lo lleva a Pixelido. Tú relájate, que esto lo tengo yo.',
+  proyecto: 'Me encanta cuando me pides código. Max lo ordena, Leo lo programa y Vera lo revisa. Ni un fallo, jefe, ya me conoces.',
+  radar: 'Voy a por lo viral, jefe. Lía rastrea las tendencias y la mesa decide qué nos hace ganar más. Prepárate para elegir.',
+  analisis: 'Números recibidos. Rui mira el CTR, Sam la retención y entre todos te traemos el plan para petarlo. Nada se me escapa.',
 };
 function newOrder(type, topic, o = {}) {
   const flow = FLOWS[type];
@@ -2327,8 +2332,8 @@ function arriveDirector(job) {
   } else {
     job.status = 'esperando'; ok.state = 'cola';
     directorSay(job.type === 'video'
-      ? `Jefe, el paquete de «${job.short}» está listo.${job.winner?.ctr_estimado ? ` Rui estima un CTR del ${job.winner.ctr_estimado}%.` : ''} Revísalo y, si te gusta, Paco se lo lleva a Pixelido.`
-      : `Jefe, el proyecto «${job.short}» está programado y revisado. ¿Lo apruebas?`);
+      ? `Jefe, el paquete de «${job.short}» está listo.${job.winner?.ctr_estimado ? ` Rui estima un CTR del ${job.winner.ctr_estimado}%.` : ''} Échale un ojo y, si te gusta tanto como yo, Paco se lo lleva a Pixelido.`
+      : `Jefe, «${job.short}» está programado y revisado. Impecable, como yo. ¿Lo apruebas?`);
     setTimeout(() => setFan('listo', true), 6000);
     log(`Encargo <b>#${job.id}</b> esperando tu aprobación`);
   }
@@ -2352,11 +2357,11 @@ function approve(job) {
         viral: job.viral || null, guion: (job.step('guion').output?.text || '').slice(0, 3000), createdAt: Date.now(), metrics: null, analysis: null, demo: job.demo, channelId: job.channelId,
       });
       savePackageToDrive(job, store.videos[store.videos.length - 1]);
-      directorSay(`Hecho. Pixelido ya tiene el paquete de «${job.short}». Cuando esté publicado, pásame sus métricas y lo analizamos.`);
+      directorSay(`Entregado. Pixelido ya tiene «${job.short}». Cuando lo publiquen, pásame las métricas y te digo cómo petarlo todavía más.`);
       crew.forEach(a => { if (!a.busy()) a.celebrate = 2.5; }); markDirty();
     } });
     paco.agenda.push({ type: 'goto', dest: 'home' });
-    directorSay('Aprobado. Paco, llévale el paquete a Pixelido.');
+    directorSay('Aprobado por el jefe. Paco, corre a Pixelido, que hoy estamos imparables.');
   } else {
     log(`Proyecto <b>${esc(job.short)}</b> aprobado`);
     directorSay('Aprobado. ¡Buen trabajo, equipo de Proyectos!');
