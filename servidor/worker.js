@@ -16,7 +16,7 @@ export default {
     if (env.OFICINA_TOKEN && req.headers.get('X-Oficina-Token') !== env.OFICINA_TOKEN) return json({ error: 'Clave de la oficina incorrecta' }, 401);
 
     const path = new URL(req.url).pathname;
-    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS });
+    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL });
     // Datos compartidos entre el móvil y el ordenador (canales, vídeos, métricas y manual)
     if (path === '/datos') {
       if (!env.DATOS) return json({ error: 'Falta el almacén DATOS en el servidor (ver servidor/README.md)' }, 400);
@@ -31,6 +31,15 @@ export default {
       return json(unido);
     }
     if (req.method !== 'POST') return json({ error: 'Usa POST' }, 405);
+    // Entrega a Pixelido: el script de Google (Apps Script) de tu cuenta guarda los paquetes en tu Drive
+    if (path === '/drive') {
+      if (!env.DRIVE_SCRIPT_URL) return json({ error: 'Falta DRIVE_SCRIPT_URL en el servidor' }, 400);
+      const entra = await req.json().catch(() => ({}));
+      const r = await fetch(env.DRIVE_SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...entra, clave: env.DRIVE_CLAVE || '' }), redirect: 'follow' });
+      const d = await r.json().catch(() => null);
+      if (!d) return json({ error: 'El script de Drive no responde bien: revisa que esté implementado con acceso «Cualquier usuario»' }, 502);
+      return json(d, d.error ? 502 : 200);
+    }
 
     if (path === '/oir') { try { return json(await oir(env, req)); } catch (e) { return json({ error: String(e.message || e) }, 502); } }
     const body = await req.json().catch(() => ({}));
@@ -173,5 +182,6 @@ async function oir(env, req) {
 function mezclar(a = {}, b = {}) {
   const t = x => x?.upd || x?.createdAt || 0;
   const porId = (xs, ys) => { const m = new Map(); for (const x of xs || []) if (x?.id) m.set(x.id, x); for (const y of ys || []) if (y?.id) m.set(y.id, !m.has(y.id) || t(y) >= t(m.get(y.id)) ? y : m.get(y.id)); return [...m.values()]; };
-  return { channels: porId(a.channels, b.channels), videos: porId(a.videos, b.videos).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)) };
+  const bd = (b.driveUpd || 0) >= (a.driveUpd || 0);
+  return { channels: porId(a.channels, b.channels), videos: porId(a.videos, b.videos).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)), drive: (bd ? b.drive : a.drive) || null, driveUpd: Math.max(a.driveUpd || 0, b.driveUpd || 0) };
 }

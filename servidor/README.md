@@ -67,6 +67,25 @@ npx wrangler deploy
 
 En **Conexiones → Servidor** saldrá «Sincronizado». Cada dispositivo envía sus cambios al momento y recoge los de los demás cada minuto y al volver a abrir la oficina.
 
+## Entrega a Pixelido en Drive
+
+Con esto, cuando apruebas un vídeo, Paco guarda el paquete (guion, títulos, miniaturas y acuerdo de la mesa) en la carpeta de tu Drive que compartes con Pixelido. No hace falta ninguna clave de Google: usa un pequeño script en tu propia cuenta.
+
+1. Entra en [script.google.com](https://script.google.com) con tu cuenta de Google y pulsa **Nuevo proyecto**.
+2. Borra lo que hay, pega todo el contenido de `servidor/drive-script.gs` y cambia `CAMBIA_ESTA_CLAVE` por una contraseña inventada.
+3. Guarda (icono del disquete) y pulsa **Implementar → Nueva implementación**.
+4. En el engranaje elige **Aplicación web**. En «Ejecutar como» deja **Yo** y en «Quién tiene acceso» elige **Cualquier usuario**.
+5. Pulsa **Implementar**, autoriza el acceso a tu Drive y copia la **URL de la aplicación web** (acaba en `/exec`).
+6. Guarda los dos secretos en el servidor y publícalo:
+
+```bash
+npx wrangler secret put DRIVE_SCRIPT_URL   # pega la URL que acaba en /exec
+npx wrangler secret put DRIVE_CLAVE        # la misma contraseña del paso 2
+npx wrangler deploy
+```
+
+7. En la oficina, **Conexiones → Entrega a Pixelido → Elegir carpeta** y elige la carpeta con «Pixelido» en el nombre.
+
 ## Coste aproximado
 
 Cloudflare Workers es gratis hasta 100.000 peticiones al día. Lo que pagas son las IAs: un vídeo completo hace unas 15 peticiones de texto y 3 imágenes, y cada frase de Nyx es una petición corta a Claude más unos segundos de voz de ElevenLabs. El precio exacto depende de los modelos que elijas en `wrangler.toml`.

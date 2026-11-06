@@ -1682,12 +1682,13 @@ const store = {
         } catch (e) {}
       }
     } else {
-      try { const raw = localStorage.getItem('oficina-jager'); if (raw) { const d = JSON.parse(raw); this.videos = d.videos || []; const vacio = d.channels?.length === 1 && d.channels[0].name === 'Mi canal' && !d.channels[0].nicho && !d.channels[0].lecciones?.length; if (!vacio) this.loadChannels(d); this.drive = d.drive || null; } } catch (e) {}
+      try { const raw = localStorage.getItem('oficina-jager'); if (raw) { const d = JSON.parse(raw); this.videos = d.videos || []; const vacio = d.channels?.length === 1 && d.channels[0].name === 'Mi canal' && !d.channels[0].nicho && !d.channels[0].lecciones?.length; if (!vacio) this.loadChannels(d); this.drive = d.drive || null; this.driveUpd = d.driveUpd || 0; } } catch (e) {}
     }
     renderChannel(); renderConn(); snapChannels();
   },
-  saveLocal(fromSync) { if (!fromSync) stampChannels(); try { localStorage.setItem('oficina-jager', JSON.stringify({ videos: this.videos, channels: this.channels, active: this.active, drive: this.drive })); } catch (e) {} if (!fromSync) scheduleSyncPush(); },
+  saveLocal(fromSync) { if (!fromSync) stampChannels(); try { localStorage.setItem('oficina-jager', JSON.stringify({ videos: this.videos, channels: this.channels, active: this.active, drive: this.drive, driveUpd: this.driveUpd || 0 })); } catch (e) {} if (!fromSync) scheduleSyncPush(); },
   async saveDrive() {
+    if (!hasRuntime) this.driveUpd = Date.now();
     renderConn();
     if (this.db) { try { await this.db.doc('config/drive').set(this.drive ? { ...this.drive } : { id: null }); } catch (e) {} }
     else if (!hasRuntime) this.saveLocal();
@@ -1716,12 +1717,14 @@ function stampChannels() { for (const c of store.channels) { const j = chanJson(
 function mergeState(a = {}, b = {}) {
   const t = x => x?.upd || x?.createdAt || 0;
   const byId = (xs, ys) => { const m = new Map(); for (const x of xs || []) if (x?.id) m.set(x.id, x); for (const y of ys || []) if (y?.id) m.set(y.id, !m.has(y.id) || t(y) >= t(m.get(y.id)) ? y : m.get(y.id)); return [...m.values()]; };
-  return { channels: byId(a.channels, b.channels), videos: byId(a.videos, b.videos).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)) };
+  const bd = (b.driveUpd || 0) >= (a.driveUpd || 0);
+  return { channels: byId(a.channels, b.channels), videos: byId(a.videos, b.videos).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)), drive: (bd ? b.drive : a.drive) || null, driveUpd: Math.max(a.driveUpd || 0, b.driveUpd || 0) };
 }
+const syncState = () => ({ channels: store.channels, videos: store.videos, drive: store.drive || null, driveUpd: store.driveUpd || 0 });
 function applyState(m) {
-  const local = JSON.stringify({ channels: store.channels, videos: store.videos });
+  const local = JSON.stringify(syncState());
   if (JSON.stringify(m) === local) return false;
-  store.channels = m.channels.length ? m.channels : store.channels; store.videos = m.videos;
+  store.channels = m.channels.length ? m.channels : store.channels; store.videos = m.videos; store.drive = m.drive; store.driveUpd = m.driveUpd; renderConn();
   if (!store.channels.some(c => c.id === store.active)) store.active = store.channels[0].id;
   snapChannels(); store.saveLocal(true); renderChannel(); markDirty();
   return true;
@@ -1730,7 +1733,7 @@ async function syncPull() {
   if (!syncReady() || sync.busy) return; sync.busy = true;
   try {
     const remote = await srvFetch('/datos');
-    const m = mergeState({ channels: store.channels, videos: store.videos }, remote);
+    const m = mergeState(syncState(), remote);
     applyState(m);
     if (JSON.stringify(m) !== JSON.stringify(mergeState({}, remote))) await syncPush(); // aquí hay cosas que el servidor no tiene
     setSyncOk(true);
@@ -1738,8 +1741,8 @@ async function syncPull() {
   finally { sync.busy = false; }
 }
 async function syncPush() {
-  const merged = await srvFetch('/datos', { channels: store.channels, videos: store.videos });
-  applyState(mergeState({ channels: store.channels, videos: store.videos }, merged));
+  const merged = await srvFetch('/datos', syncState());
+  applyState(mergeState(syncState(), merged));
 }
 function scheduleSyncPush() {
   if (!syncReady()) return;
@@ -2307,9 +2310,20 @@ function mcpFix(server, e) {
 }
 mcpPromise.then(mcp => { conn.mcp = mcp; renderConn(); });
 
+const serverDrive = () => serverReady() && !!srv.caps.drive;
 async function chooseFolder() {
   const mcp = await mcpPromise;
-  if (!mcp) { conn.driveMsg = 'Drive solo se puede usar con la oficina abierta en claude.ai.'; return renderConn(); }
+  if (!mcp && serverDrive()) {
+    conn.driveMsg = 'Buscando carpetas…'; renderConn();
+    try {
+      const d = await srvFetch('/drive', { accion: 'carpetas', buscar: 'Pixelido' });
+      conn.folders = d.carpetas || [];
+      conn.driveMsg = conn.folders.length ? 'Elige la carpeta que compartes con Pixelido:' : 'No hay ninguna carpeta con «Pixelido» en el nombre. Crea una en tu Drive, compártela con Pixelido y vuelve a pulsar «Elegir carpeta».';
+      conn.driveOk = true;
+    } catch (e) { conn.driveOk = false; conn.driveMsg = 'Drive: ' + e.message; }
+    return renderConn();
+  }
+  if (!mcp) { conn.driveMsg = serverReady() ? 'Para usar Drive aquí, conecta el script de Drive al servidor (servidor/README.md, «Entrega a Pixelido en Drive»).' : 'Conecta el servidor en «Servidor» para poder guardar en Drive.'; return renderConn(); }
   conn.driveMsg = 'Buscando carpetas…'; renderConn();
   try {
     const r = await mcp.callTool('Google Drive', 'search_files', { query: "mimeType = 'application/vnd.google-apps.folder' and title contains 'Pixelido' and trashed = false", excludeContentSnippets: true, pageSize: 10 });
@@ -2326,8 +2340,18 @@ function packageText(job) {
 }
 async function savePackageToDrive(job, video) {
   if (!video || !$('#driveOn').checked || job.demo) return;
-  const mcp = await mcpPromise; if (!mcp) return;
+  const mcp = await mcpPromise;
   const folder = store.drive?.id ? store.drive : null;
+  if (!mcp) {
+    if (!serverDrive()) return;
+    try {
+      const d = await srvFetch('/drive', { accion: 'guardar', carpeta: folder?.id || null, titulo: `Paquete Pixelido · ${video.title} · ${today()}`, texto: packageText(job) });
+      video.driveUrl = d.url || null; video.driveErr = null;
+      log(`Paco guarda el paquete en Drive${folder ? ' (' + esc(folder.title) + ')' : ''}`);
+    } catch (e) { video.driveErr = 'No se pudo guardar en Drive: ' + e.message; log(esc(video.driveErr)); }
+    return store.saveVideo(video);
+  }
+  if (!mcp) return;
   try {
     const r = await mcp.callTool('Google Drive', 'create_file', { title: `Paquete Pixelido · ${video.title} · ${today()}`, textContent: packageText(job), contentMimeType: 'text/plain', ...(folder ? { parentId: folder.id } : {}) });
     const f = r.payload || {};
