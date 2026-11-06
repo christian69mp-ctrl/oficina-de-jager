@@ -1363,6 +1363,119 @@ const bust = new THREE.Sprite(bustMat); bust.position.set(FAN_POS.x, 2.55, FAN_P
 const jagerTag = makeSprite(512, 96, 0.55); jagerTag.s.position.set(FAN_POS.x, 4.05, FAN_POS.z); scene.add(jagerTag.s);
 
 let avatarDoc = null;
+// Puntos de la cara de Nyx (proporción de la imagen): boca y ojos
+const NYX_FACE = { mouth: { x: 0.497, y: 0.494, w: 0.12, h: 0.1 }, eyes: [{ x: 0.431, y: 0.337 }, { x: 0.586, y: 0.348 }] };
+let face = null;
+// Sílabas cuando no hay audio que medir (voz del dispositivo)
+const syllables = t => Math.min(1, Math.max(0, Math.sin(t * 13.1) * 0.55 + Math.sin(t * 21.7 + 1) * 0.35 + Math.sin(t * 5.3) * 0.3));
+// Postura: cada valor va suave hacia su objetivo para que los gestos parezcan naturales
+const pose = { x: 0, y: 0, rot: 0, zoom: 0, turn: 0, t: { x: 0, y: 0, rot: 0, zoom: 0, turn: 0 }, next: 1, nod: 0, lastLv: 0, mouth: 0, blinkT: 2, blink: -1, double: false };
+const GESTOS_HABLA = [
+  { rot: 0.05, y: 0.004 }, { rot: -0.05, y: 0.004 },            // ladea la cabeza
+  { zoom: 0.035, y: 0.01 },                                      // se acerca a la cámara
+  { zoom: -0.02, y: -0.01, rot: 0.02 },                           // se echa hacia atrás, chula
+  { turn: 0.6, x: 0.012 }, { turn: -0.6, x: -0.012 },             // gira hacia un lado
+  { rot: 0.03, turn: 0.4, zoom: 0.02 }, { rot: -0.03, turn: -0.4, zoom: 0.02 },
+  {},                                                            // vuelve al centro
+];
+const GESTOS_CALLA = [{ turn: 0.5, x: 0.01 }, { turn: -0.5, x: -0.01 }, { rot: 0.03 }, { rot: -0.03 }, { zoom: 0.015 }, {}, {}];
+function tickPose(dt, t, talking) {
+  pose.next -= dt;
+  if (pose.next <= 0) {
+    const pool = talking ? GESTOS_HABLA : GESTOS_CALLA, g = pool[Math.floor(Math.random() * pool.length)];
+    for (const k of ['x', 'y', 'rot', 'zoom', 'turn']) pose.t[k] = (g[k] || 0) * (0.6 + Math.random() * 0.6);
+    pose.next = talking ? 0.9 + Math.random() * 1.6 : 2.5 + Math.random() * 3.5;
+  }
+  // Asiente en los golpes de voz
+  const lv = talking ? (voiceLevel >= 0 ? voiceLevel : syllables(t) * 0.7) : 0;
+  if (talking && lv - pose.lastLv > 0.22 && pose.nod <= 0) pose.nod = 1;
+  pose.lastLv = lv; pose.nod = Math.max(0, pose.nod - dt * 2.6);
+  const k = 1 - Math.exp(-dt * 3.2);
+  for (const key of ['x', 'y', 'rot', 'zoom', 'turn']) pose[key] += (pose.t[key] - pose[key]) * k;
+  // Boca: abre deprisa y cierra un poco más despacio, como al hablar
+  const target = talking ? lv : 0;
+  pose.mouth += (target - pose.mouth) * (1 - Math.exp(-dt * (target > pose.mouth ? 28 : 16)));
+  // Parpadeo cada pocos segundos (a veces doble)
+  pose.blinkT -= dt;
+  if (pose.blinkT <= 0 && pose.blink < 0) { pose.blink = 0; pose.double = Math.random() < 0.2; pose.blinkT = 2.2 + Math.random() * 4; }
+  if (pose.blink >= 0) { pose.blink += dt; if (pose.blink > 0.17) { pose.blink = -1; if (pose.double) { pose.double = false; pose.blinkT = 0.12; } } }
+}
+const blinkAmt = () => pose.blink >= 0 ? Math.sin(Math.min(1, pose.blink / 0.17) * Math.PI) : 0;
+const nodAmt = () => Math.sin(pose.nod * Math.PI);
+// Fotograma de la cara: la imagen con la boca y los párpados movidos (luego encima van las interferencias)
+const frameCanvas = document.createElement('canvas'), fg = frameCanvas.getContext('2d');
+const patch = document.createElement('canvas'), pg = patch.getContext('2d');
+let frameT = -1;
+function featherPatch(fadeTop, fadeBottom, side) {
+  pg.globalCompositeOperation = 'destination-in';
+  let g = pg.createLinearGradient(0, 0, patch.width, 0);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(side, '#000'); g.addColorStop(1 - side, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  pg.fillStyle = g; pg.fillRect(0, 0, patch.width, patch.height);
+  g = pg.createLinearGradient(0, 0, 0, patch.height);
+  g.addColorStop(0, fadeTop ? 'rgba(0,0,0,0)' : '#000'); g.addColorStop(fadeTop || 0.001, '#000'); g.addColorStop(1 - (fadeBottom || 0.001), '#000'); g.addColorStop(1, fadeBottom ? 'rgba(0,0,0,0)' : '#000');
+  pg.fillStyle = g; pg.fillRect(0, 0, patch.width, patch.height);
+  pg.globalCompositeOperation = 'source-over';
+}
+function faceFrame(m, t) {
+  if (!face || m.tagName === 'VIDEO') return m;
+  const [mw, mh] = mediaSize(m); if (!mw || !mh) return m;
+  if (frameT === t) return frameCanvas;
+  frameT = t;
+  const sc = Math.min(1, 900 / Math.max(mw, mh)), W = Math.round(mw * sc), H = Math.round(mh * sc);
+  if (frameCanvas.width !== W || frameCanvas.height !== H) { frameCanvas.width = W; frameCanvas.height = H; }
+  fg.clearRect(0, 0, W, H); fg.drawImage(m, 0, 0, W, H);
+  // Boca: interior oscuro y labio inferior con la barbilla que bajan
+  const F = face.mouth, open = Math.min(1, pose.mouth) * 0.024 * H;
+  if (open > 0.7) {
+    const cx = F.x * W, ly = F.y * H, w = F.w * W;
+    // hueco de la boca con forma de labios (más ancho en el centro) y un toque de dientes arriba
+    fg.save(); fg.beginPath();
+    fg.moveTo(cx - w * 0.4, ly);
+    fg.quadraticCurveTo(cx, ly - open * 0.12, cx + w * 0.4, ly);
+    fg.quadraticCurveTo(cx, ly + open * 1.7, cx - w * 0.4, ly);
+    fg.clip();
+    const gm = fg.createLinearGradient(0, ly, 0, ly + open * 1.2);
+    gm.addColorStop(0, 'rgba(70,40,46,1)'); gm.addColorStop(0.12, 'rgba(200,196,205,.55)'); gm.addColorStop(0.28, '#2a1418'); gm.addColorStop(0.5, '#160a0d'); gm.addColorStop(1, '#0c0507');
+    fg.fillStyle = gm; fg.fillRect(cx - w * 0.42, ly - open, w * 0.84, open * 3);
+    fg.restore();
+    const jw = F.w * 1.3 * W, jh = F.h * H;
+    patch.width = Math.max(2, Math.ceil(jw)); patch.height = Math.max(2, Math.ceil(jh));
+    pg.clearRect(0, 0, patch.width, patch.height);
+    pg.drawImage(m, (F.x - F.w * 0.65) * mw, F.y * mh, F.w * 1.3 * mw, F.h * mh, 0, 0, patch.width, patch.height);
+    featherPatch(0, 0.45, 0.22);
+    // el labio inferior baja más en el centro que en las comisuras (en franjas verticales)
+    const N = 64, pw = patch.width / N, sw = jw / N;
+    for (let i = 0; i < N; i++) {
+      const u = (i + 0.5) / N, d = open * 0.85 * Math.max(0, 1 - ((u - 0.5) / 0.4) ** 2);
+      fg.drawImage(patch, i * pw, 0, pw + 0.5, patch.height, cx - jw / 2 + i * sw, ly + d, sw + 0.6, jh);
+    }
+  }
+  // Párpados: la piel de encima del ojo baja y lo tapa
+  const b = blinkAmt();
+  if (b > 0.05) for (const e of face.eyes) {
+    const ex = e.x * W, ey = e.y * H, ew = 0.036 * W, eh = 0.016 * H;
+    const lidH = eh * 2.4 * b;
+    patch.width = Math.max(2, Math.ceil(ew * 2)); patch.height = Math.max(2, Math.ceil(lidH));
+    pg.clearRect(0, 0, patch.width, patch.height);
+    pg.drawImage(m, (e.x - 0.036) * mw, (e.y - 0.045) * mh, 0.072 * mw, 0.022 * mh, 0, 0, patch.width, patch.height);
+    featherPatch(0, 0, 0.25);
+    fg.drawImage(patch, ex - ew, ey - eh * 1.3, ew * 2, lidH);
+    fg.save(); fg.strokeStyle = 'rgba(12,10,16,.75)'; fg.lineWidth = Math.max(1.2, H * 0.0025); fg.beginPath();
+    fg.moveTo(ex - ew * 0.8, ey - eh * 1.3 + lidH * 0.92); fg.quadraticCurveTo(ex, ey - eh * 1.3 + lidH * 1.12, ex + ew * 0.8, ey - eh * 1.3 + lidH * 0.92); fg.stroke(); fg.restore();
+  }
+  // Ojos que brillan más cuando habla
+  const glow = (b > 0.5 ? 0 : 1) * (0.15 + pose.mouth * 0.6);
+  if (glow > 0.05) {
+    fg.save(); fg.globalCompositeOperation = 'lighter';
+    for (const e of face.eyes) {
+      const ex = e.x * W, ey = e.y * H, r = 0.03 * W;
+      const gr = fg.createRadialGradient(ex, ey, 0, ex, ey, r); gr.addColorStop(0, `rgba(110,200,255,${0.45 * glow})`); gr.addColorStop(1, 'rgba(110,200,255,0)');
+      fg.fillStyle = gr; fg.fillRect(ex - r, ey - r, 2 * r, 2 * r);
+    }
+    fg.restore();
+  }
+  return frameCanvas;
+}
 const bustCanvas = document.createElement('canvas'); bustCanvas.width = bustCanvas.height = 512;
 let bustTex = null;
 const mediaSize = m => [m.videoWidth || m.naturalWidth || m.width, m.videoHeight || m.naturalHeight || m.height];
@@ -1389,7 +1502,8 @@ function blueCopy(m) {
   tintCache.set(m, c); return c;
 }
 const rnd = (a, b) => { const n = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return n - Math.floor(n); };
-function drawHolo(ctx, m, ix, iy, dw, dh, t, lv, W, H) {
+function drawHolo(ctx, base, ix, iy, dw, dh, t, lv, W, H) {
+  const m = faceFrame(base, t);
   const [mw, mh] = mediaSize(m); if (!mw || !mh) return;
   const frame = Math.floor(t * 18);
   // 1. imagen en franjas horizontales: con interferencia, algunas se desplazan de lado
@@ -1402,7 +1516,7 @@ function drawHolo(ctx, m, ix, iy, dw, dh, t, lv, W, H) {
   }
   ctx.save();
   // 2. fantasma azul desplazado (como la señal que llega con retraso)
-  const bc = blueCopy(m);
+  const bc = blueCopy(base);
   if (bc) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.16 + lv * 0.5; ctx.drawImage(bc, ix + (3 + lv * 16) * Math.sin(t * 8.7), iy + lv * 2 * Math.sin(t * 13), dw, dh); }
   // 3. tono azul de holograma
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'soft-light'; ctx.fillStyle = 'rgba(60,150,255,.45)'; ctx.fillRect(0, 0, W, H);
@@ -1440,16 +1554,16 @@ function paintBust(t, talking) {
   g.fillStyle = v; g.fillRect(0, 0, S, S);
   if (bustTex) bustTex.needsUpdate = true;
 }
-function applyAvatar(url, kind) {
+function applyAvatar(url, kind, savedFace) {
   if (kind === 'video') {
     const v = document.createElement('video');
     Object.assign(v, { src: url, loop: true, muted: true, playsInline: true, autoplay: true });
-    v.addEventListener('loadeddata', () => { bustTex = new THREE.CanvasTexture(bustCanvas); avatar.media = v; v.play().catch(() => {}); setAvatarMedia(v, bustTex, 1); }, { once: true });
+    v.addEventListener('loadeddata', () => { face = null; bustTex = new THREE.CanvasTexture(bustCanvas); avatar.media = v; v.play().catch(() => {}); setAvatarMedia(v, bustTex, 1); }, { once: true });
     v.addEventListener('error', () => setAvatarHint('No he podido abrir ese vídeo. Prueba con MP4 o una imagen.'), { once: true });
   } else {
     const img = new Image();
     img.onload = () => {
-      bustTex = new THREE.CanvasTexture(bustCanvas); avatar.media = img; paintBust(0, false);
+      face = savedFace || NYX_FACE; bustTex = new THREE.CanvasTexture(bustCanvas); avatar.media = img; paintBust(0, false);
       setAvatarMedia(img, bustTex, 1);
     };
     img.onerror = () => setAvatarHint('No he podido abrir esa imagen.');
@@ -1461,7 +1575,7 @@ function setAvatarMedia(el, tex, aspect) {
   avatar.media = el; avatar.tex = tex;
   bustMat.map = tex; bustMat.needsUpdate = true;
   bust.userData.base = { x: 2.3 * Math.min(aspect || 1, 1.6), y: 2.3 };
-  setAvatarHint('Avatar de Nyx cargado: se mueve sola y, cuando habla, la señal se llena de interferencias azules como una llamada de hackers.');
+  setAvatarHint('Avatar de Nyx cargado: gesticula, parpadea, mueve la boca al hablar y la señal se llena de interferencias azules como una llamada de hackers.');
 }
 function setAvatarHint(t) { $('#avatarHint').textContent = t; }
 
@@ -1554,7 +1668,7 @@ const store = {
           else { const pb = await this.db.doc('config/manual').get(); if (pb.exists) this.loadChannels(pb.data()); }
           const dr = await this.db.doc('config/drive').get(); if (dr.exists) this.drive = dr.data();
           const av = await this.db.doc('config/avatar').get();
-          if (av.exists) { const d = av.data(); avatarDoc = d; applyAvatar('/_blob/' + d.id, d.kind); }
+          if (av.exists) { const d = av.data(); avatarDoc = d; applyAvatar('/_blob/' + d.id, d.kind, d.face || null); }
         } catch (e) {}
       }
     } else {
@@ -2746,17 +2860,18 @@ function renderFan(t) {
   if (mw && mh) {
     const talk = fanState === 'habla' || director.mode === 'habla' || !!director.speaking;
     // Nunca está quieta: respira, se balancea y gira un poco la cabeza
-    const bob = Math.sin(t * 1.3) * 7 + Math.sin(t * 0.47) * 4 + (talk ? Math.sin(t * 5.2) * 3 : 0);
-    const sway = Math.sin(t * 0.61) * 9 + Math.sin(t * 1.7) * 2.5 + (talk ? Math.sin(t * 3.9) * 3 : 0);
-    const tilt = Math.sin(t * 0.53) * 0.025 + (talk ? Math.sin(t * 2.7) * 0.012 : 0);
-    const zoom = 1 + Math.sin(t * 1.1) * 0.012 + (talk ? 0.01 : 0) + (fanState === 'escucha' ? 0.02 : 0);
+    const bob = Math.sin(t * 1.3) * 6 + Math.sin(t * 0.47) * 4 + (pose.y + nodAmt() * 0.014) * W;
+    const sway = Math.sin(t * 0.61) * 7 + Math.sin(t * 1.7) * 2 + pose.x * W;
+    const tilt = Math.sin(t * 0.53) * 0.018 + pose.rot;
+    const zoom = 1 + Math.sin(t * 1.1) * 0.01 + pose.zoom + nodAmt() * 0.008 + (fanState === 'escucha' ? 0.02 : 0);
     const size = W * 0.86 * zoom; const k = Math.max(size / mw, size / mh);
     const dw = mw * k, dh = mh * k;
     fx.save(); fx.beginPath(); fx.arc(C, C, W * 0.47, 0, 7); fx.clip();
-    fx.translate(C + sway, C + bob + 10); fx.rotate(tilt); fx.translate(-C, -C);
+    // girar la cabeza: se estrecha un poco hacia el lado al que mira
+    fx.translate(C + sway, C + bob + 10); fx.rotate(tilt); fx.transform(1 - Math.abs(pose.turn) * 0.05, 0, pose.turn * 0.04, 1, 0, 0); fx.translate(-C, -C);
     const ix = C - dw / 2, iy = C - dh / 2;
     if ($('#fxOn').checked) drawHolo(fx, m, ix, iy, dw, dh, t, holoLevel(t, talk), W, W);
-    else fx.drawImage(m, ix, iy, dw, dh);
+    else fx.drawImage(faceFrame(m, t), ix, iy, dw, dh);
     fx.restore();
   }
   if (!$('#fxOn').checked) return;
@@ -2851,13 +2966,13 @@ function loop() {
     setFan(waiting ? 'listo' : 'espera', true); director.modeT = 1e9; markDirty();
   }
   const talking = director.mode === 'habla';
-  tickHolo(rdt, talking);
-  if (bustTex) { bustPaintT -= rdt; if (bustPaintT <= 0) { bustPaintT = talking ? 1 / 30 : 1 / 12; paintBust(t, talking); } }
+  tickHolo(rdt, talking); tickPose(rdt, t, talking || !!director.speaking);
+  if (bustTex) { bustPaintT -= rdt; if (bustPaintT <= 0) { bustPaintT = talking || pose.blink >= 0 ? 1 / 30 : 1 / 12; paintBust(t, talking); } }
   bustMat.opacity = 0.82 + Math.random() * 0.12 + (talking ? 0.06 : 0);
-  const pulse = talking ? 1 + Math.abs(Math.sin(t * 9)) * 0.015 : 1;
-  bust.position.y = 2.55 + Math.sin(t * 1.3) * 0.05 + Math.sin(t * 0.47) * 0.03 + (talking ? Math.sin(t * 5.2) * 0.02 : 0);
-  bust.position.x = FAN_POS.x + Math.sin(t * 0.61) * 0.05;
-  bustMat.rotation = Math.sin(t * 0.53) * 0.03;
+  const pulse = 1 + pose.zoom * 0.8;
+  bust.position.y = 2.55 + Math.sin(t * 1.3) * 0.05 + Math.sin(t * 0.47) * 0.03 - (pose.y + nodAmt() * 0.014) * 2.2;
+  bust.position.x = FAN_POS.x + Math.sin(t * 0.61) * 0.05 + pose.x * 2.2;
+  bustMat.rotation = -(Math.sin(t * 0.53) * 0.02 + pose.rot);
   bust.scale.set(bust.userData.base.x * pulse, bust.userData.base.y * pulse, 1);
   blades.rotation.z -= rdt * 30;
   bladeMat.opacity = 0.08 + (talking ? 0.05 : 0);
