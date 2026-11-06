@@ -16,9 +16,10 @@ export default {
     if (env.OFICINA_TOKEN && req.headers.get('X-Oficina-Token') !== env.OFICINA_TOKEN) return json({ error: 'Clave de la oficina incorrecta' }, 401);
 
     const path = new URL(req.url).pathname;
-    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null });
+    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY });
     if (req.method !== 'POST') return json({ error: 'Usa POST' }, 405);
 
+    if (path === '/oir') { try { return json(await oir(env, req)); } catch (e) { return json({ error: String(e.message || e) }, 502); } }
     const body = await req.json().catch(() => ({}));
     if (!body.prompt || typeof body.prompt !== 'string') return json({ error: 'Falta el texto de la petición (prompt)' }, 400);
     if (body.prompt.length > 30000) return json({ error: 'La petición es demasiado larga' }, 413);
@@ -123,4 +124,27 @@ async function voz(env, text, cors) {
   } else throw new Error('No hay clave de voz: añade ELEVENLABS_API_KEY u OPENAI_API_KEY');
   if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error('Voz: ' + (t.slice(0, 200) || r.status)); }
   return new Response(r.body, { headers: { ...cors, 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' } });
+}
+
+// ---------- Oído de Nyx: tu voz a texto (ElevenLabs) ----------
+// Necesita que la clave de ElevenLabs tenga activado el permiso «De voz a texto».
+async function oir(env, req) {
+  if (!env.ELEVENLABS_API_KEY) throw new Error('Falta ELEVENLABS_API_KEY en el servidor');
+  const audio = await req.arrayBuffer();
+  if (!audio.byteLength) throw new Error('No ha llegado audio');
+  if (audio.byteLength > 10_000_000) throw new Error('El audio es demasiado largo');
+  const type = (req.headers.get('Content-Type') || 'audio/webm').split(';')[0];
+  const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : type.includes('wav') ? 'wav' : 'webm';
+  const fd = new FormData();
+  fd.append('model_id', env.ELEVENLABS_STT_MODEL || 'scribe_v1');
+  fd.append('language_code', 'es');
+  fd.append('file', new Blob([audio], { type }), 'voz.' + ext);
+  const r = await fetch('https://api.elevenlabs.io/v1/speech-to-text', { method: 'POST', headers: { 'xi-api-key': env.ELEVENLABS_API_KEY }, body: fd });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = typeof d.detail === 'string' ? d.detail : d.detail?.message || d.detail?.status || String(r.status);
+    if (r.status === 401 || r.status === 403 || /permission|missing_permissions/i.test(msg)) throw new Error('la clave de ElevenLabs no tiene el permiso «De voz a texto»: actívalo en ElevenLabs');
+    throw new Error('ElevenLabs: ' + msg);
+  }
+  return { texto: (d.text || '').trim() };
 }

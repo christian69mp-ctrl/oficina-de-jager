@@ -2273,22 +2273,38 @@ async function speakServer(text, who) {
   if (seq !== voiceSeq) return; // ya ha empezado a hablar otra persona
   return playVoice(url, who, true);
 }
-// Reproduce la voz del servidor y conecta el analizador: el volumen sube las interferencias del holograma
+// Un solo reproductor para la voz de Nyx. En el móvil (sobre todo iPhone) el sonido solo se puede
+// activar con un toque del usuario: con el primer toque se desbloquea y luego ya puede hablar sola.
+const nyxEl = new Audio(); nyxEl.preload = 'auto'; nyxEl.setAttribute('playsinline', '');
+const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+let nyxNode = null, audioUnlocked = false;
+function ensureAudioCtx() {
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {}); } catch (e) {}
+  return audioCtx;
+}
+function unlockAudio() {
+  ensureAudioCtx();
+  if (audioUnlocked) return; audioUnlocked = true;
+  try { if (!voiceAudio) { nyxEl.src = SILENT_WAV; nyxEl.play().catch(() => {}); } } catch (e) {}
+}
+['pointerdown', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, { passive: true }));
+// Reproduce la voz del servidor y conecta el analizador: el volumen mueve la boca y sube las interferencias
 async function playVoice(url, who, revoke) {
-  if (voiceAudio) { voiceAudio.pause(); voiceAudio = null; }
   if ('speechSynthesis' in window) speechSynthesis.cancel();
-  const a = new Audio(url); voiceAudio = a; a.dataset.who = who;
+  const a = nyxEl; a.pause();
+  voiceAudio = a; a.dataset.who = who;
   try {
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-    const src = audioCtx.createMediaElementSource(a); analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
-    levelBuf = new Uint8Array(analyser.fftSize); src.connect(analyser); analyser.connect(audioCtx.destination);
+    if (ensureAudioCtx() && !nyxNode) {
+      nyxNode = audioCtx.createMediaElementSource(a); analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
+      levelBuf = new Uint8Array(analyser.fftSize); nyxNode.connect(analyser); analyser.connect(audioCtx.destination);
+    }
   } catch (e) { analyser = null; }
-  a.onended = () => { if (revoke) URL.revokeObjectURL(url); if (voiceAudio === a) { voiceAudio = null; voiceLevel = -1; } if (who === 'nyx') { director.speaking = false; if (director.mode === 'habla') director.modeT = 0; } };
-  a.onerror = a.onended;
+  const done = () => { a.onended = a.onerror = null; if (revoke) URL.revokeObjectURL(url); if (voiceAudio === a) { voiceAudio = null; voiceLevel = -1; } if (who === 'nyx') { director.speaking = false; if (director.mode === 'habla') director.modeT = 0; } };
+  a.onended = done; a.onerror = done;
+  a.src = url;
   if (who === 'nyx') director.speaking = true;
   try { await a.play(); }
-  catch (e) { a.onended(); throw e; }
+  catch (e) { done(); throw e; }
 }
 // Volumen de la voz de Nyx en cada fotograma (0-1)
 function updateVoiceLevel() {
@@ -2788,16 +2804,69 @@ const MIC_ERR = {
   'language-not-supported': 'Este navegador no entiende español por voz. Usa Google Chrome o Microsoft Edge.',
 };
 let micRec = null;
+// Con el servidor conectado, Nyx graba tu voz y la entiende con ElevenLabs: funciona en iPhone, Android y PC
+const serverEar = () => serverReady() && !!srv.caps.oir;
+async function listenServer() {
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+  catch (e) { directorSay(e.name === 'NotFoundError' ? MIC_ERR['audio-capture'] : MIC_ERR['not-allowed']); return; }
+  const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find(t => window.MediaRecorder?.isTypeSupported?.(t)) || '';
+  let rec;
+  try { rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined); }
+  catch (e) { stream.getTracks().forEach(t => t.stop()); directorSay('Este navegador no puede grabar audio. Actualízalo o usa Chrome o Safari.'); return; }
+  const chunks = []; rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  // Se para sola cuando dejas de hablar
+  let an = null, srcNode = null, spoke = false, quiet = 0; const t0 = performance.now(); let last = t0;
+  try { ensureAudioCtx(); srcNode = audioCtx.createMediaStreamSource(stream); an = audioCtx.createAnalyser(); an.fftSize = 1024; srcNode.connect(an); } catch (e) { an = null; spoke = true; }
+  const buf = an ? new Uint8Array(an.fftSize) : null;
+  const stop = () => { if (rec.state !== 'inactive') rec.stop(); };
+  const timer = setInterval(() => {
+    const now = performance.now(); const dtm = now - last; last = now;
+    if (an) {
+      an.getByteTimeDomainData(buf); let sum = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+      const rms = Math.sqrt(sum / buf.length);
+      if (rms > 0.025) { spoke = true; quiet = 0; } else quiet += dtm;
+    }
+    if ((spoke && an && quiet > 1400) || now - t0 > 15000 || (!spoke && now - t0 > 7000)) stop();
+  }, 100);
+  micRec = { stop };
+  rec.onstop = async () => {
+    clearInterval(timer); try { srcNode?.disconnect(); } catch (e) {} stream.getTracks().forEach(t => t.stop());
+    micRec = null; micState(false);
+    if (!spoke || !chunks.length) { directorSay(MIC_ERR['no-speech']); return; }
+    $('#sayWho').textContent = 'Nyx'; $('#sayText').textContent = 'Te he oído, jefe…'; $('#fanSub').textContent = 'Te he oído, jefe…';
+    try {
+      const blob = new Blob(chunks, { type: (rec.mimeType || type || 'audio/webm').split(';')[0] });
+      const r = await fetch(srv.url.replace(/\/$/, '') + '/oir', { method: 'POST', headers: { 'Content-Type': blob.type, ...(srv.key ? { 'X-Oficina-Token': srv.key } : {}) }, body: blob });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'el servidor respondió ' + r.status);
+      const txt = (d.texto || '').trim();
+      if (!txt) { directorSay(MIC_ERR['no-speech']); return; }
+      $('#sayWho').textContent = 'Tú'; $('#sayText').textContent = txt; $('#fanSub').textContent = txt;
+      handleMessage(txt);
+    } catch (e) { log('Micrófono: ' + esc(e.message)); directorSay('No he podido entenderte: ' + e.message); }
+  };
+  setFan('escucha', true); director.mode = 'escucha'; director.modeT = 99; director.speaking = false;
+  $('#sayWho').textContent = 'Nyx'; $('#sayText').textContent = 'Te escucho, jefe… (vuelve a tocar el micro para terminar)'; $('#say').classList.remove('quiet'); $('#fanSub').textContent = 'Te escucho, jefe…';
+  micState(true);
+  rec.start(250);
+}
 function micState(on) { $$('.mic').forEach(b => { b.classList.toggle('primary', on); b.setAttribute('aria-pressed', on); }); }
 $$('.mic').forEach(mic => {
   mic.hidden = false;
   mic.onclick = () => {
-    if (!SR) { directorSay('Este navegador no tiene reconocimiento de voz. Ábreme en Google Chrome o Microsoft Edge y podrás hablarme.'); return; }
     if (micRec) { micRec.stop(); return; }   // segunda pulsación: dejar de escuchar
     if (thinking) return;
+    if (serverEar() && navigator.mediaDevices?.getUserMedia && window.MediaRecorder) {
+      try { speechSynthesis.cancel(); } catch (e) {}
+      if (voiceAudio) { voiceAudio.pause(); voiceAudio.onended?.(); }
+      unlockAudio(); listenServer(); return;
+    }
+    if (!SR) { directorSay(serverReady() ? 'Este navegador no tiene reconocimiento de voz. Actualiza el servidor para que pueda oírte desde cualquier móvil.' : 'Este navegador no tiene reconocimiento de voz. Conecta el servidor en Conexiones o ábreme en Chrome y podrás hablarme.'); return; }
     // Nyx se calla para no oírse a sí misma
     try { speechSynthesis.cancel(); } catch (e) {}
     if (voiceAudio) { voiceAudio.pause(); voiceAudio.onended?.(); }
+    unlockAudio();
     try {
       const r = new SR(); micRec = r; r.lang = 'es-ES'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
       let final = '', heard = '', failed = false;

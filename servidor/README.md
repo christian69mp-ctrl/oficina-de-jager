@@ -49,6 +49,12 @@ Solo habla Nyx; el resto del equipo trabaja en silencio. Con `ELEVENLABS_API_KEY
 
 Mientras habla, el holograma se llena de interferencias azules que siguen el volumen real de su voz.
 
+## Hablarle con el micrófono (también desde el móvil)
+
+Con el servidor conectado, al tocar el micro la oficina graba tu voz y el servidor la convierte en texto con ElevenLabs. Funciona en iPhone, Android y ordenador. Se para sola cuando dejas de hablar, o tocando otra vez el micro.
+
+Necesita que tu clave de ElevenLabs tenga activado el permiso **«De voz a texto»** (además de «De texto a voz»).
+
 ## Coste aproximado
 
 Cloudflare Workers es gratis hasta 100.000 peticiones al día. Lo que pagas son las IAs: un vídeo completo hace unas 15 peticiones de texto y 3 imágenes, y cada frase de Nyx es una petición corta a Claude más unos segundos de voz de ElevenLabs. El precio exacto depende de los modelos que elijas en `wrangler.toml`.
