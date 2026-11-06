@@ -2,7 +2,7 @@
 
 Empresa virtual en 3D donde trabajadores IA se reparten el trabajo de tus canales de YouTube y de tus proyectos (como la Ruleta Caliente):
 
-- **Jager** (Claude) es el director. Aparece en el ventilador holográfico con tu propio avatar, recibe tus órdenes, te responde y reparte el trabajo.
+- **Nyx** (Claude) es la directora. Aparece en el ventilador holográfico con su avatar (`nyx.png`), mueve la boca y le brillan los ojos al hablar, recibe las órdenes de Jager (el jefe), responde con voz y reparte el trabajo.
 - **Sala Proyectos**: Max (ChatGPT) ordena la idea, Leo (Claude) programa y Vera (Claude) revisa el código. Si Vera pide cambios, se lo devuelve a Leo.
 - **Sala YouTube**: Nora (Claude) escribe el guion, Gema (Gemini) hace las miniaturas, Tito (ChatGPT) los títulos y el SEO, y Paco (Claude) monta el paquete y se lo lleva a **Pixelido**, la agencia que hace los visuales.
 - **Sala de Análisis**: Lía (Gemini, tendencias y viralidad), Rui (ChatGPT, CTR y empaquetado) y Sam (Claude, retención y rentabilidad). Se reúnen en la **mesa de debate**: cada uno propone desde su especialidad, se responden en una segunda ronda y votan el acuerdo más viral y rentable. Debaten el enfoque de cada vídeo, qué tema viral producir y el plan de mejora tras ver las métricas.
@@ -22,7 +22,7 @@ Nada se envía sin tu aprobación.
 
 Abre `index.html` en Chrome. No hace falta instalar nada.
 
-Para que Jager use tu avatar, deja el archivo junto a `index.html` con el nombre `jager.mp4` (vídeo) o `jager.png` (imagen). Mejor con fondo negro, que en el ventilador se ve transparente.
+El avatar de Nyx es `nyx.png`, junto a `index.html`. Para cambiarlo, sustituye ese archivo (o pon un vídeo `nyx.mp4`). Mejor con fondo negro, que en el ventilador se ve transparente.
 
 ## Ventilador holográfico
 

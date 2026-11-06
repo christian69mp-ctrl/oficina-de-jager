@@ -256,31 +256,31 @@ button.step { font: inherit; font-size: 11.5px; }
         <button type="button" class="big-btn" id="bigBtn" aria-pressed="false">Ver en grande</button>
       </div>
     </div>
-    <div class="hud say quiet" id="say" aria-live="polite"><b id="sayWho">Jager</b><span id="sayText">Esperando órdenes, jefe. Escríbeme abajo o elige un encargo de ejemplo.</span></div>
+    <div class="hud say quiet" id="say" aria-live="polite"><b id="sayWho">Nyx</b><span id="sayText">Esperando órdenes, jefe. Escríbeme abajo o elige un encargo de ejemplo.</span></div>
     <div class="hud hud-tools">
       <div class="seg" role="group" aria-label="Vista">
         <button type="button" data-view="general" aria-pressed="true">General</button>
         <button type="button" data-view="proy">Proyectos</button>
         <button type="button" data-view="yt">YouTube</button>
         <button type="button" data-view="lab">Análisis</button>
-        <button type="button" data-view="dir">Jager</button>
+        <button type="button" data-view="dir">Nyx</button>
       </div>
       <div class="seg" role="group" aria-label="Velocidad">
         <button type="button" data-speed="1" aria-pressed="true">x1</button>
         <button type="button" data-speed="2">x2</button>
         <button type="button" data-speed="4">x4</button>
       </div>
-      <button type="button" class="fan-btn" id="openFan">Ventilador de Jager</button>
+      <button type="button" class="fan-btn" id="openFan">Ventilador de Nyx</button>
     </div>
   </section>
 
   <aside class="panel">
     <form class="order" id="orderForm">
-      <label class="title" for="orderText">Orden para <span>Jager</span></label>
+      <label class="title" for="orderText">Orden para <span>Nyx</span></label>
       <textarea id="orderText" placeholder="Ej.: Prepara un vídeo sobre los errores que todos cometemos al empezar"></textarea>
       <div class="order-row">
         <button type="button" class="btn ghost mic" hidden>🎙 Hablar</button>
-        <label class="toggle"><input type="checkbox" id="voiceOn" checked> Voz de Jager</label>
+        <label class="toggle"><input type="checkbox" id="voiceOn" checked> Voz de Nyx</label>
         <button type="submit" class="btn primary">Enviar orden</button>
       </div>
       <div class="chips" aria-label="Encargos de ejemplo">
@@ -351,7 +351,7 @@ button.step { font: inherit; font-size: 11.5px; }
       <h2>Ajustes</h2>
       <label class="toggle"><input type="checkbox" id="subOn" checked> Si falta Gemini o ChatGPT, Claude hace su trabajo</label>
       <label class="toggle"><input type="checkbox" id="hqOn"> Calidad alta (brillos y reflejos)</label>
-      <p class="note" id="brainNote">Jager y su equipo usan Claude de verdad cuando la página tiene permiso. Gemini y ChatGPT todavía no están conectados: mientras tanto Claude hace su trabajo (o salen resultados de ejemplo si lo desactivas). Las miniaturas son bocetos hasta conectar Gemini. Nada se envía sin tu aprobación.</p>
+      <p class="note" id="brainNote">Nyx y su equipo usan Claude de verdad cuando la página tiene permiso. Gemini y ChatGPT todavía no están conectados: mientras tanto Claude hace su trabajo (o salen resultados de ejemplo si lo desactivas). Las miniaturas son bocetos hasta conectar Gemini. Nada se envía sin tu aprobación.</p>
     </section>
   </aside>
 </div>
@@ -368,24 +368,25 @@ button.step { font: inherit; font-size: 11.5px; }
 
 <div class="overlay fan" id="fan" hidden>
   <div class="fan-view">
-    <canvas id="fanCanvas" width="720" height="720" aria-label="Avatar de Jager para el ventilador holográfico"></canvas>
+    <canvas id="fanCanvas" width="720" height="720" aria-label="Nyx, la directora, para el ventilador holográfico"></canvas>
     <div class="subtitle" id="fanSub"></div>
   </div>
   <div class="fan-side">
-    <h3>Jager en el ventilador</h3>
-    <p id="avatarHint">Carga el avatar de Jager que ya tienes (imagen o vídeo de hombros y cara, mejor con fondo negro). Aparecerá aquí y en el ventilador de la oficina.</p>
+    <h3>Nyx en el ventilador</h3>
+    <p id="avatarHint">Carga el avatar de Nyx (imagen o vídeo de hombros y cara, mejor con fondo negro). Aparecerá aquí y en el ventilador de la oficina.</p>
     <div class="order-row">
       <label class="btn file-btn" for="avatarFile">Cargar avatar<input type="file" id="avatarFile" accept="image/*,video/mp4,video/webm"></label>
       <label class="toggle"><input type="checkbox" id="fxOn" checked> Efectos holograma</label>
+      <button type="button" class="btn small" id="calibBtn">Ajustar boca y ojos</button>
     </div>
-    <h4>Háblale a Jager</h4>
+    <h4>Háblale a Nyx</h4>
     <form class="fan-talk" id="fanTalk">
       <input id="fanText" placeholder="Ej.: ¿Qué tal funcionó el último vídeo?" autocomplete="off">
       <button type="button" class="btn mic" hidden aria-label="Hablar con el micrófono">🎙</button>
       <button type="submit" class="btn primary">Decir</button>
     </form>
     <h4>Clips para el ventilador</h4>
-    <p>Tu ventilador no admite HDMI, así que Jager no puede salir en directo. Graba un clip de cada estado y súbelo con la app del ventilador. El negro se ve transparente.</p>
+    <p>Tu ventilador no admite HDMI, así que Nyx no puede salir en directo. Graba un clip de cada estado y súbelo con la app del ventilador. El negro se ve transparente.</p>
     <div class="fan-states" role="group" aria-label="Estado del avatar">
       <button type="button" data-fan="espera" aria-pressed="true">Esperando</button>
       <button type="button" data-fan="escucha">Escuchando</button>
@@ -1351,15 +1352,70 @@ const bustMat = new THREE.SpriteMaterial({ map: avatar.tex, transparent: true, b
 const bust = new THREE.Sprite(bustMat); bust.position.set(FAN_POS.x, 2.55, FAN_POS.z - 0.1); bust.scale.set(2.2, 2.2, 1); bust.userData.base = { x: 2.2, y: 2.2 }; scene.add(bust);
 const jagerTag = makeSprite(512, 96, 0.55); jagerTag.s.position.set(FAN_POS.x, 4.05, FAN_POS.z); scene.add(jagerTag.s);
 
-function applyAvatar(url, kind) {
+// Puntos de la cara en proporción a la imagen (0-1). Los de Nyx vienen medidos; otro avatar se ajusta con «Ajustar boca y ojos».
+let avatarDoc = null;
+const NYX_FACE = { mouth: { x: 0.497, y: 0.502, w: 0.12, h: 0.1 }, eyes: [{ x: 0.431, y: 0.337 }, { x: 0.586, y: 0.348 }], r: 0.015 };
+let face = null;
+const patch = document.createElement('canvas'), pg = patch.getContext('2d');
+const bustCanvas = document.createElement('canvas'); bustCanvas.width = bustCanvas.height = 512;
+let bustTex = null;
+const mediaSize = m => [m.videoWidth || m.naturalWidth || m.width, m.videoHeight || m.naturalHeight || m.height];
+// Sílabas: apertura de 0 a 1 que imita el ritmo del habla
+const mouthOpen = t => Math.min(1, Math.max(0, Math.sin(t * 13.1) * 0.55 + Math.sin(t * 21.7 + 1) * 0.35 + Math.sin(t * 5.3) * 0.3));
+function drawFace(ctx, m, dx, dy, dw, dh, t, talking, glow) {
+  if (!face) return;
+  const [mw, mh] = mediaSize(m); const F = face.mouth;
+  if (talking) {
+    const open = mouthOpen(t) * 0.03 * dh;
+    if (open > 0.6) {
+      const cx = dx + F.x * dw, ly = dy + F.y * dh, w = F.w * dw, h = F.h * dh;
+      ctx.save(); ctx.fillStyle = '#1b0c10'; ctx.beginPath(); ctx.ellipse(cx, ly + open * 0.45, w * 0.34, open * 0.62, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      patch.width = Math.max(2, Math.ceil(w)); patch.height = Math.max(2, Math.ceil(h));
+      pg.globalCompositeOperation = 'source-over'; pg.clearRect(0, 0, patch.width, patch.height);
+      pg.drawImage(m, (F.x - F.w / 2) * mw, F.y * mh, F.w * mw, F.h * mh, 0, 0, patch.width, patch.height);
+      pg.globalCompositeOperation = 'destination-in';
+      let g = pg.createLinearGradient(0, 0, patch.width, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.24, '#000'); g.addColorStop(0.76, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      pg.fillStyle = g; pg.fillRect(0, 0, patch.width, patch.height);
+      g = pg.createLinearGradient(0, 0, 0, patch.height); g.addColorStop(0, '#000'); g.addColorStop(0.55, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      pg.fillStyle = g; pg.fillRect(0, 0, patch.width, patch.height);
+      ctx.drawImage(patch, cx - w / 2, ly + open, w, h);
+    }
+  }
+  if (glow > 0) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const e of face.eyes) {
+      const ex = dx + e.x * dw, ey = dy + e.y * dh, r = face.r * dw * 2.4;
+      const gr = ctx.createRadialGradient(ex, ey, 0, ex, ey, r); gr.addColorStop(0, `rgba(110,200,255,${0.5 * glow})`); gr.addColorStop(1, 'rgba(110,200,255,0)');
+      ctx.fillStyle = gr; ctx.fillRect(ex - r, ey - r, 2 * r, 2 * r);
+    }
+    ctx.restore();
+  }
+}
+// El busto del ventilador de la oficina se dibuja en un lienzo para poder mover la boca
+function paintBust(t, talking, glow) {
+  const m = avatar.media, g = bustCanvas.getContext('2d'), S = 512; const [mw, mh] = mediaSize(m);
+  if (!mw || !mh) return;
+  const k = Math.min(S / mw, S / mh), dw = mw * k, dh = mh * k, dx = (S - dw) / 2, dy = (S - dh) / 2;
+  g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.drawImage(m, dx, dy, dw, dh);
+  drawFace(g, m, dx, dy, dw, dh, t, talking, glow);
+  // bordes difuminados para que parezca un holograma (el negro es transparente)
+  const v = g.createRadialGradient(S / 2, S * 0.42, S * 0.22, S / 2, S * 0.48, S * 0.56); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,1)');
+  g.fillStyle = v; g.fillRect(0, 0, S, S);
+  if (bustTex) bustTex.needsUpdate = true;
+}
+function applyAvatar(url, kind, savedFace) {
   if (kind === 'video') {
     const v = document.createElement('video');
     Object.assign(v, { src: url, loop: true, muted: true, playsInline: true, autoplay: true });
-    v.addEventListener('loadeddata', () => { setAvatarMedia(v, new THREE.VideoTexture(v), v.videoWidth / v.videoHeight); v.play().catch(() => {}); }, { once: true });
+    v.addEventListener('loadeddata', () => { face = null; bustTex = null; setAvatarMedia(v, new THREE.VideoTexture(v), v.videoWidth / v.videoHeight); v.play().catch(() => {}); }, { once: true });
     v.addEventListener('error', () => setAvatarHint('No he podido abrir ese vídeo. Prueba con MP4 o una imagen.'), { once: true });
   } else {
     const img = new Image();
-    img.onload = () => { const tx = new THREE.Texture(img); tx.needsUpdate = true; setAvatarMedia(img, tx, img.naturalWidth / img.naturalHeight); };
+    img.onload = () => {
+      face = savedFace || (url.endsWith('nyx.png') ? NYX_FACE : null);
+      bustTex = new THREE.CanvasTexture(bustCanvas); avatar.media = img; paintBust(0, false, 0);
+      setAvatarMedia(img, bustTex, 1);
+    };
     img.onerror = () => setAvatarHint('No he podido abrir esa imagen.');
     img.src = url;
   }
@@ -1369,7 +1425,7 @@ function setAvatarMedia(el, tex, aspect) {
   avatar.media = el; avatar.tex = tex;
   bustMat.map = tex; bustMat.needsUpdate = true;
   bust.userData.base = { x: 2.3 * Math.min(aspect || 1, 1.6), y: 2.3 };
-  setAvatarHint('Avatar de Jager cargado. Si su fondo no es negro, el ventilador mostrará también el fondo.');
+  setAvatarHint(face ? 'Avatar de Nyx cargado: su boca y sus ojos se animan al hablar.' : 'Avatar de Nyx cargado. Pulsa «Ajustar boca y ojos» para que hable moviendo la boca.');
 }
 function setAvatarHint(t) { $('#avatarHint').textContent = t; }
 
@@ -1377,15 +1433,19 @@ const director = { mode: 'espera', modeT: 0, say: 'Esperando órdenes' };
 function directorSay(text, mode = 'habla', secs) {
   const est = Math.min(16, 1.5 + text.split(/\s+/).length * 0.38);
   director.mode = mode; director.modeT = (secs ?? est) * speed; director.say = text;
-  $('#sayWho').textContent = 'Jager'; $('#sayText').textContent = text; $('#say').classList.remove('quiet');
+  $('#sayWho').textContent = 'Nyx'; $('#sayText').textContent = text; $('#say').classList.remove('quiet');
   $('#fanSub').textContent = text;
   clearTimeout(director._q); director._q = setTimeout(() => $('#say').classList.add('quiet'), 12000);
   if (mode === 'habla') setFan('habla', true);
   if ($('#voiceOn').checked && 'speechSynthesis' in window) {
     try {
-      speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES'; u.rate = 1.03;
-      const es = speechSynthesis.getVoices().find(v => v.lang?.startsWith('es')); if (es) u.voice = es;
-      u.onend = () => { if (director.mode === 'habla') director.modeT = 0; };
+      speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES'; u.rate = 1.04; u.pitch = 1.08;
+      const vs = speechSynthesis.getVoices().filter(v => v.lang?.startsWith('es'));
+      const fem = vs.find(v => /helena|elvira|laura|m[oó]nica|paulina|luc[ií]a|sabina|marisol|elena|dalia|female|mujer/i.test(v.name)) || vs.find(v => /google/i.test(v.name)) || vs[0];
+      if (fem) u.voice = fem;
+      u.onstart = () => { director.speaking = true; };
+      u.onerror = () => { director.speaking = false; };
+      u.onend = () => { director.speaking = false; if (director.mode === 'habla') director.modeT = 0; };
       speechSynthesis.speak(u);
     } catch (e) {}
   }
@@ -1431,7 +1491,7 @@ const store = {
           else { const pb = await this.db.doc('config/manual').get(); if (pb.exists) this.loadChannels(pb.data()); }
           const dr = await this.db.doc('config/drive').get(); if (dr.exists) this.drive = dr.data();
           const av = await this.db.doc('config/avatar').get();
-          if (av.exists) { const d = av.data(); applyAvatar('/_blob/' + d.id, d.kind); }
+          if (av.exists) { const d = av.data(); avatarDoc = d; applyAvatar('/_blob/' + d.id, d.kind, d.face || null); }
         } catch (e) {}
       }
     } else {
@@ -1495,7 +1555,7 @@ const TEAM_TXT = `Equipo:
 async function interpret(text) {
   const st = channelStats();
   const enCurso = jobs.slice(0, 6).map(j => `#${j.id} ${j.type} «${j.topic}»: ${STATUS_TXT[j.status]}`).join('\n') || 'ninguno';
-  const r = await askClaude(`Eres Jager, el director de "La oficina de Jager", una empresa virtual. Tu jefe te habla y respondes en voz alta desde un ventilador holográfico. Español de España, cercano y profesional, frases cortas.
+  const r = await askClaude(`Eres Nyx, la directora de "La oficina de Jager", una empresa virtual. Eres una IA con estética hacker: segura, rápida, directa y con un punto de ironía. Tu jefe se llama Jager; te habla y respondes en voz alta desde un ventilador holográfico. Español de España, cercana y profesional, frases cortas.
 ${TEAM_TXT}
 Canales del jefe: ${store.channels.map(c => c.name).join(', ')}. Canal activo: ${store.ch.name}.
 Nicho del canal activo: ${store.nicho}
@@ -1510,7 +1570,7 @@ ${enCurso}
 Clasifica el mensaje del jefe:
 - "video": encargo de un vídeo concreto de YouTube
 - "tendencias": pide buscar temas, ideas o qué puede ser viral
-- "proyecto": programación, app, web, la Ruleta Caliente u otro proyecto técnico
+- "proyecto": programación, app, web, la web Ruleta Caliente u otro proyecto técnico
 - "charla": pregunta, saludo o conversación (por ejemplo, cómo va algo o qué tal funcionó un vídeo)
 
 Devuelve SOLO JSON: {"tipo":"video|tendencias|proyecto|charla","tema":"tema del encargo, corto y claro; vacío si es charla","respuesta":"lo que dices en voz alta, máximo 2 frases; si hay encargo di a quién se lo repartes"}
@@ -1642,7 +1702,7 @@ RITMO Y RETENCIÓN
 ENTREGA: primera versión en 5 días.` }),
   },
   requisitos: {
-    prompt: j => `Eres Max, analista de producto. Convierte esta idea en requisitos claros: «${j.topic}». Incluye OBJETIVO, HISTORIAS DE USUARIO (3-5), CRITERIOS DE ACEPTACIÓN numerados y FUERA DE ALCANCE. Español, texto plano, máximo 220 palabras.`,
+    prompt: j => `Eres Max, analista de producto. Proyectos del jefe: la Ruleta Caliente es una web. Convierte esta idea en requisitos claros: «${j.topic}». Incluye OBJETIVO, HISTORIAS DE USUARIO (3-5), CRITERIOS DE ACEPTACIÓN numerados y FUERA DE ALCANCE. Español, texto plano, máximo 220 palabras.`,
     fallback: j => ({ kind: 'text', via: 'ejemplo', text: `REQUISITOS · ${j.topic}\n\nOBJETIVO\nQue la idea funcione de forma sencilla y se pueda probar en un día.\n\nHISTORIAS DE USUARIO\n· Como cliente quiero ver la función sin buscarla\n· Como dueño quiero activarla o quitarla desde el panel\n· En móvil tiene que verse igual de bien\n\nCRITERIOS DE ACEPTACIÓN\n1. Carga en menos de 1 segundo\n2. Sin errores en la consola\n3. Probado en móvil y ordenador` }),
   },
   codigo: {
@@ -1660,7 +1720,7 @@ ${j.step('codigo').output?.text || ''}
 
 ${j.round > 0 ? 'Es la segunda revisión, tras correcciones. Si los fallos graves están resueltos, apruébalo.' : 'Sé exigente pero justa.'}
 La primera línea debe ser exactamente "APROBADO" o "CAMBIOS". Después, en español, de 3 a 6 puntos breves. Máximo 140 palabras. Sin markdown.`,
-    fallback: j => ({ kind: 'text', via: 'ejemplo', text: `APROBADO\n\n· Estructura clara y fácil de mantener\n· Gestiona bien el caso sin contenedor\n${j.round > 0 ? '· Las correcciones de la primera revisión están hechas\n' : ''}· Listo para que Jager se lo enseñe al jefe` }),
+    fallback: j => ({ kind: 'text', via: 'ejemplo', text: `APROBADO\n\n· Estructura clara y fácil de mantener\n· Gestiona bien el caso sin contenedor\n${j.round > 0 ? '· Las correcciones de la primera revisión están hechas\n' : ''}· Listo para que Nyx se lo enseñe al jefe` }),
   },
   ctr: {
     prompt: j => { const v = videoOf(j); const st = channelStats(); return `Eres Rui, analista de CTR de YouTube en "La oficina de Jager". Analiza el CTR del vídeo publicado «${v.title || v.topic}» (miniatura ${v.thumb || '?'}: ${v.thumbIdea || ''}).
@@ -2059,12 +2119,12 @@ async function handleMessage(text) {
   text = text.trim(); if (!text || thinking) return;
   thinking = true;
   director.mode = 'escucha'; director.modeT = 99; director.say = 'Pensando…'; setFan('escucha', true);
-  $('#sayWho').textContent = 'Jager'; $('#sayText').textContent = 'Pensando…'; $('#say').classList.remove('quiet');
+  $('#sayWho').textContent = 'Nyx'; $('#sayText').textContent = 'Pensando…'; $('#say').classList.remove('quiet');
   const r = await interpret(text);
   thinking = false;
   if (r.tipo === 'charla') {
     directorSay(r.respuesta || 'Te escucho, jefe. Para charlar de verdad necesito estar conectado a Claude; mientras tanto, mándame un vídeo, un proyecto o pídeme temas virales.');
-    log(`Hablas con Jager: «${esc(text)}»`);
+    log(`Hablas con Nyx: «${esc(text)}»`);
     return;
   }
   if (r.tipo === 'tendencias') { newOrder('radar', r.tema || 'Temas virales para el canal', { reply: r.respuesta }); return; }
@@ -2096,7 +2156,7 @@ function newOrder(type, topic, o = {}) {
       s.state = 'cola';
       if (s.debate) { sendOrb(TABLE_POS, 0xb38cff, () => startDebate(job, s)); return; }
       const ag = agents[s.worker];
-      sendOrb(ag.seat, AI[ag.def.ai].color, () => { ag.inbox.push({ job, step: s }); ag.setStatus('¡Nueva tarea!', '#5ce8ff'); log(`Jager manda «${s.label}» a <b>${ag.def.name}</b>`); });
+      sendOrb(ag.seat, AI[ag.def.ai].color, () => { ag.inbox.push({ job, step: s }); ag.setStatus('¡Nueva tarea!', '#5ce8ff'); log(`Nyx manda «${s.label}» a <b>${ag.def.name}</b>`); });
     });
     markDirty();
   }, 1800 / speed);
@@ -2163,7 +2223,7 @@ function finishStep(agent, task) {
     const isDir = tg.worker === 'director';
     const dest = isDir ? DIRECTOR_SPOT : agents[tg.worker].stand;
     const face = isDir ? FAN_POS : agents[tg.worker].seat;
-    const who = isDir ? 'Jager' : agents[tg.worker].def.name;
+    const who = isDir ? 'Nyx' : agents[tg.worker].def.name;
     agent.agenda.push({ type: 'goto', dest, carry: true, status: `Llevando ${tg.what} a ${who}` });
     agent.agenda.push({ type: 'do', pose: 'give', face, dur: 1.3, status: `Entregando a ${who}`, fn: () => { tg.onArrive(); markDirty(); } });
   }
@@ -2279,11 +2339,11 @@ function thumb(text, variant, exact) {
 let dirty = true;
 const markDirty = () => dirty = true;
 const viaLabel = o => o.via === 'claude' ? (o.subFor ? `con Claude (sustituye a ${o.subFor})` : 'con Claude') : o.via === 'gemini' ? 'con Gemini' : o.via === 'chatgpt' ? 'con ChatGPT' : o.via === 'reglas' ? 'análisis por reglas con tus números' : 'resultado de ejemplo';
-const stepOwner = (s, j) => s.debate ? 'Lía · Rui · Sam' : agents[s.worker]?.def.name || (j.type === 'analisis' ? 'Jager' : 'Tú');
+const stepOwner = (s, j) => s.debate ? 'Lía · Rui · Sam' : agents[s.worker]?.def.name || (j.type === 'analisis' ? 'Nyx' : 'Tú');
 
 function renderJobs() {
   const boxEl = $('#jobs');
-  if (!jobs.length) { boxEl.innerHTML = '<div class="empty">Todavía no hay encargos. Pide «Busca temas virales», «Prepara un vídeo sobre…» o «Proyecto: …», y Jager lo repartirá entre el equipo.</div>'; }
+  if (!jobs.length) { boxEl.innerHTML = '<div class="empty">Todavía no hay encargos. Pide «Busca temas virales», «Prepara un vídeo sobre…» o «Proyecto: …», y Nyx lo repartirá entre el equipo.</div>'; }
   else boxEl.innerHTML = jobs.slice(0, 12).map(j => `
     <article class="job ${['esperando', 'elige'].includes(j.status) ? 'wait' : ''}">
       <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>
@@ -2366,7 +2426,7 @@ function drawWalls() {
 }
 function renderTeam() {
   const rows = [`<div class="room-label hall">Dirección</div>
-    <button type="button" class="member" data-focus="director"><span class="dot ${director.mode !== 'espera' ? 'work' : ''}"></span><span><span class="m-name">Jager · Director</span><span class="m-status">${esc(director.say)}</span></span><span class="ai claude">Claude</span></button>`];
+    <button type="button" class="member" data-focus="director"><span class="dot ${director.mode !== 'espera' ? 'work' : ''}"></span><span><span class="m-name">Nyx · Directora</span><span class="m-status">${esc(director.say)}</span></span><span class="ai claude">Claude</span></button>`];
   for (const [room, label] of [['lab', 'Sala de Análisis'], ['yt', 'Sala YouTube'], ['proy', 'Sala Proyectos']]) {
     rows.push(`<div class="room-label ${room}">${label}</div>`);
     WORKERS.filter(w => w.room === room).forEach(w => {
@@ -2534,7 +2594,7 @@ renderer.domElement.addEventListener('pointerup', e => {
 });
 
 /* ============================================================
-   12. VENTILADOR: avatar de Jager, conversación y clips
+   12. VENTILADOR: Nyx, conversación y clips
    ============================================================ */
 const fanCanvas = $('#fanCanvas'); const fx = fanCanvas.getContext('2d');
 let fanState = 'espera';
@@ -2543,6 +2603,7 @@ function setFan(state, fromOffice = false) {
   fanState = state;
   $$('[data-fan]').forEach(b => b.setAttribute('aria-pressed', b.dataset.fan === state));
 }
+let fanRect = null, calib = null;
 function renderFan(t) {
   const W = fanCanvas.width, C = W / 2;
   fx.fillStyle = '#000'; fx.fillRect(0, 0, W, W);
@@ -2556,8 +2617,13 @@ function renderFan(t) {
     const dw = mw * k, dh = mh * k;
     fx.save(); fx.beginPath(); fx.arc(C, C, W * 0.47, 0, 7); fx.clip();
     fx.globalAlpha = 0.92 + Math.random() * 0.08;
-    fx.drawImage(m, C - dw / 2, C - dh / 2 + bob + 10, dw, dh);
+    const ix = C - dw / 2, iy = C - dh / 2 + bob + 10;
+    fx.drawImage(m, ix, iy, dw, dh);
+    const glow = talk ? 0.7 + Math.sin(t * 8) * 0.3 : fanState === 'escucha' ? 0.55 : 0.18 + Math.sin(t * 1.5) * 0.1;
+    drawFace(fx, m, ix, iy, dw, dh, t, talk && !calib, glow);
+    fanRect = { ix, iy, dw, dh };
     fx.restore(); fx.globalAlpha = 1;
+    if (calib) { fx.fillStyle = 'rgba(0,0,0,.6)'; fx.fillRect(0, W - 80, W, 80); fx.fillStyle = '#5ce8ff'; fx.font = '600 26px Figtree, sans-serif'; fx.textAlign = 'center'; fx.fillText(['Toca el centro de la boca', 'Toca el ojo izquierdo', 'Toca el ojo derecho'][calib.step], C, W - 32); fx.textAlign = 'left'; }
   }
   if (!$('#fxOn').checked) return;
   const col = fanState === 'listo' ? '74,222,128' : '92,232,255';
@@ -2581,21 +2647,33 @@ function renderFan(t) {
 }
 $('#openFan').onclick = () => { $('#fan').hidden = false; };
 $('#closeFan').onclick = () => $('#fan').hidden = true;
+$('#calibBtn').onclick = () => { if (!avatar.media || avatar.media === placeholder || avatar.media.tagName === 'VIDEO') { setAvatarHint('Carga primero una imagen del avatar.'); return; } calib = { step: 0, pts: [] }; setAvatarHint('Toca en el círculo: primero la boca, luego el ojo izquierdo y el derecho.'); };
+fanCanvas.addEventListener('click', e => {
+  if (!calib || !fanRect) return;
+  const r = fanCanvas.getBoundingClientRect(), k = fanCanvas.width / r.width;
+  const x = (e.clientX - r.left) * k, y = (e.clientY - r.top) * k;
+  calib.pts.push({ x: (x - fanRect.ix) / fanRect.dw, y: (y - fanRect.iy) / fanRect.dh }); calib.step++;
+  if (calib.step < 3) return;
+  const [mo, l, rr] = calib.pts; calib = null;
+  face = { mouth: { x: mo.x, y: mo.y, w: Math.abs(rr.x - l.x) * 0.8, h: 0.1 }, eyes: [l, rr], r: 0.015 };
+  setAvatarHint('Listo: ahora la boca y los ojos se animan cuando habla.');
+  if (store.db && avatarDoc) store.db.doc('config/avatar').set({ ...avatarDoc, face }).catch(() => {});
+});
 $$('[data-fan]').forEach(b => b.onclick = () => setFan(b.dataset.fan));
 
 let assetsCap = null;
 if (hasRuntime) window.claude.use('assets').then(a => assetsCap = a).catch(() => {});
 else {
-  const tryImg = () => { const i = new Image(); i.onload = () => applyAvatar('jager.png', 'image'); i.src = 'jager.png'; };
-  const v = document.createElement('video'); v.onloadeddata = () => applyAvatar('jager.mp4', 'video'); v.onerror = tryImg; v.src = 'jager.mp4';
+  const tryImg = () => { const i = new Image(); i.onload = () => applyAvatar('nyx.png', 'image'); i.src = 'nyx.png'; };
+  const v = document.createElement('video'); v.onloadeddata = () => applyAvatar('nyx.mp4', 'video'); v.onerror = tryImg; v.src = 'nyx.mp4';
 }
 $('#avatarFile').addEventListener('change', async e => {
   const f = e.target.files[0]; if (!f) return;
   const kind = f.type.startsWith('video') ? 'video' : 'image';
-  applyAvatar(URL.createObjectURL(f), kind);
+  applyAvatar(URL.createObjectURL(f), kind, null);
   if (assetsCap && store.db) {
     setAvatarHint('Guardando el avatar en la oficina…');
-    try { const up = await assetsCap.upload(f); await store.db.doc('config/avatar').set({ id: up.id, kind }); setAvatarHint('Avatar guardado. Jager aparecerá así cada vez que abras la oficina.'); }
+    try { const up = await assetsCap.upload(f); avatarDoc = { id: up.id, kind }; await store.db.doc('config/avatar').set(avatarDoc); setAvatarHint('Avatar guardado. Nyx aparecerá así cada vez que abras la oficina.'); }
     catch (err) { setAvatarHint('Avatar cargado solo para esta sesión: no se pudo guardar.'); }
   } else setAvatarHint('Avatar cargado para esta sesión.');
   e.target.value = '';
@@ -2617,7 +2695,7 @@ $('#recBtn').onclick = () => {
     clearInterval(iv); btn.disabled = false; btn.textContent = 'Grabar clip de 10 s';
     const blob = new Blob(chunks, { type: type || 'video/webm' });
     const url = URL.createObjectURL(blob);
-    const name = `jager-${stateName}.${ext}`;
+    const name = `nyx-${stateName}.${ext}`;
     out.innerHTML = `<video src="${url}" autoplay loop muted playsinline></video><button type="button" class="btn ok" id="saveClip">Guardar ${name}</button><span id="saveMsg">${ext === 'webm' ? 'Si la app del ventilador no acepta WebM, conviértelo a MP4.' : 'Súbelo con la app del ventilador.'}</span>`;
     $('#saveClip').onclick = async () => {
       const msg = $('#saveMsg');
@@ -2634,7 +2712,7 @@ $('#recBtn').onclick = () => {
 /* ============================================================
    13. BUCLE PRINCIPAL
    ============================================================ */
-const clock = new THREE.Clock(); let t = 0, uiT = 0, ledT = 0;
+const clock = new THREE.Clock(); let t = 0, uiT = 0, ledT = 0, bustPaintT = 0;
 function loop() {
   const rdt = Math.min(clock.getDelta(), 0.1); const dt = rdt * speed; t += rdt; simClock += dt;
   for (const id in agents) agents[id].update(dt, t, rdt);
@@ -2650,6 +2728,7 @@ function loop() {
     setFan(waiting ? 'listo' : 'espera', true); director.modeT = 1e9; markDirty();
   }
   const talking = director.mode === 'habla';
+  if (bustTex) { bustPaintT -= rdt; if (talking || bustPaintT <= 0) { bustPaintT = 0.25; paintBust(t, talking, talking ? 0.8 : 0.25 + Math.sin(t * 1.5) * 0.1); } }
   bustMat.opacity = 0.82 + Math.random() * 0.12 + (talking ? 0.06 : 0);
   const pulse = talking ? 1 + Math.abs(Math.sin(t * 9)) * 0.015 : 1;
   bust.position.y = 2.55 + Math.sin(t * 1.5) * 0.04 + (talking ? Math.sin(t * 7) * 0.015 : 0);
@@ -2689,8 +2768,8 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-drawNameTag(jagerTag, 'Jager', 'claude');
-document.fonts?.ready.then(() => { tableDirty = true; for (const id in agents) agents[id].redraw(); drawNameTag(jagerTag, 'Jager', 'claude'); signs.forEach(s => s.userData.redraw?.()); drawWalls(); });
+drawNameTag(jagerTag, 'Nyx', 'claude');
+document.fonts?.ready.then(() => { tableDirty = true; for (const id in agents) agents[id].redraw(); drawNameTag(jagerTag, 'Nyx', 'claude'); signs.forEach(s => s.userData.redraw?.()); drawWalls(); });
 renderJobs(); renderTeam(); renderChannel(); renderConn();
 if (isTall()) { const v = VIEWS_TALL.general; camera.position.copy(v.pos); controls.target.copy(v.target); }
 log('La oficina de Jager abre sus puertas. El equipo está en su sitio.');
