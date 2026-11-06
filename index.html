@@ -358,6 +358,7 @@ button.step { font: inherit; font-size: 11.5px; }
         <b>Voz de Nyx</b>
         <div class="field-row"><select id="voiceSel" aria-label="Voz de Nyx"></select><button type="button" class="btn small primary" id="voiceTest">Escuchar a Nyx</button></div>
         <div class="field-row"><label class="toggle" for="voicePitch">Tono</label><input type="range" id="voicePitch" min="0.7" max="1.5" step="0.05" value="0.95"><label class="toggle" for="voiceRate">Velocidad</label><input type="range" id="voiceRate" min="0.8" max="1.3" step="0.02" value="1.04"></div>
+        <label class="toggle" id="voiceClipsRow" hidden><input type="checkbox" id="voiceClips" checked> Frases grabadas con la voz real de Nyx</label>
         <label class="toggle" id="voiceSrvRow" hidden><input type="checkbox" id="voiceSrv" checked> Usar la voz realista del servidor para Nyx</label>
         <label class="toggle" id="voiceTeamRow" hidden><input type="checkbox" id="voiceTeam"> También para Lía, Rui y Sam (gasta más créditos)</label>
         <p class="note" id="voiceNote">Son las voces en español de este dispositivo: en otro ordenador o móvil pueden ser distintas.</p>
@@ -1463,7 +1464,7 @@ const NYX_HELLOS = [
   'Por fin apareces, Jager. La oficina funciona sola, pero contigo delante se pone más interesante. ¿Qué vídeo hacemos?',
   'Aquí Nyx, indestructible como siempre. El equipo está listo y yo, más. Tú dirás, jefe.',
 ];
-const sayHello = () => { $('#voiceOn').checked = true; directorSay(NYX_HELLOS[Math.floor(Math.random() * NYX_HELLOS.length)]); };;
+const sayHello = () => { $('#voiceOn').checked = true; const grabados = NYX_HELLOS.filter(h => clipFor(h)); const pool = grabados.length ? grabados : NYX_HELLOS; directorSay(pool[Math.floor(Math.random() * pool.length)]); };;
 $('#voiceTest').onclick = sayHello;
 $('#voiceTest2').onclick = sayHello;
 
@@ -1475,7 +1476,9 @@ function directorSay(text, mode = 'habla', secs) {
   $('#fanSub').textContent = text;
   clearTimeout(director._q); director._q = setTimeout(() => $('#say').classList.add('quiet'), 12000);
   if (mode === 'habla') setFan('habla', true);
-  if ($('#voiceOn').checked && serverVoice()) speakServer(text, 'nyx').catch(() => browserSpeak(text));
+  const clip = $('#voiceOn').checked && $('#voiceClips').checked ? clipFor(text) : null;
+  if (clip) { ++voiceSeq; playVoice(clip, 'nyx', false).catch(() => browserSpeak(text)); }
+  else if ($('#voiceOn').checked && serverVoice()) speakServer(text, 'nyx').catch(() => browserSpeak(text));
   else browserSpeak(text);
   markDirty();
 }
@@ -1534,6 +1537,8 @@ const store = {
           if (cn.exists) this.loadChannels(cn.data());
           else { const pb = await this.db.doc('config/manual').get(); if (pb.exists) this.loadChannels(pb.data()); }
           const dr = await this.db.doc('config/drive').get(); if (dr.exists) this.drive = dr.data();
+          const vc = await this.db.doc('config/voces').get();
+          if (vc.exists) { for (const c of (vc.data().clips || [])) if (c.id && c.texto) nyxClips[clipKey(c.texto)] = '/_blob/' + c.id; updateClipNote(); }
           const av = await this.db.doc('config/avatar').get();
           if (av.exists) { const d = av.data(); avatarDoc = d; applyAvatar('/_blob/' + d.id, d.kind, d.face || null); }
         } catch (e) {}
@@ -2109,12 +2114,20 @@ try { const s0 = JSON.parse(localStorage.getItem('oficina-servidor') || '{}'); s
 const serverReady = () => !hasRuntime && !!srv.url && srv.ok;
 const serverVoice = () => serverReady() && !!srv.caps.voz && $('#voiceSrv').checked;
 let voiceAudio = null, voiceLevel = -1, audioCtx = null, analyser = null, levelBuf = null, voiceSeq = 0;
+// Frases de Nyx grabadas con su voz de ElevenLabs: texto → audio guardado en la oficina
+let nyxClips = {};
+const clipKey = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const clipFor = text => nyxClips[clipKey(text)] || null;
 async function speakServer(text, who) {
   const seq = ++voiceSeq;
   const r = await fetch(srv.url.replace(/\/$/, '') + '/voz', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(srv.key ? { 'X-Oficina-Token': srv.key } : {}) }, body: JSON.stringify({ prompt: text, quien: who }) });
   if (!r.ok) { const d = await r.json().catch(() => ({})); log('Voz: ' + esc(d.error || r.status)); throw new Error('voz'); }
   const url = URL.createObjectURL(await r.blob());
   if (seq !== voiceSeq) return; // ya ha empezado a hablar otra persona
+  return playVoice(url, who, true);
+}
+// Reproduce una voz (del servidor o grabada) y conecta el analizador que mueve la boca de Nyx
+async function playVoice(url, who, revoke) {
   if (voiceAudio) { voiceAudio.pause(); voiceAudio = null; }
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   const a = new Audio(url); voiceAudio = a; a.dataset.who = who;
@@ -2124,7 +2137,7 @@ async function speakServer(text, who) {
     const src = audioCtx.createMediaElementSource(a); analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
     levelBuf = new Uint8Array(analyser.fftSize); src.connect(analyser); analyser.connect(audioCtx.destination);
   } catch (e) { analyser = null; }
-  a.onended = () => { URL.revokeObjectURL(url); if (voiceAudio === a) { voiceAudio = null; voiceLevel = -1; } if (who === 'nyx') { director.speaking = false; if (director.mode === 'habla') director.modeT = 0; } };
+  a.onended = () => { if (revoke) URL.revokeObjectURL(url); if (voiceAudio === a) { voiceAudio = null; voiceLevel = -1; } if (who === 'nyx') { director.speaking = false; if (director.mode === 'habla') director.modeT = 0; } };
   a.onerror = a.onended;
   if (who === 'nyx') director.speaking = true;
   try { await a.play(); }
@@ -2137,6 +2150,10 @@ function updateVoiceLevel() {
   let sum = 0; for (let i = 0; i < levelBuf.length; i++) { const v = (levelBuf[i] - 128) / 128; sum += v * v; }
   const target = Math.min(1, Math.sqrt(sum / levelBuf.length) * 5);
   voiceLevel = voiceLevel < 0 ? target : voiceLevel + (target - voiceLevel) * 0.5;
+}
+function updateClipNote() {
+  const n = Object.keys(nyxClips).length; $('#voiceClipsRow').hidden = !n;
+  if (n) $('#voiceNote').textContent = `Nyx tiene ${n} ${n === 1 ? 'frase grabada' : 'frases grabadas'} con su voz real de ElevenLabs. Lo que improvisa lo dice con la voz del dispositivo.`;
 }
 function updateVoiceNote() {
   if (hasRuntime) return;
