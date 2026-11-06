@@ -2,7 +2,7 @@
 
 Empresa virtual en 3D donde trabajadores IA se reparten el trabajo de tus canales de YouTube y de tus proyectos (como la Ruleta Caliente):
 
-- **Nyx** (Claude) es la directora. Aparece en el ventilador holográfico con su avatar (`nyx.png`), mueve la boca y le brillan los ojos al hablar, recibe las órdenes de Jager (el jefe), responde con voz y reparte el trabajo.
+- **Nyx** (Claude) es la directora y la única que habla. Aparece en el ventilador holográfico con su avatar (`nyx.png`) como en una videollamada de hackers: nunca está quieta y, cuando habla, la señal se llena de interferencias azules. No tiene frases fijas: todo lo que dice lo piensa Claude en el momento, responde a cualquier cosa que le preguntes y recuerda la conversación. Recibe las órdenes de Jager (el jefe) y reparte el trabajo. El resto del equipo trabaja en silencio.
 - **Sala Proyectos**: Max (ChatGPT) ordena la idea, Leo (Claude) programa y Vera (Claude) revisa el código. Si Vera pide cambios, se lo devuelve a Leo.
 - **Sala YouTube**: Nora (Claude) escribe el guion, Gema (Gemini) hace las miniaturas, Tito (ChatGPT) los títulos y el SEO, y Paco (Claude) monta el paquete y se lo lleva a **Pixelido**, la agencia que hace los visuales.
 - **Sala de Análisis**: Lía (Gemini, tendencias y viralidad), Rui (ChatGPT, CTR y empaquetado) y Sam (Claude, retención y rentabilidad). Se reúnen en la **mesa de debate**: cada uno propone desde su especialidad, se responden en una segunda ronda y votan el acuerdo más viral y rentable. Debaten el enfoque de cada vídeo, qué tema viral producir y el plan de mejora tras ver las métricas.
@@ -31,7 +31,8 @@ El ventilador no admite HDMI, así que no puede mostrar a Jager en directo. En *
 ## Estado actual
 
 - Gemini y ChatGPT: resultados de ejemplo hasta conectar sus claves.
-- Claude: responde de verdad en la versión publicada en claude.ai. En esta copia local va en modo simulación hasta montar el servidor.
+- Claude: responde de verdad en la versión publicada en claude.ai. En esta copia local piensa con el servidor (secreto `ANTHROPIC_API_KEY`); sin él, va en modo simulación.
+- Voz de Nyx: en claude.ai usa la voz del dispositivo. Con el servidor y ElevenLabs habla con su voz real todo lo que piensa.
 
 ## Siguientes pasos
 
@@ -42,7 +43,7 @@ El ventilador no admite HDMI, así que no puede mostrar a Jager en directo. En *
 ## Conexiones
 
 - **Google Drive**: al aprobar un vídeo, Paco guarda el paquete completo (encargo, guion, títulos, test de CTR y acuerdo de la mesa) en la carpeta que compartes con Pixelido.
-- **Servidor propio** (carpeta `servidor/`): con tus claves, Lía y Gema usan Gemini (con miniaturas reales) y Rui, Tito y Max usan ChatGPT. Ver `servidor/README.md`.
+- **Servidor propio** (carpeta `servidor/`): con tus claves, Nyx piensa con Claude y habla con su voz real de ElevenLabs, Lía y Gema usan Gemini (con miniaturas reales) y Rui, Tito y Max usan ChatGPT. Ver `servidor/README.md`.
 
 Drive funciona en la versión publicada en claude.ai. El servidor propio solo funciona en la versión del repositorio abierta en tu ordenador.
 

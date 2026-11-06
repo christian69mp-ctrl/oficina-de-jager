@@ -2,8 +2,9 @@ name = "oficina-jager"
 main = "worker.js"
 compatibility_date = "2025-06-01"
 
-# Modelos (cámbialos si Google u OpenAI sacan versiones nuevas)
+# Modelos (cámbialos si salen versiones nuevas)
 [vars]
+CLAUDE_MODEL = "claude-opus-5-5"
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"
 OPENAI_MODEL = "gpt-4.1-mini"

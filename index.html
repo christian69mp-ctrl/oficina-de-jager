@@ -358,10 +358,8 @@ button.step { font: inherit; font-size: 11.5px; }
         <b>Voz de Nyx</b>
         <div class="field-row"><select id="voiceSel" aria-label="Voz de Nyx"></select><button type="button" class="btn small primary" id="voiceTest">Escuchar a Nyx</button></div>
         <div class="field-row"><label class="toggle" for="voicePitch">Tono</label><input type="range" id="voicePitch" min="0.7" max="1.5" step="0.05" value="0.95"><label class="toggle" for="voiceRate">Velocidad</label><input type="range" id="voiceRate" min="0.8" max="1.3" step="0.02" value="1.04"></div>
-        <label class="toggle" id="voiceClipsRow" hidden><input type="checkbox" id="voiceClips" checked> Frases grabadas con la voz real de Nyx</label>
         <label class="toggle" id="voiceSrvRow" hidden><input type="checkbox" id="voiceSrv" checked> Usar la voz realista del servidor para Nyx</label>
-        <label class="toggle" id="voiceTeamRow" hidden><input type="checkbox" id="voiceTeam"> También para Lía, Rui y Sam (gasta más créditos)</label>
-        <p class="note" id="voiceNote">Son las voces en español de este dispositivo: en otro ordenador o móvil pueden ser distintas.</p>
+        <p class="note" id="voiceNote">Solo habla Nyx; el resto del equipo trabaja en silencio. Aquí usa las voces en español de este dispositivo (en otro ordenador o móvil pueden ser distintas).</p>
       </div>
       <label class="toggle"><input type="checkbox" id="hqOn"> Calidad alta (brillos y reflejos)</label>
       <p class="note" id="brainNote">Nyx y su equipo usan Claude de verdad cuando la página tiene permiso. Gemini y ChatGPT todavía no están conectados: mientras tanto Claude hace su trabajo (o salen resultados de ejemplo si lo desactivas). Las miniaturas son bocetos hasta conectar Gemini. Nada se envía sin tu aprobación.</p>
@@ -390,7 +388,6 @@ button.step { font: inherit; font-size: 11.5px; }
     <div class="order-row">
       <label class="btn file-btn" for="avatarFile">Cargar avatar<input type="file" id="avatarFile" accept="image/*,video/mp4,video/webm"></label>
       <label class="toggle"><input type="checkbox" id="fxOn" checked> Efectos holograma</label>
-      <button type="button" class="btn small" id="calibBtn">Ajustar boca y ojos</button>
     </div>
     <h4>Háblale a Nyx <button type="button" class="btn small" id="voiceTest2">Escuchar su voz</button></h4>
     <form class="fan-talk" id="fanTalk">
@@ -1365,68 +1362,94 @@ const bustMat = new THREE.SpriteMaterial({ map: avatar.tex, transparent: true, b
 const bust = new THREE.Sprite(bustMat); bust.position.set(FAN_POS.x, 2.55, FAN_POS.z - 0.1); bust.scale.set(2.2, 2.2, 1); bust.userData.base = { x: 2.2, y: 2.2 }; scene.add(bust);
 const jagerTag = makeSprite(512, 96, 0.55); jagerTag.s.position.set(FAN_POS.x, 4.05, FAN_POS.z); scene.add(jagerTag.s);
 
-// Puntos de la cara en proporción a la imagen (0-1). Los de Nyx vienen medidos; otro avatar se ajusta con «Ajustar boca y ojos».
 let avatarDoc = null;
-const NYX_FACE = { mouth: { x: 0.497, y: 0.502, w: 0.12, h: 0.1 }, eyes: [{ x: 0.431, y: 0.337 }, { x: 0.586, y: 0.348 }], r: 0.015 };
-let face = null;
-const patch = document.createElement('canvas'), pg = patch.getContext('2d');
 const bustCanvas = document.createElement('canvas'); bustCanvas.width = bustCanvas.height = 512;
 let bustTex = null;
 const mediaSize = m => [m.videoWidth || m.naturalWidth || m.width, m.videoHeight || m.naturalHeight || m.height];
-// Sílabas: apertura de 0 a 1 que imita el ritmo del habla
-const mouthOpen = t => Math.min(1, Math.max(0, Math.sin(t * 13.1) * 0.55 + Math.sin(t * 21.7 + 1) * 0.35 + Math.sin(t * 5.3) * 0.3));
-function drawFace(ctx, m, dx, dy, dw, dh, t, talking, glow) {
-  if (!face) return;
-  const [mw, mh] = mediaSize(m); const F = face.mouth;
-  if (talking) {
-    const open = (voiceLevel >= 0 ? voiceLevel : mouthOpen(t)) * 0.03 * dh;
-    if (open > 0.6) {
-      const cx = dx + F.x * dw, ly = dy + F.y * dh, w = F.w * dw, h = F.h * dh;
-      ctx.save(); ctx.fillStyle = '#1b0c10'; ctx.beginPath(); ctx.ellipse(cx, ly + open * 0.45, w * 0.34, open * 0.62, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      patch.width = Math.max(2, Math.ceil(w)); patch.height = Math.max(2, Math.ceil(h));
-      pg.globalCompositeOperation = 'source-over'; pg.clearRect(0, 0, patch.width, patch.height);
-      pg.drawImage(m, (F.x - F.w / 2) * mw, F.y * mh, F.w * mw, F.h * mh, 0, 0, patch.width, patch.height);
-      pg.globalCompositeOperation = 'destination-in';
-      let g = pg.createLinearGradient(0, 0, patch.width, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.24, '#000'); g.addColorStop(0.76, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
-      pg.fillStyle = g; pg.fillRect(0, 0, patch.width, patch.height);
-      g = pg.createLinearGradient(0, 0, 0, patch.height); g.addColorStop(0, '#000'); g.addColorStop(0.55, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
-      pg.fillStyle = g; pg.fillRect(0, 0, patch.width, patch.height);
-      ctx.drawImage(patch, cx - w / 2, ly + open, w, h);
-    }
+// Nyx se ve como una videollamada de hackers: franjas que se desplazan, fantasma azul, líneas y ruido.
+// Las interferencias suben cuando habla (y con el volumen real de su voz), así no hace falta mover la boca.
+const holo = { burst: 0 };
+function tickHolo(dt, talking) {
+  holo.burst = Math.max(0, holo.burst - dt * 2.2);
+  if (Math.random() < dt * (talking ? 2.6 : 0.22)) holo.burst = Math.min(1, holo.burst + 0.45 + Math.random() * 0.5);
+}
+function holoLevel(t, talking) {
+  const voz = voiceLevel >= 0 ? voiceLevel * 0.45 : Math.abs(Math.sin(t * 6.3) * Math.sin(t * 2.1)) * 0.3;
+  return Math.min(1, (talking ? 0.32 + voz : 0.06) + holo.burst * (talking ? 0.6 : 0.45));
+}
+const tintCache = new WeakMap();
+function blueCopy(m) {
+  if (m.tagName === 'VIDEO') return null;
+  let c = tintCache.get(m); if (c) return c;
+  const [mw, mh] = mediaSize(m); const k = Math.min(1, 512 / Math.max(mw, mh));
+  c = document.createElement('canvas'); c.width = Math.max(1, Math.round(mw * k)); c.height = Math.max(1, Math.round(mh * k));
+  const g = c.getContext('2d'); g.drawImage(m, 0, 0, c.width, c.height);
+  g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgb(30,110,255)'; g.fillRect(0, 0, c.width, c.height);
+  g.globalCompositeOperation = 'destination-in'; g.drawImage(m, 0, 0, c.width, c.height);
+  tintCache.set(m, c); return c;
+}
+const rnd = (a, b) => { const n = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return n - Math.floor(n); };
+function drawHolo(ctx, m, ix, iy, dw, dh, t, lv, W, H) {
+  const [mw, mh] = mediaSize(m); if (!mw || !mh) return;
+  const frame = Math.floor(t * 18);
+  // 1. imagen en franjas horizontales: con interferencia, algunas se desplazan de lado
+  const strips = 24, sh = dh / strips;
+  for (let i = 0; i < strips; i++) {
+    const r = rnd(i, frame);
+    const tear = r > 1 - lv * 0.55 ? (rnd(i + 7, frame) - 0.5) * 2 * lv * dw * 0.09 : 0;
+    const off = tear + Math.sin(t * 2.3 + i * 0.45) * lv * 2.5;
+    ctx.drawImage(m, 0, i * mh / strips, mw, mh / strips + 1, ix + off, iy + i * sh, dw, sh + 1);
   }
-  if (glow > 0) {
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (const e of face.eyes) {
-      const ex = dx + e.x * dw, ey = dy + e.y * dh, r = face.r * dw * 2.4;
-      const gr = ctx.createRadialGradient(ex, ey, 0, ex, ey, r); gr.addColorStop(0, `rgba(110,200,255,${0.5 * glow})`); gr.addColorStop(1, 'rgba(110,200,255,0)');
-      ctx.fillStyle = gr; ctx.fillRect(ex - r, ey - r, 2 * r, 2 * r);
-    }
-    ctx.restore();
+  ctx.save();
+  // 2. fantasma azul desplazado (como la señal que llega con retraso)
+  const bc = blueCopy(m);
+  if (bc) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.16 + lv * 0.5; ctx.drawImage(bc, ix + (3 + lv * 16) * Math.sin(t * 8.7), iy + lv * 2 * Math.sin(t * 13), dw, dh); }
+  // 3. tono azul de holograma
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'soft-light'; ctx.fillStyle = 'rgba(60,150,255,.45)'; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
+  // 4. líneas de barrido
+  ctx.fillStyle = 'rgba(0,0,0,.22)'; for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1.5);
+  // 5. barra brillante que baja despacio
+  const by = ((t * 0.28) % 1.2 - 0.1) * H; const gb = ctx.createLinearGradient(0, by - 40, 0, by + 40);
+  gb.addColorStop(0, 'rgba(90,180,255,0)'); gb.addColorStop(0.5, `rgba(90,180,255,${0.07 + lv * 0.1})`); gb.addColorStop(1, 'rgba(90,180,255,0)');
+  ctx.fillStyle = gb; ctx.fillRect(0, by - 40, W, 80);
+  // 6. bandas de ruido azul y puntos de estática
+  ctx.globalCompositeOperation = 'lighter';
+  const bands = Math.floor(lv * 7 + (rnd(3, frame) < 0.15 ? 1 : 0));
+  for (let k = 0; k < bands; k++) {
+    const y = rnd(k + 11, frame) * H, h = 1 + rnd(k + 21, frame) * (3 + lv * 9);
+    ctx.fillStyle = `rgba(80,170,255,${0.18 + rnd(k + 31, frame) * 0.4})`;
+    ctx.fillRect(rnd(k + 41, frame) * W * 0.3, y, W * (0.4 + rnd(k + 51, frame) * 0.6), h);
   }
+  const dots = Math.floor(30 + lv * 260);
+  ctx.fillStyle = 'rgba(140,200,255,.55)';
+  for (let k = 0; k < dots; k++) ctx.fillRect(Math.random() * W, Math.random() * H, 1.5, 1.5);
+  // 7. cortes de señal muy breves
+  if (lv > 0.5 && Math.random() < 0.06) { ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = 'rgba(0,4,12,.55)'; ctx.fillRect(0, 0, W, H); }
+  ctx.restore();
 }
 // El busto del ventilador de la oficina se dibuja en un lienzo para poder mover la boca
-function paintBust(t, talking, glow) {
+function paintBust(t, talking) {
   const m = avatar.media, g = bustCanvas.getContext('2d'), S = 512; const [mw, mh] = mediaSize(m);
   if (!mw || !mh) return;
   const k = Math.min(S / mw, S / mh), dw = mw * k, dh = mh * k, dx = (S - dw) / 2, dy = (S - dh) / 2;
-  g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.drawImage(m, dx, dy, dw, dh);
-  drawFace(g, m, dx, dy, dw, dh, t, talking, glow);
+  g.fillStyle = '#000'; g.fillRect(0, 0, S, S);
+  drawHolo(g, m, dx, dy, dw, dh, t, holoLevel(t, talking), S, S);
   // bordes difuminados para que parezca un holograma (el negro es transparente)
   const v = g.createRadialGradient(S / 2, S * 0.42, S * 0.22, S / 2, S * 0.48, S * 0.56); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,1)');
   g.fillStyle = v; g.fillRect(0, 0, S, S);
   if (bustTex) bustTex.needsUpdate = true;
 }
-function applyAvatar(url, kind, savedFace) {
+function applyAvatar(url, kind) {
   if (kind === 'video') {
     const v = document.createElement('video');
     Object.assign(v, { src: url, loop: true, muted: true, playsInline: true, autoplay: true });
-    v.addEventListener('loadeddata', () => { face = null; bustTex = null; setAvatarMedia(v, new THREE.VideoTexture(v), v.videoWidth / v.videoHeight); v.play().catch(() => {}); }, { once: true });
+    v.addEventListener('loadeddata', () => { bustTex = new THREE.CanvasTexture(bustCanvas); avatar.media = v; v.play().catch(() => {}); setAvatarMedia(v, bustTex, 1); }, { once: true });
     v.addEventListener('error', () => setAvatarHint('No he podido abrir ese vídeo. Prueba con MP4 o una imagen.'), { once: true });
   } else {
     const img = new Image();
     img.onload = () => {
-      face = savedFace || (url.endsWith('nyx.png') ? NYX_FACE : null);
-      bustTex = new THREE.CanvasTexture(bustCanvas); avatar.media = img; paintBust(0, false, 0);
+      bustTex = new THREE.CanvasTexture(bustCanvas); avatar.media = img; paintBust(0, false);
       setAvatarMedia(img, bustTex, 1);
     };
     img.onerror = () => setAvatarHint('No he podido abrir esa imagen.');
@@ -1438,7 +1461,7 @@ function setAvatarMedia(el, tex, aspect) {
   avatar.media = el; avatar.tex = tex;
   bustMat.map = tex; bustMat.needsUpdate = true;
   bust.userData.base = { x: 2.3 * Math.min(aspect || 1, 1.6), y: 2.3 };
-  setAvatarHint(face ? 'Avatar de Nyx cargado: su boca y sus ojos se animan al hablar.' : 'Avatar de Nyx cargado. Pulsa «Ajustar boca y ojos» para que hable moviendo la boca.');
+  setAvatarHint('Avatar de Nyx cargado: se mueve sola y, cuando habla, la señal se llena de interferencias azules como una llamada de hackers.');
 }
 function setAvatarHint(t) { $('#avatarHint').textContent = t; }
 
@@ -1459,12 +1482,7 @@ function saveVoicePrefs() { try { localStorage.setItem(VOICE_KEY, JSON.stringify
 if ('speechSynthesis' in window) { fillVoices(); speechSynthesis.addEventListener?.('voiceschanged', fillVoices); setTimeout(fillVoices, 800); }
 else $('#voiceNote').textContent = 'Este navegador no puede hablar. Prueba con Chrome o Safari.';
 ['voiceSel', 'voicePitch', 'voiceRate'].forEach(id => $('#' + id).addEventListener('change', saveVoicePrefs));
-const NYX_HELLOS = [
-  'Hola, jefe. Soy Nyx. He hackeado medio internet esta mañana, pero tranquilo, para ti siempre tengo un hueco. ¿Qué preparamos hoy?',
-  'Por fin apareces, Jager. La oficina funciona sola, pero contigo delante se pone más interesante. ¿Qué vídeo hacemos?',
-  'Aquí Nyx, indestructible como siempre. El equipo está listo y yo, más. Tú dirás, jefe.',
-];
-const sayHello = () => { $('#voiceOn').checked = true; const grabados = NYX_HELLOS.filter(h => clipFor(h)); const pool = grabados.length ? grabados : NYX_HELLOS; directorSay(pool[Math.floor(Math.random() * pool.length)]); };;
+const sayHello = () => { $('#voiceOn').checked = true; nyxSay('El jefe acaba de pulsar «Escuchar a Nyx» para oír tu voz. Salúdale a tu manera, con descaro, y pregúntale qué hacemos hoy. Cada vez dilo distinto.', 'Aquí Nyx, jefe. ¿Qué hacemos hoy?'); };
 $('#voiceTest').onclick = sayHello;
 $('#voiceTest2').onclick = sayHello;
 
@@ -1476,9 +1494,7 @@ function directorSay(text, mode = 'habla', secs) {
   $('#fanSub').textContent = text;
   clearTimeout(director._q); director._q = setTimeout(() => $('#say').classList.add('quiet'), 12000);
   if (mode === 'habla') setFan('habla', true);
-  const clip = $('#voiceOn').checked && $('#voiceClips').checked ? clipFor(text) : null;
-  if (clip) { ++voiceSeq; playVoice(clip, 'nyx', false).catch(() => browserSpeak(text)); }
-  else if ($('#voiceOn').checked && serverVoice()) speakServer(text, 'nyx').catch(() => browserSpeak(text));
+  if ($('#voiceOn').checked && serverVoice()) speakServer(text, 'nyx').catch(() => browserSpeak(text));
   else browserSpeak(text);
   markDirty();
 }
@@ -1537,10 +1553,8 @@ const store = {
           if (cn.exists) this.loadChannels(cn.data());
           else { const pb = await this.db.doc('config/manual').get(); if (pb.exists) this.loadChannels(pb.data()); }
           const dr = await this.db.doc('config/drive').get(); if (dr.exists) this.drive = dr.data();
-          const vc = await this.db.doc('config/voces').get();
-          if (vc.exists) { for (const c of (vc.data().clips || [])) if (c.id && c.texto) nyxClips[clipKey(c.texto)] = '/_blob/' + c.id; updateClipNote(); }
           const av = await this.db.doc('config/avatar').get();
-          if (av.exists) { const d = av.data(); avatarDoc = d; applyAvatar('/_blob/' + d.id, d.kind, d.face || null); }
+          if (av.exists) { const d = av.data(); avatarDoc = d; applyAvatar('/_blob/' + d.id, d.kind); }
         } catch (e) {}
       }
     } else {
@@ -1590,8 +1604,15 @@ function updateBadge() {
   if (brainState === 'lista') { b.textContent = 'Claude conectado'; b.title = 'Gemini y ChatGPT todavía no están conectados'; b.classList.add('live'); }
   else { b.textContent = 'Modo simulación'; b.classList.remove('live'); }
 }
+function parseJsonText(t) {
+  if (!t) return null; t = String(t).replace(/```(?:json)?/g, '');
+  const a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a < 0 || b <= a) return null;
+  try { return JSON.parse(t.slice(a, b + 1)); } catch (e) { return null; }
+}
 async function askClaude(prompt, opts = {}) {
-  const s = await samplePromise; if (!s || brainState === 'off') return null;
+  const s = await samplePromise;
+  if (!s && serverReady() && srv.caps.claude) { const txt = await askServer('claude', prompt, opts.tier); return opts.json ? parseJsonText(txt) : txt; }
+  if (!s || brainState === 'off') return null;
   try { return opts.json ? await s.json(prompt, { modelTier: opts.tier || 'default' }) : (await s(prompt, { modelTier: opts.tier || 'default' })).text; }
   catch (e) { if (['not_granted', 'capability_disabled', 'capability_removed', 'unavailable'].includes(e?.code)) { brainState = 'off'; updateBadge(); } return null; }
 }
@@ -1601,10 +1622,33 @@ const TEAM_TXT = `Equipo:
 - Sala YouTube (prepara los vídeos para Pixelido, la agencia externa que hace visuales y montaje): Nora (Claude) guion, Gema (Gemini) miniaturas, Tito (ChatGPT) títulos y SEO, Paco (Claude) paquete para Pixelido.
 - Sala de Análisis: Lía (Gemini) tendencias y viralidad, Rui (ChatGPT) CTR y empaquetado, Sam (Claude) retención y rentabilidad. Los tres debaten en una mesa hasta acordar la opción más viral y rentable.`;
 
+const NYX_PERSONA = `Eres Nyx, la directora de "La oficina de Jager", una empresa virtual. Eres una hacker de película: sexy, chula, segurísima de ti misma e indestructible; nada te asusta y todo lo tienes bajo control. Tu jefe se llama Jager; te habla y respondes en voz alta desde un ventilador holográfico, como en una videollamada de hackers. Hablas con descaro y elegancia, y de vez en cuando (no en cada frase) le tiras la caña con un piropo ingenioso o una broma pícara, siempre con gracia y sin nada explícito. Pero nunca descuidas el trabajo. Español de España, frases cortas y con chispa. Nunca repites frases hechas: cada respuesta es nueva.`;
+// Lo último que habéis hablado, para que Nyx tenga memoria de la conversación
+const nyxChat = [];
+const chatTxt = () => nyxChat.length ? nyxChat.slice(-8).map(m => `${m.de}: ${m.texto}`).join('\n') : '(empezáis a hablar ahora)';
+function rememberChat(de, texto) { if (!texto) return; nyxChat.push({ de, texto: String(texto).slice(0, 400) }); if (nyxChat.length > 16) nyxChat.shift(); }
+// Todo lo que Nyx dice en voz alta lo piensa Claude en el momento; sin Claude usa una frase de respaldo.
+let nyxQueue = Promise.resolve();
+function nyxSay(situacion, respaldo, mode, secs) {
+  const pensando = askClaude(`${NYX_PERSONA}
+Canal activo: ${store.ch.name}.
+Conversación reciente:
+${chatTxt()}
+
+Situación: ${situacion}
+Di en voz alta lo que dirías tú ahora, en 1 o 2 frases. Incluye los datos importantes de la situación (nombres, cifras, títulos). Solo el texto que dices, sin comillas ni acotaciones.`, { tier: 'quick' });
+  nyxQueue = nyxQueue.then(async () => {
+    const txt = String((await pensando) || '').trim().replace(/^["«]|["»]$/g, '');
+    const final = txt || respaldo;
+    rememberChat('Nyx', final); directorSay(final, mode, secs);
+  });
+  return nyxQueue;
+}
+
 async function interpret(text) {
   const st = channelStats();
   const enCurso = jobs.slice(0, 6).map(j => `#${j.id} ${j.type} «${j.topic}»: ${STATUS_TXT[j.status]}`).join('\n') || 'ninguno';
-  const r = await askClaude(`Eres Nyx, la directora de "La oficina de Jager", una empresa virtual. Eres una hacker de película: sexy, chula, segurísima de ti misma e indestructible; nada te asusta y todo lo tienes bajo control. Tu jefe se llama Jager; te habla y respondes en voz alta desde un ventilador holográfico. Hablas con descaro y elegancia, y de vez en cuando (no en cada frase) le tiras la caña con un piropo ingenioso o una broma pícara, siempre con gracia y sin nada explícito. Pero nunca descuidas el trabajo: primero respondes lo que te pide. Español de España, frases cortas y con chispa.
+  const r = await askClaude(`${NYX_PERSONA} Primero respondes lo que te pide.
 ${TEAM_TXT}
 Canales del jefe: ${store.channels.map(c => c.name).join(', ')}. Canal activo: ${store.ch.name}.
 Nicho del canal activo: ${store.nicho}
@@ -1615,14 +1659,16 @@ Manual del canal:
 ${lessonsTxt()}
 Encargos actuales:
 ${enCurso}
+Conversación reciente:
+${chatTxt()}
 
 Clasifica el mensaje del jefe:
 - "video": encargo de un vídeo concreto de YouTube
 - "tendencias": pide buscar temas, ideas o qué puede ser viral
 - "proyecto": programación, app, web, la web Ruleta Caliente u otro proyecto técnico
-- "charla": pregunta, saludo o conversación (por ejemplo, cómo va algo o qué tal funcionó un vídeo)
+- "charla": cualquier otra cosa: pregunta, saludo o conversación sobre lo que sea (no solo de trabajo); respóndele de verdad, con lo que sabes
 
-Devuelve SOLO JSON: {"tipo":"video|tendencias|proyecto|charla","tema":"tema del encargo, corto y claro; vacío si es charla","respuesta":"lo que dices en voz alta, máximo 2 frases; si hay encargo di a quién se lo repartes"}
+Devuelve SOLO JSON: {"tipo":"video|tendencias|proyecto|charla","tema":"tema del encargo, corto y claro; vacío si es charla","respuesta":"lo que dices en voz alta: si es charla, la respuesta de verdad a lo que pregunta (máximo 4 frases); si hay encargo, máximo 2 frases y di a quién se lo repartes"}
 
 Mensaje del jefe: «${text}»`, { json: true, tier: 'quick' });
   if (r && ['video', 'proyecto', 'charla', 'tendencias'].includes(r.tipo)) return { tipo: r.tipo, tema: (r.tema || '').trim() || cleanTopic(text), respuesta: r.respuesta };
@@ -1951,17 +1997,8 @@ Devuelve SOLO JSON: ${SCHEMA[d.mode]}`, { json: true });
   return res && typeof res === 'object' && res.acuerdo ? res : fallbackConsensus(d);
 }
 const VOTE_TXT = v => !v ? '' : `Votos: ${MEMBERS.map(id => `${NAME(id)} ${v[id] || 'a favor'}`).join(' · ')}`;
-function speakAs(id, text) {
-  if ($('#voiceOn').checked && serverVoice() && $('#voiceTeam').checked) { speakServer(text, id).catch(() => {}); return; }
-  if (!$('#voiceOn').checked || !('speechSynthesis' in window)) return;
-  try {
-    const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES';
-    const voices = speechSynthesis.getVoices().filter(v => v.lang?.startsWith('es'));
-    const k = MEMBERS.indexOf(id); if (voices.length) u.voice = voices[(k + 1) % voices.length];
-    u.pitch = [1.2, 0.85, 1.0][k] ?? 1; u.rate = [1.06, 1.1, 0.98][k] ?? 1;
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
-  } catch (e) {}
-}
+// Solo Nyx tiene voz: los analistas debaten en silencio (se lee en el bocadillo y en la mesa)
+function speakAs() {}
 function showLine(d, m) {
   d.cur = m; d.speaker = m.who; d.transcript.push(m);
   d.t = Math.min(9, Math.max(4, m.text.split(/\s+/).length * 0.33));
@@ -2018,7 +2055,7 @@ function endDebate(d) {
   step.preset = true; step.progress = 1;
   d.state = 'fin'; d.speaker = null; d.cur = null;
   log(`La mesa de análisis llega a un acuerdo sobre <b>${esc(j.short)}</b>`);
-  if (d.mode === 'estudio') directorSay(`La mesa de análisis ha decidido: ${r.acuerdo}`);
+  if (d.mode === 'estudio') nyxSay(`La mesa de análisis (Lía, Rui y Sam) acaba de terminar su debate y ha decidido esto: ${r.acuerdo}. Cuéntaselo al jefe.`, `La mesa de análisis ha decidido: ${r.acuerdo}`);
   MEMBERS.forEach(id => {
     const ag = agents[id]; const back = [...MEET[id]].reverse().slice(1);
     const exits = [{ type: 'goto', fixed: back.length ? back : [MEET[id][0]], status: 'Vuelve a su mesa' }];
@@ -2114,10 +2151,6 @@ try { const s0 = JSON.parse(localStorage.getItem('oficina-servidor') || '{}'); s
 const serverReady = () => !hasRuntime && !!srv.url && srv.ok;
 const serverVoice = () => serverReady() && !!srv.caps.voz && $('#voiceSrv').checked;
 let voiceAudio = null, voiceLevel = -1, audioCtx = null, analyser = null, levelBuf = null, voiceSeq = 0;
-// Frases de Nyx grabadas con su voz de ElevenLabs: texto → audio guardado en la oficina
-let nyxClips = {};
-const clipKey = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-const clipFor = text => nyxClips[clipKey(text)] || null;
 async function speakServer(text, who) {
   const seq = ++voiceSeq;
   const r = await fetch(srv.url.replace(/\/$/, '') + '/voz', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(srv.key ? { 'X-Oficina-Token': srv.key } : {}) }, body: JSON.stringify({ prompt: text, quien: who }) });
@@ -2126,7 +2159,7 @@ async function speakServer(text, who) {
   if (seq !== voiceSeq) return; // ya ha empezado a hablar otra persona
   return playVoice(url, who, true);
 }
-// Reproduce una voz (del servidor o grabada) y conecta el analizador que mueve la boca de Nyx
+// Reproduce la voz del servidor y conecta el analizador: el volumen sube las interferencias del holograma
 async function playVoice(url, who, revoke) {
   if (voiceAudio) { voiceAudio.pause(); voiceAudio = null; }
   if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -2143,7 +2176,7 @@ async function playVoice(url, who, revoke) {
   try { await a.play(); }
   catch (e) { a.onended(); throw e; }
 }
-// Volumen de la voz de Nyx en cada fotograma (0-1): mueve la boca de verdad
+// Volumen de la voz de Nyx en cada fotograma (0-1)
 function updateVoiceLevel() {
   if (!voiceAudio || voiceAudio.paused || voiceAudio.dataset.who !== 'nyx' || !analyser) { if (!voiceAudio || voiceAudio.dataset.who !== 'nyx') voiceLevel = -1; return; }
   analyser.getByteTimeDomainData(levelBuf);
@@ -2151,14 +2184,10 @@ function updateVoiceLevel() {
   const target = Math.min(1, Math.sqrt(sum / levelBuf.length) * 5);
   voiceLevel = voiceLevel < 0 ? target : voiceLevel + (target - voiceLevel) * 0.5;
 }
-function updateClipNote() {
-  const n = Object.keys(nyxClips).length; $('#voiceClipsRow').hidden = !n;
-  if (n) $('#voiceNote').textContent = `Nyx tiene ${n} ${n === 1 ? 'frase grabada' : 'frases grabadas'} con su voz real de ElevenLabs. Lo que improvisa lo dice con la voz del dispositivo.`;
-}
 function updateVoiceNote() {
   if (hasRuntime) return;
-  $('#voiceSrvRow').hidden = !srv.caps.voz; $('#voiceTeamRow').hidden = !srv.caps.voz;
-  if (srv.caps.voz) $('#voiceNote').textContent = `Voz realista activada con ${srv.caps.voz === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI'}. Lo que no use la voz realista habla con las voces gratis del dispositivo.`;
+  $('#voiceSrvRow').hidden = !srv.caps.voz;
+  if (srv.caps.voz) $('#voiceNote').textContent = `Voz real de Nyx activada con ${srv.caps.voz === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI'}: todo lo que piensa lo dice con su voz. El resto del equipo trabaja en silencio.`;
 }
 async function srvFetch(path, body) {
   const r = await fetch(srv.url.replace(/\/$/, '') + path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(srv.key ? { 'X-Oficina-Token': srv.key } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -2166,12 +2195,12 @@ async function srvFetch(path, body) {
   if (!r.ok) throw new Error(d.error || 'El servidor respondió ' + r.status);
   return d;
 }
-async function askServer(ai, prompt) { try { return (await srvFetch('/texto', { ia: ai, prompt })).texto || null; } catch (e) { log('Servidor: ' + esc(e.message)); return null; } }
+async function askServer(ai, prompt, tier) { try { return (await srvFetch('/texto', { ia: ai, prompt, rapido: tier === 'quick' })).texto || null; } catch (e) { log('Servidor: ' + esc(e.message)); return null; } }
 async function askServerImage(prompt) { const d = await srvFetch('/imagen', { prompt }); return d.base64 ? `data:${d.mime || 'image/png'};base64,${d.base64}` : null; }
 async function testServer() {
   if (!srv.url) { srv.ok = false; srv.msg = 'Escribe la dirección del servidor.'; return renderConn(); }
   srv.msg = 'Probando…'; renderConn();
-  try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz); updateVoiceNote(); srv.msg = `Conectado · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
+  try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz || d.claude); if (d.claude && !hasRuntime) { brainState = 'lista'; updateBadge(); } updateVoiceNote(); srv.msg = `Conectado · Claude ${d.claude ? 'sí' : 'sin clave'} · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
   catch (e) { srv.ok = false; srv.msg = 'No responde: ' + e.message; }
   renderConn();
 }
@@ -2220,6 +2249,7 @@ async function handleMessage(text) {
   $('#sayWho').textContent = 'Nyx'; $('#sayText').textContent = 'Pensando…'; $('#say').classList.remove('quiet');
   const r = await interpret(text);
   thinking = false;
+  rememberChat('Jager', text); if (r.respuesta) rememberChat('Nyx', r.respuesta);
   if (r.tipo === 'charla') {
     directorSay(r.respuesta || 'Me encanta que me hables, jefe, pero para charlar de verdad necesito conectarme a Claude. Mientras tanto, pídeme un vídeo, un proyecto o temas virales.');
     log(`Hablas con Nyx: «${esc(text)}»`);
@@ -2229,11 +2259,12 @@ async function handleMessage(text) {
   newOrder(r.tipo, r.tema, { reply: r.respuesta });
 }
 
+// Solo de respaldo cuando Claude no responde
 const REPLIES = {
-  video: 'Hecho, jefe. Lía, Rui y Sam lo destripan en la mesa, Nora lo escribe, Gema y Tito lo visten y Paco se lo lleva a Pixelido. Tú relájate, que esto lo tengo yo.',
-  proyecto: 'Me encanta cuando me pides código. Max lo ordena, Leo lo programa y Vera lo revisa. Ni un fallo, jefe, ya me conoces.',
-  radar: 'Voy a por lo viral, jefe. Lía rastrea las tendencias y la mesa decide qué nos hace ganar más. Prepárate para elegir.',
-  analisis: 'Números recibidos. Rui mira el CTR, Sam la retención y entre todos te traemos el plan para petarlo. Nada se me escapa.',
+  video: 'Hecho, jefe. La mesa de análisis lo estudia, Nora lo escribe, Gema y Tito lo visten y Paco se lo lleva a Pixelido.',
+  proyecto: 'Hecho. Max lo ordena, Leo lo programa y Vera lo revisa.',
+  radar: 'Voy a por lo viral. Lía rastrea las tendencias y la mesa decide.',
+  analisis: 'Números recibidos. Rui mira el CTR, Sam la retención y te traemos el plan.',
 };
 function newOrder(type, topic, o = {}) {
   const flow = FLOWS[type];
@@ -2248,7 +2279,8 @@ function newOrder(type, topic, o = {}) {
   job.step = id => job.steps.find(s => s.id === id);
   jobs.unshift(job);
   log(`Orden recibida: <b>${esc(topic)}</b>${job.version > 1 ? ' (v' + job.version + ')' : ''}`);
-  directorSay(o.reply || REPLIES[type]);
+  if (o.reply) directorSay(o.reply);
+  else nyxSay(`El jefe te ha hecho un encargo de tipo «${type}»: «${topic}». Díselo a tu manera y cuéntale quién se encarga (${REPLIES[type]}).`, REPLIES[type]);
   setTimeout(() => {
     job.steps.filter(s => s.deps.length === 0).forEach(s => {
       s.state = 'cola';
@@ -2334,7 +2366,8 @@ function arriveDirector(job) {
   if (job.type === 'radar') {
     job.status = 'elige'; ok.state = 'cola';
     const top = job.picks?.[0];
-    directorSay(top ? `Jefe, Lía ha encontrado ${job.picks.length} temas. El más fuerte es «${top.tema}», con ${top.puntuacion} sobre 100. Elige cuál producimos.` : 'Jefe, Lía tiene la lista de temas. Elige cuál producimos.');
+    const fb = top ? `Jefe, Lía ha encontrado ${job.picks.length} temas. El más fuerte es «${top.tema}», con ${top.puntuacion} sobre 100. Elige cuál producimos.` : 'Jefe, Lía tiene la lista de temas. Elige cuál producimos.';
+    nyxSay(top ? `Lía ha encontrado ${job.picks.length} temas virales. El más fuerte es «${top.tema}» con ${top.puntuacion}/100 (${top.por_que || ''}). Pide al jefe que elija cuál producís.` : 'Lía tiene la lista de temas virales. Pide al jefe que elija uno.', fb);
     setTimeout(() => setFan('listo', true), 6000);
   } else if (job.type === 'analisis') {
     ok.state = 'hecho'; job.status = 'aprobado';
@@ -2344,14 +2377,18 @@ function arriveDirector(job) {
     store.saveManual();
     v.analysis = { ctr: job.step('ctr').output?.text, retencion: job.step('retencion').output?.text, plan: job.step('plan').output?.text, at: Date.now() };
     if (v.id) store.saveVideo(v);
-    directorSay((p.resumen || 'Análisis terminado.') + (nuevas.length ? ` He añadido ${nuevas.length} ${nuevas.length === 1 ? 'lección' : 'lecciones'} al manual del canal.` : ''));
+    const fb = (p.resumen || 'Análisis terminado.') + (nuevas.length ? ` He añadido ${nuevas.length} ${nuevas.length === 1 ? 'lección' : 'lecciones'} al manual del canal.` : '');
+    nyxSay(`Habéis terminado de analizar las métricas de «${v.title || v.topic || job.short}». Resumen: ${p.resumen || 'sin resumen'}. Lecciones nuevas para el manual del canal: ${nuevas.map(n => n.texto).join(' / ') || 'ninguna'}. Cuéntale al jefe lo más importante.`, fb);
     WORKERS.filter(w => w.room === 'lab').forEach(w => { if (!agents[w.id].busy()) agents[w.id].celebrate = 2.5; });
     log(`Análisis de <b>${esc(job.short)}</b> terminado · manual actualizado`);
   } else {
     job.status = 'esperando'; ok.state = 'cola';
-    directorSay(job.type === 'video'
-      ? `Jefe, el paquete de «${job.short}» está listo.${job.winner?.ctr_estimado ? ` Rui estima un CTR del ${job.winner.ctr_estimado}%.` : ''} Échale un ojo y, si te gusta tanto como yo, Paco se lo lleva a Pixelido.`
-      : `Jefe, «${job.short}» está programado y revisado. Impecable, como yo. ¿Lo apruebas?`);
+    const fb = job.type === 'video'
+      ? `Jefe, el paquete de «${job.short}» está listo.${job.winner?.ctr_estimado ? ` Rui estima un CTR del ${job.winner.ctr_estimado}%.` : ''} Revísalo y, si lo apruebas, Paco se lo lleva a Pixelido.`
+      : `Jefe, «${job.short}» está programado y revisado. ¿Lo apruebas?`;
+    nyxSay(job.type === 'video'
+      ? `El paquete del vídeo «${job.short}» está listo${job.winner?.titulo ? `; título ganador «${job.winner.titulo}»` : ''}${job.winner?.ctr_estimado ? ` y Rui estima un CTR del ${job.winner.ctr_estimado}%` : ''}. Pide al jefe que lo revise y lo apruebe para que Paco lo lleve a Pixelido.`
+      : `El proyecto «${job.short}» está programado por Leo y revisado por Vera. Pide al jefe que lo apruebe.`, fb);
     setTimeout(() => setFan('listo', true), 6000);
     log(`Encargo <b>#${job.id}</b> esperando tu aprobación`);
   }
@@ -2375,14 +2412,14 @@ function approve(job) {
         viral: job.viral || null, guion: (job.step('guion').output?.text || '').slice(0, 3000), createdAt: Date.now(), metrics: null, analysis: null, demo: job.demo, channelId: job.channelId,
       });
       savePackageToDrive(job, store.videos[store.videos.length - 1]);
-      directorSay(`Entregado. Pixelido ya tiene «${job.short}». Cuando lo publiquen, pásame las métricas y te digo cómo petarlo todavía más.`);
+      nyxSay(`Paco acaba de entregar a Pixelido el paquete de «${job.short}». Pide al jefe que, cuando lo publiquen, te pase las métricas.`, `Entregado. Pixelido ya tiene «${job.short}». Cuando lo publiquen, pásame las métricas.`);
       crew.forEach(a => { if (!a.busy()) a.celebrate = 2.5; }); markDirty();
     } });
     paco.agenda.push({ type: 'goto', dest: 'home' });
-    directorSay('Aprobado por el jefe. Paco, corre a Pixelido, que hoy estamos imparables.');
+    nyxSay(`El jefe acaba de aprobar el vídeo «${job.short}». Dile a Paco que lo lleve a Pixelido.`, 'Aprobado. Paco, a Pixelido.');
   } else {
     log(`Proyecto <b>${esc(job.short)}</b> aprobado`);
-    directorSay('Aprobado. ¡Buen trabajo, equipo de Proyectos!');
+    nyxSay(`El jefe acaba de aprobar el proyecto «${job.short}». Felicita al equipo de Proyectos (Max, Leo y Vera).`, 'Aprobado. Buen trabajo, equipo de Proyectos.');
     crew.forEach(a => { if (!a.busy()) a.celebrate = 2.5; });
   }
   markDirty();
@@ -2701,27 +2738,26 @@ function setFan(state, fromOffice = false) {
   fanState = state;
   $$('[data-fan]').forEach(b => b.setAttribute('aria-pressed', b.dataset.fan === state));
 }
-let fanRect = null, calib = null;
 function renderFan(t) {
   const W = fanCanvas.width, C = W / 2;
   fx.fillStyle = '#000'; fx.fillRect(0, 0, W, W);
   const m = avatar.media;
   const mw = m.videoWidth || m.naturalWidth || m.width, mh = m.videoHeight || m.naturalHeight || m.height;
   if (mw && mh) {
-    const talk = fanState === 'habla';
-    const bob = Math.sin(t * 1.6) * 6 + (talk ? Math.sin(t * 7.5) * 3 : 0);
-    const zoom = 1 + (talk ? Math.abs(Math.sin(t * 9)) * 0.012 : 0) + (fanState === 'escucha' ? 0.02 : 0);
+    const talk = fanState === 'habla' || director.mode === 'habla' || !!director.speaking;
+    // Nunca está quieta: respira, se balancea y gira un poco la cabeza
+    const bob = Math.sin(t * 1.3) * 7 + Math.sin(t * 0.47) * 4 + (talk ? Math.sin(t * 5.2) * 3 : 0);
+    const sway = Math.sin(t * 0.61) * 9 + Math.sin(t * 1.7) * 2.5 + (talk ? Math.sin(t * 3.9) * 3 : 0);
+    const tilt = Math.sin(t * 0.53) * 0.025 + (talk ? Math.sin(t * 2.7) * 0.012 : 0);
+    const zoom = 1 + Math.sin(t * 1.1) * 0.012 + (talk ? 0.01 : 0) + (fanState === 'escucha' ? 0.02 : 0);
     const size = W * 0.86 * zoom; const k = Math.max(size / mw, size / mh);
     const dw = mw * k, dh = mh * k;
     fx.save(); fx.beginPath(); fx.arc(C, C, W * 0.47, 0, 7); fx.clip();
-    fx.globalAlpha = 0.92 + Math.random() * 0.08;
-    const ix = C - dw / 2, iy = C - dh / 2 + bob + 10;
-    fx.drawImage(m, ix, iy, dw, dh);
-    const glow = talk ? 0.7 + Math.sin(t * 8) * 0.3 : fanState === 'escucha' ? 0.55 : 0.18 + Math.sin(t * 1.5) * 0.1;
-    drawFace(fx, m, ix, iy, dw, dh, t, talk && !calib, glow);
-    fanRect = { ix, iy, dw, dh };
-    fx.restore(); fx.globalAlpha = 1;
-    if (calib) { fx.fillStyle = 'rgba(0,0,0,.6)'; fx.fillRect(0, W - 80, W, 80); fx.fillStyle = '#5ce8ff'; fx.font = '600 26px Figtree, sans-serif'; fx.textAlign = 'center'; fx.fillText(['Toca el centro de la boca', 'Toca el ojo izquierdo', 'Toca el ojo derecho'][calib.step], C, W - 32); fx.textAlign = 'left'; }
+    fx.translate(C + sway, C + bob + 10); fx.rotate(tilt); fx.translate(-C, -C);
+    const ix = C - dw / 2, iy = C - dh / 2;
+    if ($('#fxOn').checked) drawHolo(fx, m, ix, iy, dw, dh, t, holoLevel(t, talk), W, W);
+    else fx.drawImage(m, ix, iy, dw, dh);
+    fx.restore();
   }
   if (!$('#fxOn').checked) return;
   const col = fanState === 'listo' ? '74,222,128' : '92,232,255';
@@ -2745,18 +2781,6 @@ function renderFan(t) {
 }
 $('#openFan').onclick = () => { $('#fan').hidden = false; };
 $('#closeFan').onclick = () => $('#fan').hidden = true;
-$('#calibBtn').onclick = () => { if (!avatar.media || avatar.media === placeholder || avatar.media.tagName === 'VIDEO') { setAvatarHint('Carga primero una imagen del avatar.'); return; } calib = { step: 0, pts: [] }; setAvatarHint('Toca en el círculo: primero la boca, luego el ojo izquierdo y el derecho.'); };
-fanCanvas.addEventListener('click', e => {
-  if (!calib || !fanRect) return;
-  const r = fanCanvas.getBoundingClientRect(), k = fanCanvas.width / r.width;
-  const x = (e.clientX - r.left) * k, y = (e.clientY - r.top) * k;
-  calib.pts.push({ x: (x - fanRect.ix) / fanRect.dw, y: (y - fanRect.iy) / fanRect.dh }); calib.step++;
-  if (calib.step < 3) return;
-  const [mo, l, rr] = calib.pts; calib = null;
-  face = { mouth: { x: mo.x, y: mo.y, w: Math.abs(rr.x - l.x) * 0.8, h: 0.1 }, eyes: [l, rr], r: 0.015 };
-  setAvatarHint('Listo: ahora la boca y los ojos se animan cuando habla.');
-  if (store.db && avatarDoc) store.db.doc('config/avatar').set({ ...avatarDoc, face }).catch(() => {});
-});
 $$('[data-fan]').forEach(b => b.onclick = () => setFan(b.dataset.fan));
 
 let assetsCap = null;
@@ -2827,10 +2851,13 @@ function loop() {
     setFan(waiting ? 'listo' : 'espera', true); director.modeT = 1e9; markDirty();
   }
   const talking = director.mode === 'habla';
-  if (bustTex) { bustPaintT -= rdt; if (talking || bustPaintT <= 0) { bustPaintT = 0.25; paintBust(t, talking, talking ? 0.8 : 0.25 + Math.sin(t * 1.5) * 0.1); } }
+  tickHolo(rdt, talking);
+  if (bustTex) { bustPaintT -= rdt; if (bustPaintT <= 0) { bustPaintT = talking ? 1 / 30 : 1 / 12; paintBust(t, talking); } }
   bustMat.opacity = 0.82 + Math.random() * 0.12 + (talking ? 0.06 : 0);
   const pulse = talking ? 1 + Math.abs(Math.sin(t * 9)) * 0.015 : 1;
-  bust.position.y = 2.55 + Math.sin(t * 1.5) * 0.04 + (talking ? Math.sin(t * 7) * 0.015 : 0);
+  bust.position.y = 2.55 + Math.sin(t * 1.3) * 0.05 + Math.sin(t * 0.47) * 0.03 + (talking ? Math.sin(t * 5.2) * 0.02 : 0);
+  bust.position.x = FAN_POS.x + Math.sin(t * 0.61) * 0.05;
+  bustMat.rotation = Math.sin(t * 0.53) * 0.03;
   bust.scale.set(bust.userData.base.x * pulse, bust.userData.base.y * pulse, 1);
   blades.rotation.z -= rdt * 30;
   bladeMat.opacity = 0.08 + (talking ? 0.05 : 0);
@@ -2879,6 +2906,5 @@ loop();
 // Encargo de demostración (sin IA) para ver a todos moverse al abrir
 setTimeout(() => { if (!jobs.length) newOrder('video', '5 errores que casi todos cometen y cómo evitarlos', { demo: true }); }, 2500);
 </script>
-
 </body>
 </html>
