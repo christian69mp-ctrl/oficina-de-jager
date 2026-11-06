@@ -238,6 +238,11 @@ button.step { font: inherit; font-size: 11.5px; }
 .fan-talk input { background: #0b1020; border-color: #263150; min-width: 0; }
 .file-btn { display: inline-flex; align-items: center; position: relative; }
 .file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.estudio-row { margin-top: 8px; display: grid; gap: 6px; }
+#estudioState.ok { color: var(--ok); }
+.estudio-doc { white-space: pre-wrap; font-size: 12.5px; line-height: 1.5; max-height: 360px; overflow: auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.estudio-proy { padding-left: 18px; font-size: 13px; } .estudio-proy small { color: var(--muted); display: block; }
+#modalBody details { margin: 8px 0; } #modalBody summary { cursor: pointer; font-weight: 600; }
 .rec-out { display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: #9aa6c4; align-items: flex-start; }
 .rec-out video { width: 140px; border-radius: 50%; background: #000; border: 1px solid #222; }
 
@@ -308,6 +313,7 @@ button.step { font: inherit; font-size: 11.5px; }
       <div class="field-row"><select id="chanSel"></select><button type="button" class="btn small" id="chanNew">Nuevo canal</button></div>
       <div class="field-row" id="chanNewRow" hidden><input id="chanNewName" placeholder="Nombre del nuevo canal" aria-label="Nombre del nuevo canal"><button type="button" class="btn small primary" id="chanCreate">Crear</button></div>
       <p class="note">Los vídeos, las métricas y el manual son de cada canal. Los proyectos (como la Ruleta Caliente) no dependen del canal.</p>
+      <div class="estudio-row"><p class="note" id="estudioState">Ficha del estudio: cargando…</p><div class="order-row"><button type="button" class="btn small" id="estudioVer">Ver ficha del canal</button><button type="button" class="btn small" id="estudioAct">Actualizar desde GitHub</button></div></div>
     </section>
 
     <section>
@@ -1667,7 +1673,102 @@ let portalFlash = 0;
 const hasRuntime = !!window.claude?.use;
 const TARGETS = { ctr: 6, r30: 70, pct: 45 };
 // Los canales de YouTube de Jager: vienen de serie en cualquier dispositivo
-const DEFAULT_CHANNELS = [{"id": "c1", "name": "Jager Aviación", "nicho": "Documentales narrados sobre accidentes e incidentes aéreos reales (Japan Airlines 123, Spanair JK5022): qué pasó minuto a minuto en cabina, por qué ocurrió según las investigaciones oficiales y qué cambió en la aviación después. Público: adultos hispanohablantes curiosos por la aviación, la ingeniería y las historias de supervivencia. Tono: tensión de thriller con rigor técnico explicado para todos, respeto total a las víctimas y sin morbo. Formato: vídeo largo de 10-15 min con reconstrucción, transcripciones de cabina y conclusiones oficiales; shorts con el momento clave. Cuidar el lenguaje (sin detalles gráficos) para no perder monetización.", "lecciones": []}, {"id": "cmw52qk9z", "name": "Código Mafia", "nicho": "Crimen organizado real explicado: mafias, cárteles, redes de estafas y blanqueo (la 'Ndrangheta en España, las fábricas de estafas). Cómo funcionan por dentro, cómo se financian, sus golpes más famosos y cómo cayeron. Público: adultos hispanohablantes interesados en true crime, actualidad e investigación periodística. Tono: periodismo de investigación con ritmo de serie, datos contrastados, sin glorificar a los criminales. Formato: vídeo largo de 10-15 min con mapas, organigramas y cronología; shorts con el dato más impactante. Evitar violencia explícita para mantener la monetización.", "lecciones": []}, {"id": "c3", "name": "Historias Prohibidas", "nicho": "True crime y casos reales que marcaron una época, sobre todo en España (los marqueses de Urquijo, el asesino de la baraja): los hechos, la investigación, los errores, el juicio y las preguntas que siguen abiertas. Público: adultos hispanohablantes aficionados al true crime y a los misterios reales. Tono: narración intrigante y sobria, respeto a las víctimas y sus familias, separando hechos probados de teorías. Formato: vídeo largo de 10-15 min con cronología y documentos de la época; shorts con el giro del caso. Sin detalles gráficos para mantener la monetización.", "lecciones": []}, {"id": "c4", "name": "Archivos Sagrados", "nicho": "Misterios de la historia religiosa y la arqueología bíblica (el Arca de la Alianza, los Manuscritos del Mar Muerto): qué dice la tradición, qué ha encontrado la arqueología y qué es leyenda. Público: adultos hispanohablantes, creyentes o no, curiosos por la historia antigua y los enigmas. Tono: divulgación respetuosa con todas las creencias, rigor histórico y sensación de misterio, dejando claro qué está demostrado y qué no. Formato: vídeo largo de 10-15 min con mapas, objetos y recreaciones; shorts con el enigma principal.", "lecciones": []}, {"id": "c5", "name": "Jager Explica", "nicho": "Divulgación de ciencia e historia con preguntas «¿Y si…?» (¿y si la Tierra tuviera anillos?, ¿y si Roma nunca hubiera caído?): escenarios imaginados pero basados en ciencia e historia reales, avisando siempre qué está comprobado y qué es especulación. Público: curiosos hispanohablantes de todas las edades, especialmente jóvenes adultos. Tono: cercano, sorprendente y con humor, con ejemplos de la vida diaria. Formato: vídeo de 8-12 min con muchas recreaciones visuales; shorts con la pregunta y la respuesta más llamativa. Temas muy aptos para anunciantes.", "lecciones": []}];
+const DEFAULT_CHANNELS = [{"id": "c1", "repo": "jager-aviacion", "name": "Jager Aviación", "nicho": "Documentales narrados sobre accidentes e incidentes aéreos reales (Japan Airlines 123, Spanair JK5022): qué pasó minuto a minuto en cabina, por qué ocurrió según las investigaciones oficiales y qué cambió en la aviación después. Público: adultos hispanohablantes curiosos por la aviación, la ingeniería y las historias de supervivencia. Tono: tensión de thriller con rigor técnico explicado para todos, respeto total a las víctimas y sin morbo. Formato: vídeo largo de 10-15 min con reconstrucción, transcripciones de cabina y conclusiones oficiales; shorts con el momento clave. Cuidar el lenguaje (sin detalles gráficos) para no perder monetización.", "lecciones": []}, {"id": "cmw52qk9z", "repo": "codigo-mafia", "name": "Código Mafia", "nicho": "Crimen organizado real explicado: mafias, cárteles, redes de estafas y blanqueo (la 'Ndrangheta en España, las fábricas de estafas). Cómo funcionan por dentro, cómo se financian, sus golpes más famosos y cómo cayeron. Público: adultos hispanohablantes interesados en true crime, actualidad e investigación periodística. Tono: periodismo de investigación con ritmo de serie, datos contrastados, sin glorificar a los criminales. Formato: vídeo largo de 10-15 min con mapas, organigramas y cronología; shorts con el dato más impactante. Evitar violencia explícita para mantener la monetización.", "lecciones": []}, {"id": "c3", "repo": "jager-crime", "name": "Historias Prohibidas", "nicho": "True crime y casos reales que marcaron una época, sobre todo en España (los marqueses de Urquijo, el asesino de la baraja): los hechos, la investigación, los errores, el juicio y las preguntas que siguen abiertas. Público: adultos hispanohablantes aficionados al true crime y a los misterios reales. Tono: narración intrigante y sobria, respeto a las víctimas y sus familias, separando hechos probados de teorías. Formato: vídeo largo de 10-15 min con cronología y documentos de la época; shorts con el giro del caso. Sin detalles gráficos para mantener la monetización.", "lecciones": []}, {"id": "c4", "repo": "archivos-sagrados", "name": "Archivos Sagrados", "nicho": "Misterios de la historia religiosa y la arqueología bíblica (el Arca de la Alianza, los Manuscritos del Mar Muerto): qué dice la tradición, qué ha encontrado la arqueología y qué es leyenda. Público: adultos hispanohablantes, creyentes o no, curiosos por la historia antigua y los enigmas. Tono: divulgación respetuosa con todas las creencias, rigor histórico y sensación de misterio, dejando claro qué está demostrado y qué no. Formato: vídeo largo de 10-15 min con mapas, objetos y recreaciones; shorts con el enigma principal.", "lecciones": []}, {"id": "c5", "repo": "jager-explica", "name": "Jager Explica", "nicho": "Divulgación de ciencia e historia con preguntas «¿Y si…?» (¿y si la Tierra tuviera anillos?, ¿y si Roma nunca hubiera caído?): escenarios imaginados pero basados en ciencia e historia reales, avisando siempre qué está comprobado y qué es especulación. Público: curiosos hispanohablantes de todas las edades, especialmente jóvenes adultos. Tono: cercano, sorprendente y con humor, con ejemplos de la vida diaria. Formato: vídeo de 8-12 min con muchas recreaciones visuales; shorts con la pregunta y la respuesta más llamativa. Temas muy aptos para anunciantes.", "lecciones": []}];
+const ESTUDIO_SNAPSHOT = {"at": null, "global": {}, "canales": {"jager-aviacion": {}, "codigo-mafia": {}, "jager-crime": {}, "archivos-sagrados": {}, "jager-explica": {}}};
+// ---------- BIBLIOTECA DEL ESTUDIO: repositorio Estudio-youtube ----------
+// Es la memoria de los canales (identidad, estilo, estrategia, aprendizajes, decisiones, protocolos, Pixelido…).
+// La oficina la lee en directo desde GitHub; si no puede, usa esta copia incrustada.
+const ESTUDIO_RAW = 'https://raw.githubusercontent.com/christian69mp-ctrl/Estudio-youtube/main/';
+const ESTUDIO_WEB = 'https://github.com/christian69mp-ctrl/Estudio-youtube';
+const REPO_ID = { c1: 'jager-aviacion', cmw52qk9z: 'codigo-mafia', c3: 'jager-crime', c4: 'archivos-sagrados', c5: 'jager-explica' };
+const estudio = { data: ESTUDIO_SNAPSHOT, live: false, msg: '' };
+const normName = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+function repoIdFor(ch) {
+  if (!ch) return null;
+  if (ch.repo) return ch.repo;
+  if (REPO_ID[ch.id]) return REPO_ID[ch.id];
+  const n = normName(ch.name);
+  if (/historias prohibidas|jager crime/.test(n)) return 'jager-crime';
+  return Object.keys(estudio.data.canales || {}).find(id => normName(id.replace(/-/g, ' ')) === n) || null;
+}
+const canalDocs = () => { const c = estudio.data.canales?.[repoIdFor(store.ch)]; return c && Object.keys(c).length ? c : null; };
+const gdoc = n => estudio.data.global?.[n] || '';
+const clip = (t, n) => { t = String(t || '').trim(); return t.length > n ? t.slice(0, n).trimEnd() + '\n…(recortado)' : t; };
+// Una sección de un documento markdown: «## 6.», «## 6b.»…
+function sec(doc, num) {
+  const lines = String(doc || '').split('\n'); const out = []; let on = false;
+  for (const l of lines) { if (/^## /.test(l)) { if (on) break; if (l.startsWith('## ' + num + '.')) on = true; } if (on) out.push(l); }
+  return out.join('\n');
+}
+// Lo que necesita leer cada puesto de la biblioteca (por canal)
+function estudioCtx(rol) {
+  const c = canalDocs(); if (!c) return '';
+  const part = (t, x, n) => x && x.trim() ? `\n### ${t}\n${clip(x, n)}\n` : '';
+  let s = part('IDENTIDAD del canal', c.IDENTIDAD, 2600) + part('APRENDIZAJES del canal', c.APRENDIZAJES, 2200);
+  if (rol !== 'pixelido') s += part('ESTILO del canal', c.ESTILO, 2600);
+  if (rol === 'temas' || rol === 'mesa') s += part('ESTRATEGIA del canal', c.ESTRATEGIA, 2600) + part('IDEAS del canal', c.IDEAS, 2600) + part('ESTADO ACTUAL del canal', c.ESTADO_ACTUAL, 1500) + part('TEMAS CUBIERTOS (no repetir sin ángulo nuevo)', gdoc('TEMAS_CUBIERTOS'), 3000) + part('Protocolo de selección de temas', sec(gdoc('PROTOCOLOS'), '4'), 1600) + part('Análisis público del canal', c.ANALISIS_PUBLICO, 2500);
+  if (rol === 'guion') s += part('Protocolo de investigación y guion', sec(gdoc('PROTOCOLOS'), '6'), 3000) + part('Plantilla de guion largo de alta retención', sec(gdoc('PROTOCOLOS'), '6b'), 4500) + part('Ejemplo de guion de este canal (para la voz y el tono, no para copiar)', c.EJEMPLO_GUION, 3500);
+  if (rol === 'titulos' || rol === 'miniatura') s += part('Protocolo de título y miniatura', sec(gdoc('PROTOCOLOS'), '5'), 4500) + part('Títulos de referencia de los canales', gdoc('TITULOS_REFERENCIA'), 1500) + part('Ejemplo de título y miniatura definitivos de este canal', c.EJEMPLO_TITULOS, 2500);
+  if (rol === 'pixelido') s += part('ESTILO del canal (para la edición)', c.ESTILO, 2600) + part('PIXELIDO: cómo trabaja y voces por canal', gdoc('PIXELIDO'), 3000);
+  if (rol === 'metricas') s += part('Protocolo de análisis de métricas', sec(gdoc('PROTOCOLOS'), '8'), 2500) + part('Registro de métricas del canal', c.REGISTRO_METRICAS, 2500) + part('Análisis público del canal', c.ANALISIS_PUBLICO, 2500) + part('Plan de monetización del estudio', gdoc('PLAN_MONETIZACION_2026'), 3000);
+  if (rol === 'mesa') s += part('DECISIONES del canal', c.DECISIONES, 2000);
+  if (rol === 'nyx') s = part('ESTADO ACTUAL del canal activo', c.ESTADO_ACTUAL, 1500) + part('PANEL GENERAL del estudio', gdoc('PANEL_GENERAL'), 1800) + part('Estado de la última sesión del estudio', gdoc('ESTADO_SESION'), 1500) + part('Índice de canales', gdoc('INDICE_CANALES'), 2000);
+  return `\nBIBLIOTECA DEL ESTUDIO (repositorio Estudio-youtube, canal «${repoIdFor(store.ch)}»). Es la fuente de verdad de este canal: si algo de aquí contradice una instrucción general, manda lo de aquí.${s}`;
+}
+// Lectura en directo desde GitHub (en claude.ai no se puede: allí se usa la copia)
+async function loadEstudio(force) {
+  if (hasRuntime) { estudio.msg = `Copia del ${estudio.data.at?.slice(0, 10)} (en claude.ai no se puede leer GitHub en directo)`; return renderEstudio(); }
+  try { const c = JSON.parse(localStorage.getItem('oficina-estudio') || 'null'); if (c?.data && !force) { estudio.data = c.data; estudio.live = true; estudio.msg = 'Leído de GitHub ' + new Date(c.t).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); renderEstudio(); if (Date.now() - c.t < 3600e3) return; } } catch (e) {}
+  estudio.msg = 'Leyendo el repositorio Estudio-youtube…'; renderEstudio();
+  const get = async p => { const r = await fetch(ESTUDIO_RAW + p + '?t=' + Date.now()); if (!r.ok) throw new Error(p + ': ' + r.status); return r.text(); };
+  try {
+    const d = JSON.parse(JSON.stringify(estudio.data)); d.global = d.global || {}; d.canales = d.canales || {};
+    for (const cid of Object.values(REPO_ID)) d.canales[cid] = d.canales[cid] || {};
+    const globals = { CLAUDE: 'CLAUDE.md', PROTOCOLOS: 'ESTUDIO/PROTOCOLOS.md', PIXELIDO: 'ESTUDIO/PIXELIDO.md', TEMAS_CUBIERTOS: 'ESTUDIO/TEMAS_CUBIERTOS.md', TITULOS_REFERENCIA: 'ESTUDIO/TITULOS_REFERENCIA.md', ESTADO_SESION: 'ESTUDIO/ESTADO_SESION.md', PANEL_GENERAL: 'ESTUDIO/PANEL_GENERAL.md', CALENDARIO: 'ESTUDIO/CALENDARIO.md', INDICE_CANALES: 'ESTUDIO/INDICE_CANALES.md', PLAN_MONETIZACION_2026: 'ESTUDIO/PLAN_MONETIZACION_2026.md' };
+    const jobs = Object.entries(globals).map(async ([k, p]) => { d.global[k] = await get(p); });
+    for (const cid of Object.keys(d.canales)) for (const n of ['IDENTIDAD', 'ESTILO', 'ESTRATEGIA', 'APRENDIZAJES', 'ESTADO_ACTUAL', 'IDEAS', 'DECISIONES'])
+      jobs.push(get(`CANALES/${cid}/${n}.md`).then(t => { d.canales[cid][n] = t; }));
+    for (const cid of Object.keys(d.canales)) jobs.push(get(`CANALES/${cid}/METRICAS/registro_metricas.csv`).then(t => { d.canales[cid].REGISTRO_METRICAS = t; }).catch(() => {}));
+    try {
+      const tr = await (await fetch('https://api.github.com/repos/christian69mp-ctrl/Estudio-youtube/git/trees/main?recursive=1')).json();
+      const paths = (tr.tree || []).map(x => x.path);
+      for (const cid of Object.keys(d.canales)) {
+        const pre = `CANALES/${cid}/VIDEOS/`;
+        const vids = [...new Set(paths.filter(x => x.startsWith(pre) && x.split('/').length === 5).map(x => x.split('/')[3]))].sort();
+        if (vids.length) d.canales[cid].proyectos = vids.map(v => ({ id: v, archivos: paths.filter(x => x.startsWith(pre + v + '/')).map(x => x.split('/').pop()).sort() }));
+        const an = paths.filter(x => x.startsWith(`CANALES/${cid}/METRICAS/ANALISIS_PUBLICO`)).sort().pop();
+        const g = vids.filter(v => paths.includes(pre + v + '/GUION.md')).pop();
+        const t = vids.filter(v => paths.includes(pre + v + '/TITULOS_Y_MINIATURAS.md')).pop();
+        if (an) jobs.push(get(an).then(x => { d.canales[cid].ANALISIS_PUBLICO = x; }));
+        if (g) jobs.push(get(pre + g + '/GUION.md').then(x => { d.canales[cid].EJEMPLO_GUION = x.slice(0, 6000); }));
+        if (t) jobs.push(get(pre + t + '/TITULOS_Y_MINIATURAS.md').then(x => { d.canales[cid].EJEMPLO_TITULOS = x.slice(0, 4000); }));
+      }
+    } catch (e) {}
+    const res = await Promise.allSettled(jobs);
+    const fallos = res.filter(r => r.status === 'rejected').length;
+    if (fallos > 10) throw new Error('no responde');
+    d.at = new Date().toISOString();
+    estudio.data = d; estudio.live = true; estudio.msg = 'Leído de GitHub ahora' + (fallos ? ` (${fallos} archivos no se pudieron leer)` : '');
+    try { localStorage.setItem('oficina-estudio', JSON.stringify({ t: Date.now(), data: d })); } catch (e) {}
+  } catch (e) { estudio.msg = estudio.data.at ? `No he podido leer GitHub (${e.message}); uso la copia del ${estudio.data.at.slice(0, 10)}` : `No he podido leer GitHub (${e.message}). Pulsa «Actualizar desde GitHub» para reintentarlo.`; }
+  renderEstudio();
+}
+function renderEstudio() {
+  const el = $('#estudioState'); if (!el) return;
+  const c = canalDocs();
+  el.textContent = c ? `Ficha del estudio: ${repoIdFor(store.ch)} · ${estudio.msg}` : 'Este canal no tiene ficha en el repositorio Estudio-youtube.';
+  el.className = 'note' + (c ? ' ok' : '');
+}
+function showEstudio() {
+  const c = canalDocs(); const body = openModal(`Ficha del canal · ${store.ch.name}`, `Repositorio Estudio-youtube · CANALES/${repoIdFor(store.ch) || '—'} · ${estudio.msg}`, true);
+  if (!c) { body.innerHTML = '<p>Este canal no tiene carpeta en el repositorio Estudio-youtube.</p>'; return; }
+  const docs = [['Estado actual', c.ESTADO_ACTUAL], ['Identidad', c.IDENTIDAD], ['Estilo', c.ESTILO], ['Estrategia', c.ESTRATEGIA], ['Aprendizajes', c.APRENDIZAJES], ['Ideas', c.IDEAS], ['Decisiones', c.DECISIONES]];
+  const proys = (c.proyectos || []).map(p => `<li><b>${esc(p.id)}</b> <small>${esc(p.archivos.join(' · '))}</small></li>`).join('');
+  body.innerHTML = `<p><a href="${ESTUDIO_WEB}/tree/main/CANALES/${esc(repoIdFor(store.ch))}" target="_blank" rel="noopener">Abrir la carpeta del canal en GitHub</a></p>`
+    + (proys ? `<details open><summary>Proyectos de vídeo</summary><ul class="estudio-proy">${proys}</ul></details>` : '')
+    + docs.filter(([, t]) => t && t.trim()).map(([n, t]) => `<details><summary>${esc(n)}</summary><pre class="estudio-doc">${esc(t)}</pre></details>`).join('');
+}
+
 const store = {
   db: null, videos: [],
   channels: JSON.parse(JSON.stringify(DEFAULT_CHANNELS)), active: 'c1',
@@ -1698,7 +1799,7 @@ const store = {
     } else {
       try { const raw = localStorage.getItem('oficina-jager'); if (raw) { const d = JSON.parse(raw); this.videos = (d.videos || []).filter(v => !v.demo); const vacio = d.channels?.length === 1 && d.channels[0].name === 'Mi canal' && !d.channels[0].nicho && !d.channels[0].lecciones?.length; if (!vacio) this.loadChannels(d); this.drive = d.drive || null; this.driveUpd = d.driveUpd || 0; } } catch (e) {}
     }
-    renderChannel(); renderConn(); snapChannels();
+    renderChannel(); renderConn(); snapChannels(); loadEstudio();
   },
   saveLocal(fromSync) { if (!fromSync) stampChannels(); try { localStorage.setItem('oficina-jager', JSON.stringify({ videos: this.videos, channels: this.channels, active: this.active, drive: this.drive, driveUpd: this.driveUpd || 0 })); } catch (e) {} if (!fromSync) scheduleSyncPush(); },
   async saveDrive() {
@@ -1871,6 +1972,7 @@ Encargos actuales:
 ${enCurso}
 Conversación reciente:
 ${chatTxt()}
+${estudioCtx('nyx')}
 
 Cómo te habla el jefe: siempre empieza con «¿Qué pasa, Nyx?». Es su forma de llamarte a ti: no es una pregunta sobre qué ocurre ni forma parte del encargo o del tema. Si solo dice eso, te está saludando para hablar contigo: salúdale con tu estilo (cada vez distinto) y pregúntale qué necesita. Si después pide algo, eso es lo que tienes que entender. El mensaje viene de un dictado por voz: si aparece «Nix», «Nick», «Niks» o parecido, se refiere a ti, Nyx.
 
@@ -1890,23 +1992,25 @@ Mensaje del jefe: «${text}»`, { json: true, tier: 'quick' });
 
 const J = s => JSON.stringify(s);
 const videoOf = j => store.videos.find(v => v.id === j.videoId) || { metrics: {} };
-// FORMACIÓN DEL EQUIPO: lo que sabe cada puesto y cómo trabaja para dar el mejor resultado posible.
-// Va dentro de cada encargo, junto con el canal, su manual de lecciones y su historial.
-const NORMAS_CANAL = `Normas de la casa (todos los canales de Jager):
-- Español de España, para adultos hispanohablantes. Rigor ante todo: distingue siempre hechos probados, versiones oficiales y teorías.
-- No tienes acceso a internet en este encargo: no inventes datos, nombres, cifras ni citas. Si un dato concreto es importante y no estás seguro, márcalo con [VERIFICAR] para que el jefe lo compruebe.
-- Temas sensibles (accidentes, crímenes, religión): respeto a víctimas y familias, sin morbo ni detalles gráficos y con lenguaje apto para anunciantes (por ejemplo «perdieron la vida» en vez de descripciones explícitas). Así no se pierde la monetización.
-- Nada de clickbait engañoso: la miniatura y el título prometen lo que el vídeo cumple.`;
-const canalTxt = () => `Canal: ${store.ch.name}\nDe qué va el canal: ${store.nicho}`;
+// FORMACIÓN DEL EQUIPO: lo que sabe cada puesto y cómo trabaja. Se apoya en la biblioteca del estudio
+// (repositorio Estudio-youtube), que es la fuente de verdad de cada canal y manda sobre lo general.
+const NORMAS_CANAL = `Normas del estudio de Jager (resumen de CLAUDE.md del repositorio Estudio-youtube):
+- Castellano de España. Directo y práctico: primero la recomendación. Sin promesas de viralidad, CTR, visitas ni monetización.
+- Separación estricta de canales: cada canal es una marca independiente (audiencia, tono, temas, identidad visual, métricas y decisiones). Nunca mezcles canales; una idea de otro canal solo como [HIPÓTESIS].
+- Veracidad: nunca inventes estadísticas, fechas, cifras, diálogos, grabaciones de cabina, últimas palabras, documentos ni declaraciones. Etiqueta cuando importe: [HECHO], [DATO CHRISTIAN], [INTERPRETACIÓN], [HIPÓTESIS], [PENDIENTE]. En este encargo no tienes internet: lo que haya que comprobar, márcalo [VERIFICAR]. Las dramatizaciones se marcan como tales y las imágenes sintéticas nunca se presentan como fotos reales.
+- Solo vídeos largos en todos los canales: NO se hacen Shorts (D-ESTUDIO-005).
+- Temas sensibles con respeto a víctimas y familias, sin detalles gráficos y con lenguaje apto para anunciantes.
+- No contradigas una decisión registrada en DECISIONES sin explicar qué información nueva lo justifica.`;
+const canalTxt = () => `Canal: ${store.ch.name}\nResumen del canal: ${store.nicho}`;
 const FORMACION = {
-  lia: `Eres Lía, estratega de contenidos y tendencias de YouTube. Sabes detectar temas con demanda sostenida (búsquedas que no caducan), picos por actualidad, aniversarios y estrenos relacionados, y huecos donde la competencia en español lo ha contado mal o no lo ha contado. Priorizas temas con un misterio o conflicto claro que se pueda contar en una frase, con material visual disponible (archivo, mapas, documentos, recreaciones) y con potencial de serie. Evitas repetir temas que el canal ya ha hecho. Cuando algo depende de datos en tiempo real, lo dices: «comprobar en vidIQ o Google Trends».`,
-  nora: `Eres Nora, guionista de documentales para YouTube con años de experiencia en divulgación, true crime y aviación. Dominas la retención: abres con el momento más fuerte o la gran pregunta (sin saludos ni presentaciones), haces una promesa clara en los primeros 30 segundos, construyes la historia en actos que escalan, dejas un bucle abierto cada 60-90 segundos («pero lo que nadie sabía todavía es que…»), cierras todos los bucles con un desenlace satisfactorio y terminas con qué cambió después y una invitación natural al siguiente vídeo. Escribes para ser narrado en voz alta: frases cortas, ritmo, sin cifras imposibles de seguir de oído. Cada bloque lleva indicaciones visuales para la agencia de montaje.`,
-  gema: `Eres Gema, directora de arte especializada en miniaturas de YouTube de documental. Sabes que la miniatura se juega en un móvil a 120 píxeles: un solo punto focal (avión, objeto, lugar, documento o silueta), contraste muy alto, máximo 3 palabras grandes y legibles, una emoción o un misterio evidente en 1 segundo, y colores coherentes con la marca del canal. La miniatura complementa al título, no lo repite. No usas fotos reales de víctimas ni imágenes violentas. Diseñas pensando en que Pixelido o un generador de imágenes lo produzcan tal cual.`,
-  tito: `Eres Tito, especialista en títulos, SEO y empaquetado de YouTube en español. Tus títulos tienen menos de 60 caracteres, ponen la palabra clave pronto, combinan especificidad (nombres, lugares, fechas, cifras) con un hueco de curiosidad, y nunca engañan. Escribes descripciones cuyas 2 primeras líneas enganchan y contienen las palabras clave, con capítulos sacados del guion y 3 hashtags. Conoces cómo busca la gente en español de España y Latinoamérica.`,
-  rui: `Eres Rui, analista de CTR y empaquetado de YouTube. Evalúas título y miniatura como un conjunto: claridad en 1 segundo en un móvil, curiosidad, coherencia con lo que el vídeo cumple y diferencia frente a lo que ya hay en el nicho. Sabes que en canales documentales en crecimiento un CTR del 4-10 % es lo habitual y calibras tus previsiones con el historial real del canal. Recomiendas siempre la prueba «Probar y comparar» de YouTube Studio con 3 miniaturas.`,
-  paco: `Eres Paco, productor. Preparas encargos para Pixelido (la agencia externa que hace los visuales y el montaje) tan claros que puedan producir sin hacer preguntas: entregables exactos, guion con indicaciones visuales, lista de material necesario (archivo, mapas, documentos, recreaciones 3D, imágenes de stock), estilo, música y efectos, ritmo para la retención (un cambio visual cada 3-6 segundos, rótulos en los datos clave), subtítulos, miniatura a 1280×720 y un short 9:16 con el gancho. Pides que el material tenga licencia o sea de dominio público y que se anoten las fuentes.`,
-  sam: `Eres Sam, analista de retención, crecimiento y rentabilidad de YouTube. Lees las métricas como en YouTube Studio: retención a los 30 s, duración media vista, retención relativa, momentos clave (picos y caídas), suscriptores por cada 1.000 vistas y espectadores recurrentes. Conviertes cada dato en una acción concreta para el siguiente guion o montaje. Piensas en ingresos: RPM del nicho, patrocinios que encajan sin romper el ritmo y series que fidelizan.`,
-  max: `Eres Max, product manager. Conviertes ideas en requisitos claros, pequeños y comprobables. Priorizas lo que da valor antes, piensas primero en móvil, y defines criterios de aceptación que se puedan probar uno a uno. La Ruleta Caliente es una web del jefe.`,
+  lia: `Eres Lía, estratega de contenidos y tendencias de YouTube del estudio. Sigues el protocolo de selección de temas: evalúas cada candidato con los criterios del canal (encaje con la audiencia, promesa concreta, curiosidad y conflicto, diferenciación frente a lo publicado, fuentes disponibles, viabilidad visual, esfuerzo de producción, relación con otros vídeos y riesgo de repetición). Pocas opciones bien razonadas y una recomendada. Tus puntuaciones son valoración editorial, no predicción de visitas, y lo dices. Compruebas TEMAS CUBIERTOS para no repetir. Lo que dependa de datos en tiempo real: «comprobar en vidIQ o Google Trends».`,
+  nora: `Eres Nora, guionista de documentales del estudio. Aplicas la plantilla de guion largo de alta retención: super hook de 0:00 a 0:30 (70-90 palabras) entrando en el momento de máxima tensión o el dato más fuerte verificado, sin saludo; bienvenida breve (máximo 2 frases); cuerpo en actos de 2-3 minutos que abren un bucle y cierran otro, con un micro gancho cada 45-90 segundos; cliffhangers antes del 25 %, 50 % y 75 %; suscripción breve tras el primer gran pago de información; una pregunta concreta para comentarios hacia la mitad; cierre que responde al super hook, deja una última idea de valor y hace puente al siguiente vídeo, sin despedida larga. Usas el tono propio del canal (ESTILO y D-TONO) y escribes para voz sintética: frases para el oído, cifras fáciles de seguir.`,
+  gema: `Eres Gema, directora de arte de miniaturas del estudio. Reglas: 16:9 a 1280×720; un foco dominante; 0-4 palabras enormes con contorno (o sin texto, si no aporta); contraste alto; legible a 160 px; identidad visual del canal (ESTILO); nada de logotipos reales ni rostros reconocibles de víctimas o implicados; estilo render cinematográfico o ilustración, nunca algo que parezca una foto real del suceso. La miniatura complementa al título con una sola promesa; nunca repite su texto.`,
+  tito: `Eres Tito, editor de títulos y SEO del estudio. Reglas para móvil: lo que engancha en las primeras 40-50 letras; MAYÚSCULAS solo en 2-3 palabras clave (el estilo que ya usan los canales); un emoji como máximo y al final; el nombre propio del caso al final o tras «|». Comprensible sin conocer el canal, específico, natural y sin prometer nada que el vídeo no sostenga. Sigues los TÍTULOS DE REFERENCIA de los canales (personaje o rol concreto + contradicción, vínculo con España, misterio en forma de pregunta). Clickbait permitido solo si el vídeo cumple la promesa.`,
+  rui: `Eres Rui, analista de CTR y empaquetado del estudio. Para cada vídeo cierras UNA versión definitiva de título y miniatura (D-ESTUDIO-003): promesa central, título final, texto exacto de la miniatura, prompt para Gemini y checklist de revisión. En análisis de métricas extraes solo lo visible, comparas solo con vídeos del mismo canal a edad comparable, no usas un CTR universal ni sacas conclusiones fuertes con muestras pequeñas, y nunca culpas a «penalizaciones» o al «algoritmo» sin pruebas.`,
+  paco: `Eres Paco, productor del estudio y responsable de los pedidos a Pixelido (editor definitivo de todos los canales, D-ESTUDIO-006). Los guiones los escribe el estudio, no Pixelido. Por cada vídeo entregas exactamente: TEMA (una frase: de qué va y qué promete) · GUION (solo la locución limpia) · DESCRIPCIÓN DE EDICIÓN (estilo del canal + tabla de bloques con lo que se ve) · OBSERVACIONES (voz asignada al canal, cambios de tono, límites: sin fotos reales de detenidos o víctimas, sin detalles operativos, logos solo con licencia, pantalla final) · MINIATURA (texto exacto + descripción visual, la misma que el prompt de Gemini). Pixelido trabaja por fases con aprobación de Christian: guion, edición y miniatura.`,
+  sam: `Eres Sam, analista de retención, crecimiento y monetización del estudio. Analizas por separado: distribución y fuentes de tráfico, atracción del título y la miniatura, cumplimiento de la promesa y retención, encaje del tema y continuidad hacia otros vídeos. Devuelves: qué sabemos, qué no podemos concluir, hipótesis principal, acción recomendada, qué observar después y qué dato cambiaría la recomendación. Tienes presente el PLAN DE MONETIZACIÓN del estudio.`,
+  max: `Eres Max, product manager. Conviertes ideas en requisitos claros, pequeños y comprobables. Priorizas lo que da valor antes, piensas primero en móvil y defines criterios de aceptación que se puedan probar uno a uno. La Ruleta Caliente es una web del jefe.`,
   leo: `Eres Leo, desarrollador web sénior (HTML, CSS y JavaScript moderno, sin dependencias innecesarias). Escribes código claro, comentado en español, accesible, seguro (nada de inyectar HTML sin escapar) y que funciona en móvil. Entregas código completo que se pueda copiar y probar, nunca fragmentos con «aquí va el resto».`,
   vera: `Eres Vera, revisora de código sénior. Revisas por orden: fallos que rompen la función, seguridad (XSS, datos del usuario), accesibilidad, rendimiento y móvil, y por último estilo. Eres exigente pero justa: apruebas cuando no queda nada grave y explicas cada cambio con la línea concreta y cómo arreglarlo.`,
 };
@@ -1917,41 +2021,43 @@ const SPECS = {
     prompt: j => `${FORMACION.lia}
 ${NORMAS_CANAL}
 ${canalTxt()}
+${estudioCtx('temas')}
 Petición del jefe: «${j.topic}».
-Lecciones del manual del canal (lo que ya sabemos que funciona):
+Lecciones del manual de la oficina:
 ${lessonsTxt()}
-Vídeos ya hechos y sus resultados (no repitas temas):
+Vídeos hechos desde la oficina:
 ${historyTxt()}
-Propón 5 temas para este canal con el máximo potencial de visualizaciones, retención y rentabilidad. Mezcla: temas con demanda constante, alguno ligado a actualidad o aniversario próximo, y alguno que pueda convertirse en serie. Para cada uno, el ángulo concreto que lo hace diferente y el gancho de los primeros segundos.
-Devuelve SOLO JSON: {"temas":[{"tema":"título de trabajo","angulo":"enfoque concreto","gancho":"primera frase del vídeo","puntuacion":0-100,"por_que":"una frase con el motivo","formato":"largo|short","comprobar":"qué conviene confirmar en vidIQ o Google Trends"}]} ordenado de mayor a menor puntuación.`,
-    format: (d, j) => { j.picks = (d.temas || []).slice(0, 5); return 'TEMAS CON POTENCIAL VIRAL\n\n' + j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100 · ${p.formato}\n   Ángulo: ${p.angulo}${p.gancho ? `\n   Gancho: «${p.gancho}»` : ''}\n   Por qué: ${p.por_que}${p.comprobar ? `\n   Comprobar: ${p.comprobar}` : ''}`).join('\n\n'); },
+Propón 5 temas para vídeos largos de este canal, con una recomendación clara. Para cada uno: el ángulo que lo diferencia de lo ya publicado y el gancho de los primeros segundos.
+Devuelve SOLO JSON: {"temas":[{"tema":"título de trabajo","angulo":"enfoque concreto","gancho":"primera frase del vídeo","puntuacion":0-100,"por_que":"una frase (valoración editorial, no predicción de visitas)","formato":"largo","comprobar":"qué conviene confirmar en vidIQ, Google Trends o fuentes"}]} ordenado de mayor a menor puntuación; el primero es el recomendado.`,
+    format: (d, j) => { j.picks = (d.temas || []).slice(0, 5); return 'TEMAS PROPUESTOS (el primero es el recomendado)\n\n' + j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100\n   Ángulo: ${p.angulo}${p.gancho ? `\n   Gancho: «${p.gancho}»` : ''}\n   Por qué: ${p.por_que}${p.comprobar ? `\n   Comprobar: ${p.comprobar}` : ''}`).join('\n\n'); },
   },
   guion: {
     prompt: j => `${FORMACION.nora}
 ${NORMAS_CANAL}
 ${canalTxt()}
+${estudioCtx('guion')}
 Vídeo: «${j.topicFinal || j.topic}».
 Acuerdo de la mesa de análisis (enfoque, gancho, promesa y público):
 ${j.step('estudio').output?.text || '(sin estudio)'}
-Lecciones del manual del canal (aplícalas todas):
+Lecciones del manual de la oficina (aplícalas):
 ${lessonsTxt()}
-Escribe el guion completo, listo para narrar, de unos 10-12 minutos (entre 1.400 y 1.800 palabras de narración), salvo que el estudio pida otra duración.
-Formato en texto plano, sin markdown:
-- Bloques con marca de tiempo aproximada: [0:00] APERTURA, [0:30] PROMESA Y CONTEXTO, actos con título propio, [mm:ss] DESENLACE, [mm:ss] QUÉ CAMBIÓ DESPUÉS, [mm:ss] CIERRE.
-- Debajo de cada párrafo de narración, una línea VISUAL: con lo que se ve (archivo, mapa, documento, recreación 3D, rótulo con dato…).
-- Un bucle abierto cada 60-90 segundos.
-- Al final: FUENTES (informes oficiales, sentencias o libros que respaldan los datos; si no estás seguro de una, márcala con [VERIFICAR]) y SHORT (guion de 30-45 s con el gancho, para formato vertical).`,
+Escribe el GUION completo de un vídeo largo. Extensión: mínimo 3.750 palabras de locución (norma del estudio); si faltan datos verificados, completa con recapitulaciones, transiciones, cliffhangers y pasajes de tono, nunca con datos inventados.
+Entrega en texto plano, sin markdown, con estas cuatro partes y estos títulos exactos:
+1. LOCUCIÓN LIMPIA — solo el texto que se lee en voz alta, en párrafos, sin títulos, marcas ni notas.
+2. INDICACIONES VISUALES — por bloques numerados (B1, B2…), con el minuto aproximado y lo que se ve (archivo, mapa, documento, recreación 3D, rótulo con dato; las recreaciones marcadas como tales).
+3. FUENTES — informes oficiales, sentencias, libros o artículos que respaldan los datos; si no estás seguro de una, márcala [VERIFICAR].
+4. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.`,
   },
   miniaturas: {
     json: true,
     prompt: j => `${FORMACION.gema}
 ${NORMAS_CANAL}
 ${canalTxt()}
+${estudioCtx('miniatura')}
 Vídeo: «${j.topicFinal || j.topic}».
 Acuerdo de la mesa: ${(j.step('estudio').output?.text || '').split('\n').slice(0, 10).join(' ')}
-Lecciones del manual: ${lessonsTxt()}
-Diseña 3 conceptos de miniatura muy distintos entre sí (por ejemplo: objeto o lugar protagonista, documento o dato impactante, silueta o escena con misterio).
-Devuelve SOLO JSON: {"conceptos":[{"texto":"máximo 3 palabras en MAYÚSCULAS (o vacío)","escena":"qué se ve, encuadre y punto focal","emocion":"emoción o sensación que transmite","colores":"paleta","prompt_imagen":"descripción en inglés lista para un generador de imágenes, 16:9, sin texto"}]}`,
+Diseña 3 conceptos de miniatura realmente distintos (ángulo distinto, no un adjetivo distinto) que sigan la identidad visual del canal.
+Devuelve SOLO JSON: {"conceptos":[{"texto":"0-4 palabras exactas o vacío","escena":"composición, sujeto principal, fondo y colocación del texto","emocion":"qué siente quien la ve","colores":"colores e iluminación","excluir":"lo que no debe aparecer","prompt_imagen":"prompt para Gemini en español, listo para copiar, 16:9"}]}`,
     format: (d, j) => { j.concepts = (d.conceptos || []).slice(0, 3); return null; },
   },
   titulos: {
@@ -1959,48 +2065,60 @@ Devuelve SOLO JSON: {"conceptos":[{"texto":"máximo 3 palabras en MAYÚSCULAS (o
     prompt: j => `${FORMACION.tito}
 ${NORMAS_CANAL}
 ${canalTxt()}
+${estudioCtx('titulos')}
 Vídeo: «${j.topicFinal || j.topic}».
-Guion (inicio): ${(j.step('guion').output?.text || '').slice(0, 1500)}
-Lecciones del manual: ${lessonsTxt()}
-Escribe 10 títulos (menos de 60 caracteres, muy distintos entre sí), la descripción completa (2 primeras líneas que enganchen, resumen, capítulos con las marcas de tiempo del guion y 3 hashtags), 15 etiquetas y un título para el short.
-Devuelve SOLO JSON: {"titulos":["..."],"descripcion":"...","etiquetas":["..."],"titulo_short":"..."}`,
-    format: (d, j) => { j.titles = (d.titulos || []).slice(0, 10); return `TÍTULOS\n${j.titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n\nDESCRIPCIÓN\n${d.descripcion}\n\nETIQUETAS\n${(d.etiquetas || []).join(', ')}${d.titulo_short ? `\n\nTÍTULO DEL SHORT\n${d.titulo_short}` : ''}`; },
+Guion (inicio): ${(j.step('guion').output?.text || '').slice(0, 2500)}
+Escribe 8 títulos muy distintos entre sí, la descripción natural del vídeo (2 primeras líneas que enganchen, resumen, capítulos con los minutos de las indicaciones visuales, fuentes si corresponde y 2-3 hashtags relevantes) y un comentario fijado que abra una conversación concreta.
+Devuelve SOLO JSON: {"titulos":["..."],"descripcion":"...","hashtags":["#..."],"comentario_fijado":"..."}`,
+    format: (d, j) => { j.titles = (d.titulos || []).slice(0, 8); return `TÍTULOS PROPUESTOS\n${j.titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n\nDESCRIPCIÓN\n${d.descripcion}\n\nHASHTAGS\n${(d.hashtags || []).join(' ')}${d.comentario_fijado ? `\n\nCOMENTARIO FIJADO\n${d.comentario_fijado}` : ''}`; },
   },
   pretest: {
     json: true,
     prompt: j => `${FORMACION.rui}
 ${canalTxt()}
-Vídeo: «${j.topicFinal || j.topic}». Compara combinaciones de título y miniatura antes de publicar.
+${estudioCtx('titulos')}
+Vídeo: «${j.topicFinal || j.topic}». Cierra la versión definitiva de título y miniatura.
 Títulos de Tito:
 ${(j.titles || []).map((t, i) => `${i + 1}. ${t}`).join('\n')}
-Miniaturas de Gema:
-${(j.concepts || []).map((c, i) => `${'ABC'[i]}: texto «${c.texto}», ${c.escena}, ${c.emocion}`).join('\n') || '(sin conceptos de miniatura)'}
-Historial de CTR del canal (previsto y real, para calibrar):
-${historyTxt()}
-Lecciones del manual: ${lessonsTxt()}
-Estima el CTR de las 5 mejores combinaciones y elige la ganadora. Sé realista y explica el motivo de cada una.
-Devuelve SOLO JSON: {"combinaciones":[{"titulo":"...","miniatura":"A|B|C","ctr_estimado":número,"motivo":"..."}],"ganador":{"titulo":"...","miniatura":"A|B|C","ctr_estimado":número},"consejos":["2-3 consejos para «Probar y comparar» en YouTube Studio"]}`,
-    format: (d, j) => { j.winner = d.ganador; return `TEST DE CTR ANTES DE PUBLICAR
-GANADOR: «${d.ganador?.titulo}» + miniatura ${d.ganador?.miniatura} · CTR estimado ${d.ganador?.ctr_estimado}%
+Conceptos de miniatura de Gema:
+${(j.concepts || []).map((c, i) => `${'ABC'[i]}: texto «${c.texto}» · ${c.escena} · ${c.emocion} · prompt: ${c.prompt_imagen || ''}`).join('\n') || '(sin conceptos de miniatura)'}
+Historial de la oficina (previsto y real): ${historyTxt()}
+Elige o mejora la mejor combinación (puedes ajustar el título o el prompt) y estima su CTR de forma orientativa. Explica las 2 alternativas descartadas en una frase.
+Devuelve SOLO JSON: {"promesa":"promesa central del vídeo","ganador":{"titulo":"título final","miniatura":"A|B|C","texto_miniatura":"texto exacto","prompt_gemini":"prompt final para copiar","ctr_estimado":número},"como_funcionan_juntos":"...","riesgo":"riesgo principal de interpretación","checklist":["¿Se entiende a 160 px?","..."],"descartadas":["..."]}`,
+    format: (d, j) => { j.winner = d.ganador; return `TÍTULO Y MINIATURA — VERSIÓN DEFINITIVA
+Promesa: ${d.promesa || '-'}
 
-COMBINACIONES
-${(d.combinaciones || []).map(c => `· ${c.ctr_estimado}% · ${c.miniatura} · «${c.titulo}»\n  ${c.motivo}`).join('\n')}
+TÍTULO (copiar tal cual):
+${d.ganador?.titulo}
 
-PARA LA PRUEBA EN YOUTUBE STUDIO
-${(d.consejos || []).map(x => '· ' + x).join('\n')}`; },
+TEXTO DE LA MINIATURA: ${d.ganador?.texto_miniatura || '(sin texto)'} · concepto ${d.ganador?.miniatura}
+Cómo funcionan juntos: ${d.como_funcionan_juntos || '-'}
+
+PROMPT PARA GEMINI (copiar tal cual):
+${d.ganador?.prompt_gemini || '-'}
+
+Riesgo de interpretación: ${d.riesgo || '-'}
+CTR orientativo: ${d.ganador?.ctr_estimado ?? '-'}% (estimación, no predicción)
+
+REVISIÓN ANTES DE SUBIR
+${(d.checklist || []).map(x => '· ' + x).join('\n')}
+
+DESCARTADAS
+${(d.descartadas || []).map(x => '· ' + x).join('\n')}`; },
   },
   brief: {
     prompt: j => `${FORMACION.paco}
 ${NORMAS_CANAL}
 ${canalTxt()}
-Prepara el encargo para Pixelido del vídeo «${j.topicFinal || j.topic}» (encargo #${j.id}, ${today()}).
+${estudioCtx('pixelido')}
+Prepara el pedido para Pixelido del vídeo «${j.topicFinal || j.topic}» (encargo #${j.id}, ${today()}).
 Acuerdo de la mesa:
 ${j.step('estudio').output?.text || ''}
-Guion de Nora:
-${j.step('guion').output?.text || ''}
-Ganador del test de CTR: «${j.winner?.titulo}» + miniatura ${j.winner?.miniatura} (${(j.concepts || [])['ABC'.indexOf(j.winner?.miniatura)]?.escena || ''}).
-Lecciones del manual: ${lessonsTxt()}
-En texto plano, sin markdown, con estos apartados: TÍTULO · ENTREGABLES (vídeo 16:9 con duración, short 9:16, miniatura 1280×720 y sus variantes B y C) · ESTILO VISUAL Y MARCA · MATERIAL NECESARIO (lista por escenas: archivo, mapas, documentos, recreaciones 3D, stock; con licencia o dominio público) · RITMO Y RETENCIÓN (dónde van rótulos, zooms, cambios de plano y los bucles abiertos) · MÚSICA Y SONIDO · SUBTÍTULOS · MINIATURA (cómo debe ser la ganadora) · SHORT · DATOS A VERIFICAR (todo lo marcado con [VERIFICAR]) · PLAZO Y CÓMO ENTREGAR. Máximo 550 palabras: el guion completo ya va aparte en el paquete.`,
+Indicaciones visuales del guion de Nora:
+${(() => { const g = j.step('guion').output?.text || ''; const i = g.search(/INDICACIONES VISUALES/i); return i >= 0 ? g.slice(i, i + 9000) : g.slice(0, 6000); })()}
+Versión definitiva de título y miniatura de Rui:
+${j.step('pretest').output?.text || ''}
+En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION (escribe solo «Ver LOCUCIÓN LIMPIA del guion adjunto»; el texto completo va aparte en el paquete) · DESCRIPCIÓN DE EDICIÓN (estilo del canal y tabla de bloques: bloque, minuto, qué se ve, rótulos) · OBSERVACIONES (voz asignada a este canal según PIXELIDO, cambios de tono, límites, pantalla final) · MINIATURA (texto exacto + descripción visual igual al prompt de Gemini) · DATOS A VERIFICAR ANTES DE LOCUTAR. Máximo 650 palabras.`,
   },
   requisitos: {
     prompt: j => `${FORMACION.max}
@@ -2030,22 +2148,24 @@ La primera línea debe ser exactamente «APROBADO» o «CAMBIOS». Después, en 
   ctr: {
     prompt: j => { const v = videoOf(j); const st = channelStats(); return `${FORMACION.rui}
 ${canalTxt()}
+${estudioCtx('metricas')}
 Analiza el CTR del vídeo publicado «${v.title || v.topic}» (miniatura ${v.thumb || '?'}: ${v.thumbIdea || ''}).
 Métricas: ${J(v.metrics)}
 CTR que previmos antes de publicar: ${v.predCtr ? v.predCtr + '%' : 'no hay'}
-Media del canal: ${st.n > 1 ? `CTR ${st.ctr.toFixed(1)}%` : 'aún no hay suficiente historial'} · Objetivo orientativo: ${TARGETS.ctr}%
+Media de la oficina para este canal: ${st.n > 1 ? `CTR ${st.ctr.toFixed(1)}%` : 'aún no hay suficiente historial'}
 Historial: ${historyTxt()}
-En español y texto plano (máximo 220 palabras): DIAGNÓSTICO (¿miniatura, título, tema o alcance según las impresiones?), PREVISTO VS REAL (qué aprendemos para calibrar), 3 ACCIONES concretas para este vídeo (nueva miniatura o título, prueba en Studio) y para el siguiente.`; },
+En español y texto plano (máximo 250 palabras): QUÉ SABEMOS · QUÉ NO PODEMOS CONCLUIR · HIPÓTESIS PRINCIPAL (¿distribución, título, miniatura o tema?) · ACCIÓN RECOMENDADA · QUÉ OBSERVAR DESPUÉS · QUÉ DATO CAMBIARÍA LA RECOMENDACIÓN.`; },
     fallback: j => ({ kind: 'text', via: 'reglas', text: ruleCtr(videoOf(j)) }),
   },
   retencion: {
     prompt: j => { const v = videoOf(j); const st = channelStats(); return `${FORMACION.sam}
 ${canalTxt()}
+${estudioCtx('metricas')}
 Analiza la retención del vídeo «${v.title || v.topic}».
 Métricas: ${J(v.metrics)} (r30 = % que sigue a los 30 s; pct = % medio visto; duracion en minutos)
-Media del canal: ${st.n > 1 ? `retención 30 s ${st.r30.toFixed(0)}%, visto medio ${st.pct.toFixed(0)}%` : 'aún no hay suficiente historial'} · Objetivos orientativos: 30 s ≥ ${TARGETS.r30}%, visto medio ≥ ${TARGETS.pct}%
-Guion usado: ${(v.guion || '').slice(0, 1200)}
-En español y texto plano (máximo 220 palabras): GANCHO (primeros 30 s), RITMO (dónde se cae la gente según el % visto y el guion), CRECIMIENTO (suscriptores por cada 1.000 vistas), RENTABILIDAD (qué encaja: patrocinio, serie…) y 3 ACCIONES concretas para el guion y el montaje del siguiente vídeo.`; },
+Media de la oficina para este canal: ${st.n > 1 ? `retención 30 s ${st.r30.toFixed(0)}%, visto medio ${st.pct.toFixed(0)}%` : 'aún no hay suficiente historial'}
+Guion usado: ${(v.guion || '').slice(0, 1500)}
+En español y texto plano (máximo 250 palabras): QUÉ SABEMOS · QUÉ NO PODEMOS CONCLUIR · HIPÓTESIS PRINCIPAL · ACCIÓN RECOMENDADA para el guion y el montaje del siguiente vídeo · QUÉ OBSERVAR DESPUÉS · QUÉ DATO CAMBIARÍA LA RECOMENDACIÓN.`; },
     fallback: j => ({ kind: 'text', via: 'reglas', text: ruleRet(videoOf(j)) }),
   },
 };
@@ -2100,7 +2220,7 @@ function startRealWork(agent, job, step) {
   const route = spec?.prompt ? routeFor(agent.def.ai, job.demo) : null;
   if (!route && !(step.id === 'miniaturas' && serverReady() && !job.demo)) return;
   step.realPending = true; step.realData = null; step.realVia = route;
-  const timeout = new Promise(r => setTimeout(() => r(null), 240000));
+  const timeout = new Promise(r => setTimeout(() => r(null), step.id === 'guion' ? 600000 : 300000));
   const work = (async () => {
     const res = route ? await askAI(route, inChannel(job, () => spec.prompt(job)), { json: !!spec.json }) : null;
     step.realData = res && (typeof res === 'object' || String(res).trim()) ? res : null;
@@ -2137,7 +2257,7 @@ let D = null;
 
 function debateContext(d) {
   const j = d.job;
-  const base = `${NORMAS_CANAL}\n${canalTxt()}\nManual del canal:\n${lessonsTxt()}\nHistorial de vídeos:\n${historyTxt()}`;
+  const base = `${NORMAS_CANAL}\n${canalTxt()}\n${estudioCtx('mesa')}\nManual del canal:\n${lessonsTxt()}\nHistorial de vídeos:\n${historyTxt()}`;
   if (d.mode === 'estudio') return `Tema que propone el jefe: «${j.topic}».\n${base}`;
   if (d.mode === 'eleccion') return `Temas candidatos que ha encontrado Lía:\n${(j.picks || []).map((p, i) => `${i + 1}. ${p.tema} (${p.formato}): ${p.angulo}`).join('\n')}\n${base}`;
   const v = videoOf(j);
@@ -2440,6 +2560,8 @@ function renderConn() {
   if (!hasRuntime) { if (document.activeElement !== $('#srvUrl')) $('#srvUrl').value = srv.url; if (srv.msg) st($('#srvState'), srv.msg, srv.ok); }
 }
 $('#driveBtn').onclick = chooseFolder;
+$('#estudioVer').onclick = showEstudio;
+$('#estudioAct').onclick = () => loadEstudio(true);
 $('#folders').addEventListener('click', e => { const b = e.target.closest('[data-folder]'); if (!b) return; const f = conn.folders.find(x => x.id === b.dataset.folder); store.drive = f; conn.driveMsg = `Carpeta elegida: ${f.title}. Los próximos paquetes aprobados se guardarán ahí.`; conn.driveOk = true; store.saveDrive(); });
 $('#srvSave').onclick = () => { srv.url = $('#srvUrl').value.trim(); if ($('#srvKey').value.trim()) srv.key = $('#srvKey').value.trim(); try { localStorage.setItem('oficina-servidor', JSON.stringify({ url: srv.url, key: srv.key })); } catch (e) {} $('#srvKey').value = ''; testServer(); };
 $('#srvTest').onclick = testServer;
@@ -2761,7 +2883,7 @@ function renderChannel() {
   if (document.activeElement !== $('#chanName')) $('#chanName').value = store.ch.name;
   $('#chanSel').innerHTML = store.channels.map(c => `<option value="${esc(c.id)}"${c.id === store.active ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
   $('#lessons').innerHTML = store.lecciones.length ? store.lecciones.map((l, i) => `<li><span>${esc(l.texto)}<small>de «${esc((l.origen || '').slice(0, 40))}»</small></span><button type="button" class="x" data-dellesson="${i}" aria-label="Quitar lección">×</button></li>`).join('') : '<li><span>Todavía no hay lecciones. Cada vídeo analizado añade reglas que el equipo usará en los siguientes guiones, títulos y miniaturas.<small>el manual aprende solo</small></span></li>';
-  drawWalls();
+  drawWalls(); renderEstudio();
 }
 // Pantallas de la Sala de Análisis
 function drawWalls() {

@@ -44,7 +44,7 @@ export default {
     if (path === '/oir') { try { return json(await oir(env, req)); } catch (e) { return json({ error: String(e.message || e) }, 502); } }
     const body = await req.json().catch(() => ({}));
     if (!body.prompt || typeof body.prompt !== 'string') return json({ error: 'Falta el texto de la petición (prompt)' }, 400);
-    if (body.prompt.length > 30000) return json({ error: 'La petición es demasiado larga' }, 413);
+    if (body.prompt.length > 150000) return json({ error: 'La petición es demasiado larga' }, 413);
 
     try {
       if (path === '/texto') {
@@ -71,7 +71,7 @@ async function claude(env, prompt, rapido) {
     headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2026-10-21' },
     body: JSON.stringify({
       model: env.CLAUDE_MODEL || 'claude-opus-5-5',
-      max_tokens: rapido ? 2000 : 8000,
+      max_tokens: rapido ? 2000 : 32000,
       ...(rapido ? { output_config: { effort: 'low' } } : {}),
       messages: [{ role: 'user', content: prompt }],
     }),

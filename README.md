@@ -47,6 +47,14 @@ El ventilador no admite HDMI, así que no puede mostrar a Jager en directo. En *
 
 Drive funciona en la versión publicada en claude.ai. El servidor propio solo funciona en la versión del repositorio abierta en tu ordenador.
 
+## Biblioteca del estudio (repositorio Estudio-youtube)
+
+La oficina usa el repositorio [Estudio-youtube](https://github.com/christian69mp-ctrl/Estudio-youtube) como memoria de los 5 canales: identidad, estilo, estrategia, ideas, aprendizajes, decisiones, métricas, protocolos, temas cubiertos y cómo trabajar con Pixelido (voces por canal incluidas).
+
+- Cada trabajador recibe lo que necesita de la ficha del canal activo: Lía la estrategia, las ideas y los temas cubiertos; Nora la plantilla de guion largo y un guion de ejemplo del canal; Gema, Tito y Rui el protocolo de título y miniatura; Paco la ficha de Pixelido; Rui y Sam el protocolo de métricas y el plan de monetización; Nyx el estado del estudio.
+- Se lee en directo desde GitHub al abrir la oficina (se refresca cada hora o con «Actualizar desde GitHub»). Lo que cambies en Estudio-youtube lo usa la oficina en la siguiente lectura.
+- En el panel, **Ver ficha del canal** enseña la ficha y los proyectos de vídeo del canal elegido.
+
 ## Varios canales
 
 Arriba del panel eliges el canal de YouTube con el que trabajas o creas uno nuevo. Cada canal tiene su nicho, sus vídeos, sus métricas y su propio manual de lecciones. Los proyectos de programación no dependen del canal.
