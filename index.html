@@ -239,6 +239,7 @@ button.step { font: inherit; font-size: 11.5px; }
 .file-btn { display: inline-flex; align-items: center; position: relative; }
 .file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .ped-row select { max-width: 42%; } .ped-row input { flex: 1; min-width: 0; }
+.meritos { display: grid; gap: 6px; } .merit-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; } .merit-row small { color: var(--muted); } .merit-row.top { border-color: #d8b46a; background: color-mix(in srgb, #d8b46a 12%, transparent); } .merit-pts { font-family: var(--f-display); font-size: 16px; color: #d8b46a; }
 .yt-list { display: grid; gap: 6px; margin-top: 8px; } .yt-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; } .yt-row small { display: block; color: var(--muted); }
 #ytInfo { color: var(--fg); }
 .estudio-row { margin-top: 8px; display: grid; gap: 6px; }
@@ -367,6 +368,11 @@ button.step { font: inherit; font-size: 11.5px; }
     <section data-tabs="equipo">
       <h2>Equipo</h2>
       <div class="team" id="team"></div>
+    </section>
+
+    <section data-tabs="equipo">
+      <h2>Empleado del mes</h2>
+      <div class="meritos" id="meritos"></div>
     </section>
 
     <section data-tabs="equipo">
@@ -905,6 +911,13 @@ function frame(x, y, z, w, h, colors) {
   const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, color: 0xcccccc })); p.position.z = 0.025; g.add(p);
 }
 
+// ===== Empleado del mes: retrato en la pared del vestíbulo
+const empCanvas = document.createElement('canvas'); empCanvas.width = 512; empCanvas.height = 720;
+const empTex = new THREE.CanvasTexture(empCanvas); empTex.colorSpace = THREE.SRGBColorSpace; empTex.anisotropy = 4;
+const empFrame = new THREE.Group(); empFrame.position.set(-5.15, 2.2, -7.95); scene.add(empFrame);
+box(1.12, 1.52, 0.05, brass, 0, 0, 0, empFrame, false);
+const empPic = new THREE.Mesh(new THREE.PlaneGeometry(1.02, 1.42), new THREE.MeshBasicMaterial({ map: empTex, color: 0xe6e6e6 })); empPic.position.z = 0.03; empFrame.add(empPic);
+const empSpot = new THREE.SpotLight(0xffe2b0, 6, 4, 0.5, 0.6, 1.5); empSpot.position.set(-5.15, 3.4, -6.9); empSpot.target = empFrame; scene.add(empSpot);
 // ===== Vestíbulo: café y zona de espera
 const marbleWhite = std(0xd9d5cc, { roughness: 0.2, envMapIntensity: 0.3 });
 box(0.7, 0.92, 2.6, std(0x1d1e24, { roughness: 0.4 }), -5.45, 0.46, -5.4); box(0.8, 0.05, 2.7, marbleWhite, -5.45, 0.945, -5.4);
@@ -1193,9 +1206,10 @@ function makeSprite(w, h, worldH) {
   s.scale.set(worldH * w / h, worldH, 1); s.renderOrder = 10;
   return { s, c, g: c.getContext('2d'), tex };
 }
-function drawNameTag(sp, name, aiKey) {
+function drawNameTag(sp, name, aiKey, star) {
   const { g, c } = sp; const W = c.width, H = c.height; const ai = AI[aiKey];
   g.clearRect(0, 0, W, H);
+  if (star) name = '★ ' + name;
   g.font = '700 44px "Chakra Petch", sans-serif'; const nameW = g.measureText(name).width;
   g.font = '600 30px "Chakra Petch", sans-serif'; const aiW = g.measureText(ai.name.toUpperCase()).width;
   const total = nameW + aiW + 64; const x0 = (W - total) / 2;
@@ -1315,6 +1329,7 @@ function buildDesk(def) {
 }
 
 let speed = 1, simClock = 0, coffeeTaken = false;
+const empleadoMes = { id: null, mes: '', puntos: 0 };
 const agents = {};
 
 class Agent {
@@ -1335,7 +1350,7 @@ class Agent {
     scene.add(this.tag.s, this.bubble.s);
     this.redraw(); this.paintScreen(0);
   }
-  redraw() { drawNameTag(this.tag, this.def.name, this.def.ai); this.drawStatus(true); }
+  redraw() { drawNameTag(this.tag, this.def.name, this.def.ai, empleadoMes.id === this.id); this.drawStatus(true); }
   paintScreen(t) { drawScreen(this.desk.sc.getContext('2d'), this.def.screen, t, this.mode === 'work', AI[this.def.ai].color); this.desk.screenTex.needsUpdate = true; this.desk.screenMat.color.set(this.mode === 'work' ? 0xffffff : 0xc4cbe0); }
   setStatus(text, color = '#8d9abb') { this.status = text; this.statusColor = color; this.drawStatus(true); }
   drawStatus(force) {
@@ -2127,7 +2142,8 @@ const NORMAS_CANAL = `Normas del estudio de Jager (resumen de CLAUDE.md del repo
 - Veracidad: nunca inventes estadísticas, fechas, cifras, diálogos, grabaciones de cabina, últimas palabras, documentos ni declaraciones. Etiqueta cuando importe: [HECHO], [DATO CHRISTIAN], [INTERPRETACIÓN], [HIPÓTESIS], [PENDIENTE]. En este encargo no tienes internet: lo que haya que comprobar, márcalo [VERIFICAR]. Las dramatizaciones se marcan como tales y las imágenes sintéticas nunca se presentan como fotos reales.
 - Solo vídeos largos en todos los canales: NO se hacen Shorts (D-ESTUDIO-005).
 - Temas sensibles con respeto a víctimas y familias, sin detalles gráficos y con lenguaje apto para anunciantes.
-- No contradigas una decisión registrada en DECISIONES sin explicar qué información nueva lo justifica.`;
+- No contradigas una decisión registrada en DECISIONES sin explicar qué información nueva lo justifica.
+- Competís por ser el EMPLEADO DEL MES: el mérito se lo lleva quien más aporta a los vídeos con mejores resultados. Aplica todas las lecciones del manual y supera siempre al vídeo anterior del canal.`;
 // Si el servidor tiene búsqueda web, se investiga antes de escribir
 const webTxt = () => (serverReady() && srv.caps.web) ? `INVESTIGACIÓN EN INTERNET (tienes la herramienta de búsqueda web): antes de escribir, investiga el caso con fuentes fiables (informes oficiales de investigación, sentencias, archivos de prensa de referencia, libros y artículos académicos). Contrasta fechas, cifras, nombres y la secuencia de hechos con al menos dos fuentes cuando puedas. Usa [HECHO] con la fuente para lo comprobado y marca [VERIFICAR] solo lo que no hayas podido confirmar. En FUENTES pon el título y el enlace de cada fuente que hayas usado.` : '';
 const canalTxt = () => `Canal: ${store.ch.name}\nResumen del canal: ${store.nicho}`;
@@ -2303,6 +2319,19 @@ En español y texto plano (máximo 250 palabras): QUÉ SABEMOS · QUÉ NO PODEMO
   },
 };
 
+// ¿Ha ido este vídeo claramente mejor que los anteriores del canal?
+function videoVerdict(v) {
+  const m = v.metrics; if (!m) return { bueno: false, txt: 'sin métricas' };
+  const prev = chanVideos().filter(x => x.metrics && x.id !== v.id && (x.channelId || store.active) === (v.channelId || store.active));
+  const base = prev.length ? { ctr: avg(prev.map(x => x.metrics.ctr)), r30: avg(prev.map(x => x.metrics.r30)), pct: avg(prev.map(x => x.metrics.pct)) } : { ctr: TARGETS.ctr, r30: TARGETS.r30, pct: TARGETS.pct };
+  const r = k => base[k] ? m[k] / base[k] : 1;
+  const ratio = (r('ctr') + r('r30') + r('pct')) / 3;
+  const bueno = ratio >= 1.12 || (r('ctr') >= 1.25 && r('r30') >= 0.95) || (r('r30') >= 1.2 && r('pct') >= 1.1);
+  const ref = prev.length ? `la media de los ${prev.length} vídeos anteriores del canal` : 'los objetivos orientativos (aún no hay vídeos anteriores)';
+  return { bueno, ratio, txt: `Comparado con ${ref}: CTR ${m.ctr}% frente a ${base.ctr.toFixed(1)}% · 30 s ${m.r30}% frente a ${base.r30.toFixed(0)}% · visto medio ${m.pct}% frente a ${base.pct.toFixed(0)}% → ${bueno ? 'BUEN RESULTADO (claramente mejor)' : 'resultado normal'}` };
+}
+// Qué aporta cada puesto a un vídeo (para repartir el mérito)
+const APORTA = { lia: 'elección del tema y del ángulo (vidIQ, tendencias)', nora: 'guion: gancho, ritmo y retención', gema: 'concepto de la miniatura', tito: 'título, descripción y SEO', rui: 'combinación final de título y miniatura', paco: 'pedido a Pixelido: montaje y ritmo visual', sam: 'retención y rentabilidad en la mesa' };
 // Análisis por reglas (cuando no hay IA): con tus números reales y criterios orientativos
 function ruleCtr(v) {
   const m = v.metrics, st = channelStats(), out = [];
@@ -2326,12 +2355,14 @@ function ruleRet(v) {
 }
 function rulePlan(v) {
   const m = v.metrics, acc = [], les = [];
+  const ver = videoVerdict(v);
+  const merito = ver.bueno ? (m.ctr >= TARGETS.ctr * 1.2 ? { trabajador: 'gema', motivo: 'la miniatura disparó el CTR' } : { trabajador: 'nora', motivo: 'el guion retuvo a la gente' }) : null;
   if (m.ctr < TARGETS.ctr) { acc.push('Cambiar la miniatura de este vídeo por la opción B o C y medir 7 días'); les.push('Miniaturas con una cara, una emoción y máximo 3 palabras'); }
   else les.push(`Repetir el estilo de miniatura de «${(v.title || v.topic).slice(0, 40)}»`);
   if (m.r30 < TARGETS.r30) { acc.push('En el siguiente guion, enseñar el resultado en los primeros 5 segundos'); les.push('Nada de presentaciones: el resultado o el conflicto en los primeros 5 s'); }
   if (m.pct < TARGETS.pct) { acc.push('Pedir a Pixelido un cambio visual cada 5-8 segundos'); les.push('Cambio de plano o rótulo cada 5-8 s para sostener la retención'); }
   acc.push('Publicar un short con el gancho para llevar tráfico al vídeo largo', 'Fijar un comentario con una pregunta para subir la interacción');
-  return { resumen: `El vídeo tuvo un CTR del ${m.ctr}% y retuvo al ${m.r30}% a los 30 segundos. ${m.ctr >= TARGETS.ctr && m.r30 >= TARGETS.r30 ? 'Toca escalar: más vídeos con este formato.' : 'Hay margen de mejora y ya sabemos dónde.'}`, acciones: acc.slice(0, 5), lecciones: les.slice(0, 3), siguiente_video: `Una segunda parte de «${v.topic}» con un ángulo más concreto` };
+  return { bueno: ver.bueno, merito, porque: ver.bueno ? ver.txt : '', resumen: `El vídeo tuvo un CTR del ${m.ctr}% y retuvo al ${m.r30}% a los 30 segundos. ${m.ctr >= TARGETS.ctr && m.r30 >= TARGETS.r30 ? 'Toca escalar: más vídeos con este formato.' : 'Hay margen de mejora y ya sabemos dónde.'}`, acciones: acc.slice(0, 5), lecciones: les.slice(0, 3), siguiente_video: `Una segunda parte de «${v.topic}» con un ángulo más concreto` };
 }
 
 // Quién piensa de verdad: su propia IA (si hay servidor), Claude como sustituto o nadie (ejemplo)
@@ -2396,7 +2427,7 @@ const GOAL = {
 const SCHEMA = {
   estudio: '{"acuerdo":"1-2 frases para decir en voz alta","tema_final":"título de trabajo","angulo":"...","gancho":"primera frase exacta del vídeo","promesa":"qué gana el espectador","publico":"...","duracion_ideal":"x-y min","mejor_momento":"día y hora","puntuaciones":{"viral":0-100,"ctr_estimado":número,"retencion_30s":número,"rentabilidad":0-100},"monetizacion":["2-3 formas de ganar dinero con este vídeo"],"riesgos":["..."],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
   eleccion: '{"acuerdo":"1-2 frases para decir en voz alta","ranking":[{"tema":"...","angulo":"...","viral":0-100,"rentabilidad":0-100,"total":0-100,"por_que":"una frase","formato":"largo|short"}],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}} con todos los candidatos ordenados de mejor a peor',
-  plan: '{"acuerdo":"2 frases para el jefe","acciones":["5 acciones concretas y priorizadas"],"lecciones":["1-3 reglas nuevas y cortas para el manual del canal que no repitan las que ya hay"],"escalar":"cómo escalar: serie, shorts, frecuencia y monetización","siguiente_video":"idea concreta","votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
+  plan: '{"acuerdo":"2 frases para el jefe","buen_resultado":true|false,"por_que_funciono":"si fue buen resultado: la causa concreta (tema, gancho, miniatura, título, ritmo…); si no, vacío","merito":{"trabajador":"lia|nora|gema|tito|rui|paco|sam o vacío si no fue buen resultado","motivo":"qué hizo exactamente"},"tambien":["otros trabajadores que ayudaron"],"acciones":["5 acciones concretas y priorizadas"],"lecciones":["1-3 reglas nuevas y cortas para el manual del canal que no repitan las que ya hay; si fue buen resultado, la primera es lo que hay que repetir siempre"],"escalar":"cómo escalar: serie, shorts, frecuencia y monetización","siguiente_video":"idea concreta","votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
 };
 const NAME = id => agents[id]?.def.name || id;
 const debateQueue = [];
@@ -2408,7 +2439,8 @@ function debateContext(d) {
   if (d.mode === 'estudio') return `Tema que propone el jefe: «${j.topic}».${vidiqTxt(j)}\n${base}`;
   if (d.mode === 'eleccion') return `Temas candidatos que ha encontrado Lía:\n${(j.picks || []).map((p, i) => `${i + 1}. ${p.tema} (${p.formato}): ${p.angulo}`).join('\n')}\n${base}`;
   const v = videoOf(j);
-  return `Vídeo publicado: «${v.title || v.topic}». Métricas: ${J(v.metrics)} (r30 = % que sigue a los 30 s; pct = % medio visto).\nCTR previsto antes de publicar: ${v.predCtr ? v.predCtr + '%' : 'no hay'}.\nAnálisis de CTR de Rui:\n${j.step('ctr').output?.text || ''}\nAnálisis de retención de Sam:\n${j.step('retencion').output?.text || ''}\n${base}`;
+  const ver = videoVerdict(v);
+  return `${ver.bueno ? '¡ESTE VÍDEO HA DADO BUENOS RESULTADOS! Investigad a fondo por qué ha funcionado mejor que los anteriores para repetirlo siempre, y decidid de quién fue el mérito.\n' : ''}${ver.txt}\nQué aportó cada puesto: ${Object.entries(APORTA).map(([k, x]) => NAME(k) + ' = ' + x).join('; ')}.\nVídeo publicado: «${v.title || v.topic}». Métricas: ${J(v.metrics)} (r30 = % que sigue a los 30 s; pct = % medio visto).\nCTR previsto antes de publicar: ${v.predCtr ? v.predCtr + '%' : 'no hay'}.\nAnálisis de CTR de Rui:\n${j.step('ctr').output?.text || ''}\nAnálisis de retención de Sam:\n${j.step('retencion').output?.text || ''}\n${base}`;
 }
 const transcriptTxt = d => d.transcript.map(m => `${NAME(m.who)}: ${m.text}`).join('\n');
 const useBrain = (d, id) => brainState === 'lista' && !d.job.demo && (agents[id].def.ai === 'claude' || $('#subOn').checked);
@@ -2419,7 +2451,7 @@ function fallbackConsensus(d) {
   const j = d.job;
   if (d.mode === 'estudio') return { acuerdo: 'La mesa no ha podido cerrar un acuerdo porque la IA no respondió. Seguimos con el tema tal cual.', tema_final: j.topic, angulo: '', gancho: '', promesa: '', publico: '', viral: null, rentabilidad: null, votos: null, sinIA: true };
   if (d.mode === 'eleccion') return { acuerdo: 'La mesa no ha podido votar porque la IA no respondió. Elige tú el tema.', ranking: (j.picks || []).map(p => ({ tema: p.tema, angulo: p.angulo, viral: p.puntuacion, rentabilidad: null, total: p.puntuacion, por_que: p.por_que, formato: p.formato })), votos: null, sinIA: true };
-  const pl = rulePlan(videoOf(j)); return { acuerdo: pl.resumen, acciones: pl.acciones, lecciones: pl.lecciones, escalar: '', siguiente_video: pl.siguiente || '', votos: null };
+  const pl = rulePlan(videoOf(j)); return { acuerdo: pl.resumen, merito: pl.merito, buen_resultado: pl.bueno, por_que_funciono: pl.porque, acciones: pl.acciones, lecciones: pl.lecciones, escalar: '', siguiente_video: pl.siguiente || '', votos: null };
 }
 
 function startDebate(job, step) {
@@ -2501,7 +2533,7 @@ function endDebate(d) {
     j.picks = (r.ranking || []).slice(0, 5).map(x => ({ tema: x.tema, angulo: x.angulo, puntuacion: x.total, por_que: `${x.por_que} · viral ${x.viral} · rentable ${x.rentabilidad}`, formato: x.formato }));
     summary = `ACUERDO: ${r.acuerdo}\n\nRANKING (viral + rentable)\n${j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100\n   ${p.por_que}`).join('\n')}`;
   } else {
-    j.plan = { resumen: r.acuerdo, acciones: r.acciones || [], lecciones: r.lecciones || [], siguiente_video: r.siguiente_video, escalar: r.escalar };
+    j.plan = { resumen: r.acuerdo, bueno: r.buen_resultado, porque: r.por_que_funciono, merito: r.merito, tambien: r.tambien, acciones: r.acciones || [], lecciones: r.lecciones || [], siguiente_video: r.siguiente_video, escalar: r.escalar };
     summary = `PLAN ACORDADO\n${r.acuerdo}\n\nACCIONES\n${(r.acciones || []).map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\nCÓMO ESCALAR\n${r.escalar}\n\nNUEVAS LECCIONES PARA EL MANUAL\n${(r.lecciones || []).map(x => '· ' + x).join('\n')}\n\nSIGUIENTE VÍDEO\n${r.siguiente_video}`;
   }
   summary += `\n\n${VOTE_TXT(r.votos)}\n\nDEBATE\n${d.transcript.filter(m => !m.acuerdo).map(m => `[Ronda ${m.round}] ${NAME(m.who)}: ${m.text}`).join('\n')}`;
@@ -2887,6 +2919,70 @@ function renderConn() {
   if (!hasRuntime) { if (document.activeElement !== $('#srvUrl')) $('#srvUrl').value = srv.url; if (srv.msg) st($('#srvState'), srv.msg, srv.ok); }
 }
 $('#driveBtn').onclick = chooseFolder;
+// ---------- Puntos del mes: 3 al trabajador con el mérito y 1 a quien ayudó ----------
+const mesClave = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
+const mesNombre = k => { const [y, m] = k.split('-'); return ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][+m - 1] + ' ' + y; };
+function puntosMes(k) {
+  const pts = {}, porque = {};
+  for (const v of store.videos) {
+    if (!v.merito?.fecha || mesClave(v.merito.fecha) !== k) continue;
+    if (v.merito.trabajador) { pts[v.merito.trabajador] = (pts[v.merito.trabajador] || 0) + 3; porque[v.merito.trabajador] = v.merito.motivo || v.title; }
+    for (const t of v.merito.tambien || []) pts[t] = (pts[t] || 0) + 1;
+  }
+  return { pts, porque };
+}
+// Retrato del ganador: su personaje en 3D fotografiado en un estudio aparte
+let portraitR = null;
+function retrato(id) {
+  const def = WORKERS.find(w => w.id === id); if (!def) return null;
+  try {
+    if (!portraitR) { portraitR = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true }); portraitR.setSize(400, 460, false); portraitR.outputColorSpace = THREE.SRGBColorSpace; portraitR.toneMapping = THREE.ACESFilmicToneMapping; }
+    const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0x334466, 1.4)); const kl = new THREE.DirectionalLight(0xffffff, 1.6); kl.position.set(1, 2, 3); sc.add(kl);
+    const ch = makeCharacter(def.look, AI[def.ai].color); sc.add(ch.g); poseCharacter(ch, 'idle', 1.3, 0, {}); ch.head.rotation.y = 0.15;
+    const cam = new THREE.PerspectiveCamera(28, 400 / 460, 0.1, 20); cam.position.set(0.35, 1.45, 2.3); cam.lookAt(0, 1.3, 0);
+    portraitR.render(sc, cam); return portraitR.domElement;
+  } catch (e) { return null; }
+}
+function drawEmpleado(id, mes, pts, motivo) {
+  const g = empCanvas.getContext('2d'), W = 512, H = 720;
+  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#1b1f33'); bg.addColorStop(1, '#0b0d16'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#d8b46a'; g.textAlign = 'center'; g.font = '700 44px "Chakra Petch", sans-serif'; g.fillText('EMPLEADO DEL MES', W / 2, 62);
+  g.font = '500 26px Figtree, sans-serif'; g.fillStyle = '#c9bfa5'; g.fillText(mes ? mesNombre(mes) : '', W / 2, 98);
+  if (!id) {
+    g.fillStyle = '#8d9abb'; g.font = '500 28px Figtree, sans-serif';
+    ['Todavía sin ganador.', 'Lo será quien más aporte', 'a los vídeos con', 'mejores resultados.'].forEach((l, i) => g.fillText(l, W / 2, 330 + i * 40));
+  } else {
+    const pic = retrato(id);
+    g.fillStyle = AI[WORKERS.find(w => w.id === id).ai].color; g.globalAlpha = 0.25; g.fillRect(40, 120, W - 80, 440); g.globalAlpha = 1;
+    if (pic) g.drawImage(pic, 56, 120, W - 112, 440);
+    g.strokeStyle = '#d8b46a'; g.lineWidth = 4; g.strokeRect(40, 120, W - 80, 440);
+    g.fillStyle = '#ffffff'; g.font = '700 52px "Chakra Petch", sans-serif'; g.fillText('★ ' + NAME(id) + ' ★', W / 2, 615);
+    g.fillStyle = '#d8b46a'; g.font = '500 24px Figtree, sans-serif'; g.fillText(`${WORKERS.find(w => w.id === id).role} · ${pts} puntos`, W / 2, 652);
+    g.fillStyle = '#aab3cc'; g.font = 'italic 21px Figtree, sans-serif'; let t = String(motivo || ''); while (g.measureText(t).width > W - 60 && t.length > 4) t = t.slice(0, -2); g.fillText(t !== String(motivo || '') ? t + '…' : t, W / 2, 690);
+  }
+  empTex.needsUpdate = true;
+}
+function updateEmpleadoMes() {
+  const ahora = mesClave(Date.now()), d = new Date(); d.setMonth(d.getMonth() - 1); const antes = mesClave(d);
+  let k = ahora, r = puntosMes(ahora);
+  if (!Object.keys(r.pts).length) { const r2 = puntosMes(antes); if (Object.keys(r2.pts).length) { k = antes; r = r2; } }
+  const top = Object.entries(r.pts).sort((a, b) => b[1] - a[1])[0];
+  const id = top ? top[0] : null, cambia = id !== empleadoMes.id || k !== empleadoMes.mes || (top && top[1] !== empleadoMes.puntos);
+  if (!cambia) return renderMeritos(r, k);
+  const anterior = empleadoMes.id;
+  Object.assign(empleadoMes, { id, mes: k, puntos: top ? top[1] : 0 });
+  drawEmpleado(id, k, top ? top[1] : 0, id ? r.porque[id] : '');
+  for (const a in agents) agents[a].redraw();
+  if (id && anterior && id !== anterior) log(`🏆 <b>${esc(NAME(id))}</b> pasa a ser el empleado del mes`);
+  renderMeritos(r, k);
+}
+function renderMeritos(r, k) {
+  const el = $('#meritos'); if (!el) return;
+  const filas = WORKERS.map(w => [w, r.pts[w.id] || 0]).sort((a, b) => b[1] - a[1]);
+  el.innerHTML = `<p class="note">Clasificación de ${esc(mesNombre(k))}: 3 puntos por el mérito de un vídeo con buenos resultados y 1 por ayudar. El ganador sale en la pared de la oficina.</p>` +
+    filas.map(([w, n], i) => `<div class="merit-row${n && i === 0 ? ' top' : ''}"><span>${n && i === 0 ? '🏆 ' : ''}<b>${esc(w.name)}</b> <small>${esc(w.role)}</small></span><span class="merit-pts">${n}</span></div>`).join('');
+}
+setTimeout(updateEmpleadoMes, 1500); setInterval(updateEmpleadoMes, 30000);
 // Pestañas del panel (se recuerda la última en este navegador)
 function setPanelTab(tab, scroll) {
   const panel = $('.panel'); panel.dataset.tab = tab;
@@ -3072,7 +3168,16 @@ function arriveDirector(job) {
     if (v.id) store.saveVideo(v);
     const fb = (p.resumen || 'Análisis terminado.') + (nuevas.length ? ` He añadido ${nuevas.length} ${nuevas.length === 1 ? 'lección' : 'lecciones'} al manual del canal.` : '');
     nyxSay(`Habéis terminado de analizar las métricas de «${v.title || v.topic || job.short}». Resumen: ${p.resumen || 'sin resumen'}. Lecciones nuevas para el manual del canal: ${nuevas.map(n => n.texto).join(' / ') || 'ninguna'}. Cuéntale al jefe lo más importante.`, fb);
-    WORKERS.filter(w => w.room === 'lab').forEach(w => { if (!agents[w.id].busy()) agents[w.id].celebrate = 2.5; });
+    const ver = videoVerdict(v), bueno = !!(p.bueno ?? ver.bueno) && ver.ratio >= 1;
+    const quien = bueno && agents[p.merito?.trabajador] && p.merito.trabajador !== 'director' ? p.merito.trabajador : null;
+    if (bueno) {
+      v.merito = { trabajador: quien, motivo: p.merito?.motivo || '', porque: p.porque || '', tambien: (p.tambien || []).filter(x => agents[x] && x !== quien), fecha: Date.now() };
+      store.saveVideo(v);
+      WORKERS.forEach(w => { if (!agents[w.id].busy()) agents[w.id].celebrate = 4.5; });
+      log(`🎉 <b>${esc(v.title || v.topic)}</b> ha dado buenos resultados${quien ? ` · mérito de <b>${esc(NAME(quien))}</b>: ${esc(v.merito.motivo)}` : ''}`);
+      directorSay(`¡Buen resultado, jefe! «${v.title || v.topic}» ha ido mejor que los anteriores. ${p.porque ? 'Por qué: ' + p.porque + ' ' : ''}${quien ? `El mérito es de ${NAME(quien)}. ` : ''}Ya está en el manual para repetirlo siempre.`, 'aviso', 14);
+      updateEmpleadoMes();
+    } else WORKERS.filter(w => w.room === 'lab').forEach(w => { if (!agents[w.id].busy()) agents[w.id].celebrate = 2.5; });
     log(`Análisis de <b>${esc(job.short)}</b> terminado · manual actualizado`);
   } else {
     job.status = 'esperando'; ok.state = 'cola';
