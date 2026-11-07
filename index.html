@@ -627,6 +627,19 @@ addPoint(0xff8a96, 9, 12, 4, 0);
 addPoint(0xc9a8ff, 4, 0, 3.6, 5, 12);
 addPoint(0xffd9a8, 4, 0, 3.5, -6, 12);
 const holoLight = addPoint(0x5ce8ff, 5, 0, 3, -4.2);
+const hemi = scene.children.find(o => o.isHemisphereLight);
+// La oficina sigue la hora del día: mañana luminosa, atardecer cálido y noche con las luces de la ciudad
+function applyDaylight() {
+  const d = new Date(), h = d.getHours() + d.getMinutes() / 60;
+  const day = Math.max(0, Math.min(1, Math.min((h - 7) / 2.5, (20.5 - h) / 2.5)));
+  const dusk = Math.max(0, 1 - Math.abs(h - 19.5) / 1.6) + Math.max(0, 1 - Math.abs(h - 7.5) / 1.2);
+  sun.intensity = 0.32 + day * 0.95; sun.color.set(dusk > 0.4 ? 0xffc896 : day > 0.5 ? 0xfff6e8 : 0xbfcaff);
+  if (hemi) hemi.intensity = 0.16 + day * 0.44;
+  renderer.toneMappingExposure = 0.74 + day * 0.24;
+  const kind = dusk > 0.4 ? 'tarde' : day > 0.5 ? 'dia' : 'noche';
+  for (const m of cityMats) if (m.map !== cityTexs[kind]) { m.map = cityTexs[kind]; m.color.set(kind === 'dia' ? 0xffffff : 0xcccccc); m.needsUpdate = true; }
+}
+setTimeout(applyDaylight, 0); setInterval(applyDaylight, 60000);
 
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.05, envMapIntensity: 0.22, ...o });
 const glow = (color, k = 1) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: k });
@@ -782,24 +795,38 @@ for (const x of [-HW, HW]) {
 box(OW * 2, 0.1, 0.2, blackMetal, 0, 0.05, 8.05, scene, false);
 
 // --- Ventanales con la ciudad de noche
-const cityTex = canvasTex(1024, 400, (g, W, H) => {
-  const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#0b1230'); sky.addColorStop(1, '#2a2350'); g.fillStyle = sky; g.fillRect(0, 0, W, H);
-  g.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 40; i++) g.fillRect(Math.random() * W, Math.random() * H * 0.35, 2, 2);
-  g.fillStyle = '#e8e3c8'; g.beginPath(); g.arc(W * 0.8, 70, 26, 0, 7); g.fill();
+// Cada momento del día tiene su cielo; los edificios son los mismos (misma semilla)
+let citySeed = 7; const crand = () => (citySeed = (citySeed * 16807) % 2147483647) / 2147483647;
+function cityCanvas(kind) {
+  citySeed = 7;
+  return canvasTex(1024, 400, (g, W, H) => {
+  const skies = { noche: ['#0b1230', '#2a2350'], tarde: ['#2b2a5e', '#f08a5d'], dia: ['#5fa8e8', '#cfe6f7'] };
+  const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, skies[kind][0]); sky.addColorStop(1, skies[kind][1]); g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  if (kind === 'noche') { g.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 40; i++) g.fillRect(Math.random() * W, Math.random() * H * 0.35, 2, 2); g.fillStyle = '#e8e3c8'; g.beginPath(); g.arc(W * 0.8, 70, 26, 0, 7); g.fill(); }
+  else if (kind === 'tarde') { g.fillStyle = 'rgba(255,200,120,.9)'; g.beginPath(); g.arc(W * 0.25, H * 0.62, 40, 0, 7); g.fill(); }
+  else { g.fillStyle = 'rgba(255,255,255,.75)'; for (const [cx, cy, r] of [[180, 70, 40], [230, 60, 52], [290, 75, 36], [700, 50, 34], [745, 44, 46], [790, 56, 30]]) { g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill(); } }
   for (let layer = 0; layer < 2; layer++) {
     let x = -20;
     while (x < W) {
-      const bw = 50 + Math.random() * 90, bh = (layer ? 140 : 90) + Math.random() * (layer ? 200 : 130);
-      g.fillStyle = layer ? '#0d1022' : '#1a1d38'; g.fillRect(x, H - bh, bw, bh);
-      if (layer) for (let wy2 = H - bh + 10; wy2 < H - 8; wy2 += 16) for (let wx = x + 6; wx < x + bw - 8; wx += 12)
-        if (Math.random() < 0.38) { g.fillStyle = Math.random() < 0.8 ? '#ffd27a' : '#9fd8ff'; g.fillRect(wx, wy2, 6, 8); }
+      const bw = 50 + crand() * 90, bh = (layer ? 140 : 90) + crand() * (layer ? 200 : 130);
+      g.fillStyle = kind === 'dia' ? (layer ? '#5c6b82' : '#8796ad') : kind === 'tarde' ? (layer ? '#2a2440' : '#4a3a5a') : (layer ? '#0d1022' : '#1a1d38'); g.fillRect(x, H - bh, bw, bh);
+      if (layer) for (let wy2 = H - bh + 10; wy2 < H - 8; wy2 += 16) for (let wx = x + 6; wx < x + bw - 8; wx += 12) {
+        const r = crand(), on = r < (kind === 'noche' ? 0.38 : kind === 'tarde' ? 0.22 : 0.05);
+        if (on) { g.fillStyle = crand() < 0.8 ? '#ffd27a' : '#9fd8ff'; g.fillRect(wx, wy2, 6, 8); }
+        else if (kind === 'dia') { g.fillStyle = 'rgba(200,225,255,.35)'; g.fillRect(wx, wy2, 6, 8); }
+      }
       x += bw + 4;
     }
   }
-});
+  });
+}
+const cityTexs = { noche: cityCanvas('noche'), tarde: cityCanvas('tarde'), dia: cityCanvas('dia') };
+const cityTex = cityTexs.noche;
+const cityMats = [];
 function windowAt(x, z, ry, w = 3.6) {
   const g = new THREE.Group(); g.position.set(x, 1.8, z); g.rotation.y = ry; scene.add(g);
-  g.add(new THREE.Mesh(new THREE.PlaneGeometry(w, 1.8), new THREE.MeshBasicMaterial({ map: cityTex, color: 0xcccccc })));
+  const cm = new THREE.MeshBasicMaterial({ map: cityTex, color: 0xcccccc }); cityMats.push(cm);
+  g.add(new THREE.Mesh(new THREE.PlaneGeometry(w, 1.8), cm));
   box(w + 0.16, 0.08, 0.08, blackMetal, 0, 0.94, 0.02, g, false); box(w + 0.16, 0.1, 0.18, brass, 0, -0.94, 0.06, g, false);
   box(0.08, 1.9, 0.08, blackMetal, -w / 2, 0, 0.02, g, false); box(0.08, 1.9, 0.08, blackMetal, w / 2, 0, 0.02, g, false); box(0.04, 1.8, 0.04, blackMetal, 0, 0, 0.02, g, false);
 }
@@ -1136,6 +1163,7 @@ function poseCharacter(c, mode, t, phase, extra = {}) {
       c.head.rotation.y = s(t * 1.3 + phase) * 0.18; c.body.rotation.x = 0.05;
       break;
     case 'listen':
+      if (extra.chat && s(t * 0.9 + phase) > 0.3) c.mouth.scale.y = 1 + Math.abs(s(t * 14 + phase)) * 2.5;
       c.head.rotation.x = 0.08 + Math.max(0, s(t * 2.2 + phase)) * 0.12;
       c.head.rotation.z = s(t * 0.7 + phase) * 0.06;
       c.armL.rotation.x = c.armR.rotation.x = -0.35; c.armL.rotation.z = 0.25; c.armR.rotation.z = -0.25;
@@ -1301,7 +1329,7 @@ class Agent {
     this.pos = this.seat.clone(); this.yaw = this.seatYaw; this.targetYaw = this.seatYaw;
     this.sitting = true; this.mode = 'idle'; this.carry = false;
     this.agenda = []; this.inbox = []; this.action = null;
-    this.phase = Math.random() * 6; this.stretch = 0; this.nextStretch = rand(6, 20); this.nextCoffee = rand(25, 80); this.celebrate = 0;
+    this.phase = Math.random() * 6; this.stretch = 0; this.nextStretch = rand(6, 20); this.nextCoffee = rand(25, 80); this.nextChat = rand(35, 110); this.celebrate = 0;
     this.status = 'Libre'; this.statusColor = '#8d9abb'; this.progress = -1; this.screenT = 0;
     this.tag = makeSprite(512, 96, 0.52); this.bubble = makeSprite(640, 110, 0.62);
     scene.add(this.tag.s, this.bubble.s);
@@ -1385,7 +1413,8 @@ class Agent {
     } else if (a?.type === 'do') {
       a.t += dt; if (a.t >= (a.dur || 1.2)) { this.action = null; this.mode = 'idle'; a.fn?.(); }
     } else if (!a) {
-      this.nextStretch -= dt; this.nextCoffee -= dt;
+      this.nextStretch -= dt; this.nextCoffee -= dt; this.nextChat -= dt;
+      if (this.nextChat < 0 && this.sitting) { this.nextChat = rand(70, 160); this.startChat(); }
       if (this.nextStretch < 0 && this.sitting) { this.stretch = 1.4; this.nextStretch = rand(10, 28); }
       if (this.nextCoffee < 0 && this.sitting) {
         if (!coffeeTaken) {
@@ -1406,13 +1435,31 @@ class Agent {
     this.c.g.position.copy(this.pos); this.c.g.rotation.y = this.yaw;
     let mode = this.mode;
     if (mode === 'idle' && this.celebrate > 0) mode = 'celebrate';
-    poseCharacter(this.c, mode, t, this.phase, { sitting: this.sitting && mode !== 'celebrate', carry: this.carry, stretch: this.stretch });
+    poseCharacter(this.c, mode, t, this.phase, { sitting: this.sitting && mode !== 'celebrate', carry: this.carry, stretch: this.stretch, chat: !!this.action?.chat });
     this.tag.s.position.set(this.pos.x, 2.15, this.pos.z);
     this.bubble.s.position.set(this.pos.x, 2.78, this.pos.z);
     this.bubble.s.material.opacity = this.status === 'Libre' ? 0 : 1;
     if (this.mode === 'work') this.drawStatus(false);
     this.screenT -= rdt;
     if ((this.mode === 'work' && this.screenT <= 0) || wasWork !== (this.mode === 'work')) { this.screenT = 0.35; this.paintScreen(t); }
+  }
+  // Se levanta a charlar un momento con un compañero libre de su sala
+  idle() { return !this.action && !this.agenda.length && !this.inbox.length && this.sitting; }
+  startChat() {
+    if (!this.idle() || (this.def.room === 'lab' && D)) return;
+    const mates = Object.values(agents).filter(o => o !== this && o.def.room === this.def.room && o.idle());
+    if (!mates.length) return;
+    const o = mates[Math.floor(Math.random() * mates.length)];
+    const spot = o.stand.clone().add(V(0.75, 0, 0.35));
+    const charlas = ['Comentando el último vídeo', 'Charlando un momento', 'Compartiendo una idea', 'Revisando un dato juntos'];
+    const txt = charlas[Math.floor(Math.random() * charlas.length)];
+    this.agenda.push({ type: 'goto', dest: spot, status: 'Va a hablar con ' + o.def.name });
+    this.agenda.push({ type: 'do', pose: 'talk', face: o.pos, dur: rand(4, 7), status: txt + ' con ' + o.def.name, color: '#9be7c4',
+      fn: () => { if (o.action?.chat) { o.action = null; o.mode = 'idle'; o.targetYaw = o.seatYaw; o.setStatus('Libre'); } } });
+    this.agenda.push({ type: 'goto', dest: 'home' });
+    // el compañero le escucha (y contesta) desde su silla cuando llega
+    const wait = () => { if (this.action?.type === 'do' && this.mode === 'talk' && o.idle()) { o.action = { type: 'do', pose: 'listen', face: this.pos, dur: 99, chat: true, t: 0 }; o.mode = 'listen'; o.targetYaw = Math.atan2(this.pos.x - o.pos.x, this.pos.z - o.pos.z); o.setStatus('Hablando con ' + this.def.name, '#9be7c4'); } else if (this.agenda.length > 1 || this.action?.type === 'goto') setTimeout(wait, 400); };
+    setTimeout(wait, 400);
   }
   stepAlong(a, dt) {
     const target = a.pts[a.i]; const d = target.clone().sub(this.pos); d.y = 0;
