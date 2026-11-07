@@ -415,6 +415,19 @@ Entrega en texto plano, sin markdown, con estas cuatro partes y estos títulos e
 2. INDICACIONES VISUALES — por bloques numerados (B1, B2…), con el minuto aproximado y lo que se ve (archivo, mapa, documento, recreación 3D, rótulo con dato; las recreaciones marcadas como tales).
 3. FUENTES — informes oficiales, sentencias, libros o artículos que respaldan los datos; si no estás seguro de una, márcala [VERIFICAR].
 4. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.`,
+  verifica: (job, c, out) => `${c.formacion.iris}
+${c.web}
+${c.normas}
+${c.canal}
+Vídeo: «${out.tema}».
+Guion de Nora:
+${out.guion || ''}
+Entrega en texto plano, sin markdown:
+VEREDICTO: «LISTO PARA LOCUTAR» o «NECESITA CORRECCIONES».
+DATOS COMPROBADOS: lista de afirmaciones clave confirmadas, cada una con su fuente (título y enlace).
+CORRECCIONES: cada dato erróneo o dudoso, con el texto original, el texto corregido exacto y la fuente.
+SIN CONFIRMAR: lo que no hayas podido verificar y que hay que quitar o suavizar antes de locutar.
+SENSIBILIDAD: algo que pueda afectar a víctimas, familias o a la monetización y cómo suavizarlo.`,
   miniaturas: (job, c, out) => `${c.formacion.gema}
 ${c.normas}
 ${c.canal}
@@ -452,6 +465,8 @@ ${out.estudioTxt || ''}
 Indicaciones visuales del guion de Nora:
 ${i >= 0 ? g.slice(i, i + 9000) : g.slice(0, 6000)}
 Versión definitiva de título y miniatura de Rui: ${JSON.stringify(out.pretest || {})}
+Informe de verificación de Iris (aplica sus correcciones en DATOS A VERIFICAR):
+${corta(out.verifica, 5000)}
 En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION (escribe solo «Ver LOCUCIÓN LIMPIA del guion adjunto»; el texto completo va aparte en el paquete) · DESCRIPCIÓN DE EDICIÓN (estilo del canal y tabla de bloques: bloque, minuto, qué se ve, rótulos) · OBSERVACIONES (voz asignada a este canal según PIXELIDO, cambios de tono, límites, pantalla final) · MINIATURA (texto exacto + descripción visual igual al prompt de Gemini) · DATOS A VERIFICAR ANTES DE LOCUTAR. Máximo 650 palabras.`; },
 };
 
@@ -502,9 +517,11 @@ export class Pedido extends WorkflowEntrypoint {
       out.guion = await step.do('guion', R, async () => {
         const t = await claude(env, P.guion(job, c, out), false, true);
         if (!t || t.length < 500) throw new Error('Guion demasiado corto');
-        await guardar('miniaturas', { guion: t });
+        await guardar('verifica', { guion: t });
         return t;
       });
+      // Iris: verificación de datos con búsqueda en internet
+      out.verifica = await step.do('verifica', R, async () => { const t = c.formacion.iris ? await claude(env, P.verifica(job, c, out), false, true) : ''; await guardar('miniaturas', { verifica: t }); return t; });
       // 4. Gema (miniaturas) y 5. Tito (títulos y SEO)
       out.miniaturas = await step.do('miniaturas', R, async () => { const d = jsonDe(await pensar(env, 'gemini', P.miniaturas(job, c, out), { json: true })); if (!d?.conceptos) throw new Error('Miniaturas sin formato'); await guardar('titulos', { miniaturas: d }); return d; });
       out.titulos = await step.do('titulos', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.titulos(job, c, out), { json: true })); if (!d?.titulos) throw new Error('Títulos sin formato'); await guardar('pretest', { titulos: d }); return d; });

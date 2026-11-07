@@ -247,6 +247,10 @@ button.step { font: inherit; font-size: 11.5px; }
 .estudio-doc { white-space: pre-wrap; font-size: 12.5px; line-height: 1.5; max-height: 360px; overflow: auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
 .estudio-proy { padding-left: 18px; font-size: 13px; } .estudio-proy small { color: var(--muted); display: block; }
 #modalBody details { margin: 8px 0; } #modalBody summary { cursor: pointer; font-weight: 600; }
+.focus-card { position: absolute; left: 12px; top: 56px; width: min(340px, calc(100% - 24px)); z-index: 6; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line); border-radius: 12px; padding: 12px; backdrop-filter: blur(8px); font-size: 13px; line-height: 1.45; }
+.fc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; } .fc-head b { font-family: var(--f-display); letter-spacing: .04em; }
+.fc-body small { color: var(--muted); display: block; } .fc-bar { height: 6px; background: var(--panel-2); border-radius: 3px; margin: 8px 0; overflow: hidden; } .fc-bar i { display: block; height: 100%; }
+.stage.big .focus-card { top: calc(56px + env(safe-area-inset-top, 0px)); }
 .rec-out { display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: #9aa6c4; align-items: flex-start; }
 .rec-out video { width: 140px; border-radius: 50%; background: #000; border: 1px solid #222; }
 
@@ -293,6 +297,7 @@ button.step { font: inherit; font-size: 11.5px; }
       </div>
     </div>
     <div class="hud say quiet" id="say" aria-live="polite"><b id="sayWho">Nyx</b><span id="sayText">Aquí estoy, jefe. Dime qué quieres y yo me encargo del resto.</span></div>
+    <div class="focus-card" id="focusCard" hidden><div class="fc-head"><b id="fcTitle"></b><button type="button" class="btn small" id="fcBack">Volver</button></div><div class="fc-body" id="fcBody"></div><div class="order-row" id="fcActs"></div></div>
     <div class="hud hud-tools">
       <div class="seg" role="group" aria-label="Vista">
         <button type="button" data-view="general" aria-pressed="true">General</button>
@@ -502,6 +507,8 @@ const WORKERS = [
     look: { skin: '#d9a57f', hair: 'bun', hairC: '#7a3b1e', top: 'blazer', topC: '#3b2f4f', pants: '#22232e', shoes: '#1a1a1a' } },
   { id: 'max',  name: 'Max',  role: 'Ideas y documentación',   ai: 'chatgpt', room: 'proy', desk: [-12, 4.2], rot: Math.PI, screen: 'notes',
     look: { skin: '#a8754f', hair: 'curly', hairC: '#111111', top: 'sweater', topC: '#2f5d55', pants: '#2a2d3a', shoes: '#3b3b3b' } },
+  { id: 'iris', name: 'Iris', role: 'Verificación de datos',    ai: 'claude',  room: 'yt', desk: [11.9, 4.2], rot: Math.PI, screen: 'review',
+    look: { skin: '#d8a982', hair: 'bun', hairC: '#20140d', top: 'blazer', topC: '#2f4a3f', pants: '#1c1f26', shoes: '#2a2a2a', glasses: true, eyeC: 0x2e5a3c } },
   { id: 'nora', name: 'Nora', role: 'Guionista',               ai: 'claude',  room: 'yt', desk: [9.6, -4.6], rot: Math.PI + 0.22, screen: 'doc',
     look: { skin: '#f2cfb3', hair: 'long', hairC: '#5a2d82', top: 'sweater', topC: '#8a4b6d', pants: '#1f1f2a', shoes: '#efe7dc', headset: true } },
   { id: 'gema', name: 'Gema', role: 'Miniaturas',              ai: 'gemini',  room: 'yt', desk: [14.6, -4.6], rot: Math.PI - 0.22, screen: 'thumb', dual: true,
@@ -528,7 +535,8 @@ const FLOWS = {
       { id: 'miniaturas', label: 'Miniaturas',       worker: 'gema', deps: ['guion'],                 verb: 'Diseñando miniaturas',     secs: 10 },
       { id: 'titulos',    label: 'Títulos y SEO',    worker: 'tito', deps: ['guion'],                 verb: 'Probando títulos',         secs: 8 },
       { id: 'pretest',    label: 'Test de CTR',      worker: 'rui',  deps: ['miniaturas', 'titulos'], verb: 'Comparando combinaciones', secs: 7 },
-      { id: 'brief',      label: 'Paquete Pixelido', worker: 'paco', deps: ['pretest'],               verb: 'Montando el paquete',      secs: 7 },
+      { id: 'verifica',   label: 'Verificación',     worker: 'iris', deps: ['guion'],                 verb: 'Verificando los datos',    secs: 9 },
+      { id: 'brief',      label: 'Paquete Pixelido', worker: 'paco', deps: ['pretest', 'verifica'],               verb: 'Montando el paquete',      secs: 7 },
       { id: 'ok',         label: 'Tu aprobación',    worker: 'director', deps: ['brief'] },
     ],
   },
@@ -585,7 +593,7 @@ const MEET = {
 const host = $('#viewport');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 const isNarrow = () => matchMedia('(max-width: 900px)').matches;
-renderer.setPixelRatio(Math.min(devicePixelRatio, isNarrow() ? 1.5 : 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -623,7 +631,7 @@ scene.add(new THREE.HemisphereLight(0xb9c6ff, 0x1a1f2e, 0.35));
 const sun = new THREE.DirectionalLight(0xfff1dc, 0.9);
 sun.position.set(10, 22, 14);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(isNarrow() ? 2048 : 4096, isNarrow() ? 2048 : 4096); sun.shadow.radius = 3;
 Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 14, bottom: -14, near: 1, far: 70 });
 sun.shadow.bias = -0.0006;
 scene.add(sun);
@@ -664,7 +672,7 @@ function cyl(rt, rb, h, mat, x, y, z, parent = scene, seg = 18) {
 function canvasTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   draw(c.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
 }
 function signPlane(text, sub, color, w, h, x, y, z, ry = 0) {
   const draw = (g, W, H) => {
@@ -684,7 +692,7 @@ function signPlane(text, sub, color, w, h, x, y, z, ry = 0) {
 
 // --- Texturas: mármol negro, moqueta, resina técnica y lamas de madera
 function marbleTex() {
-  const t = canvasTex(1024, 1024, (g, W, H) => {
+  const t = canvasTex(2048, 2048, (g, W, H) => { g.scale(2, 2); W = 1024; H = 1024;
     g.fillStyle = '#17171c'; g.fillRect(0, 0, W, H);
     for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { g.fillStyle = `rgba(255,255,255,${0.012 + Math.random() * 0.02})`; g.fillRect(i * 256, j * 256, 256, 256); }
     for (let v = 0; v < 22; v++) {
@@ -728,7 +736,7 @@ function slatTex(base, gap) {
   t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 function herringboneTex(c1, c2) {
-  const t = canvasTex(512, 512, (g, W, H) => {
+  const t = canvasTex(1024, 1024, (g, W, H) => { g.scale(2, 2); W = 512; H = 512;
     g.fillStyle = '#0b0806'; g.fillRect(0, 0, W, H);
     const bw = 22, bl = 88, a = new THREE.Color(c1), b = new THREE.Color(c2);
     for (let row = -2; row < 14; row++) for (let col = -2; col < 14; col++) {
@@ -946,14 +954,34 @@ const dRug = new THREE.Mesh(new THREE.RingGeometry(2.0, 2.3, 64), new THREE.Mesh
 dRug.rotation.x = -Math.PI / 2; dRug.position.set(FAN_POS.x, 0.013, FAN_POS.z); scene.add(dRug);
 
 // ===== Sala Proyectos
-const board = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.5), new THREE.MeshBasicMaterial({ color: 0xdddddd, map: canvasTex(680, 320, (g, W, H) => {
+const boardTex = canvasTex(1360, 640, () => {});
+const board = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.5), new THREE.MeshBasicMaterial({ color: 0xe8e8e8, map: boardTex }));
+// La pizarra enseña los encargos reales: por hacer, en curso y hecho
+function drawBoard() {
+  const g = boardTex.image.getContext('2d'), W = 1360, H = 640;
+  g.fillStyle = '#eef1f7'; g.fillRect(0, 0, W, H);
+  const cols = [['POR HACER', j => j.status === 'esperando' || j.status === 'elige'], ['EN CURSO', j => j.status === 'en curso' || j.status === 'enviando'], ['HECHO', j => ['enviado', 'aprobado'].includes(j.status)]];
+  cols.forEach(([c, f], i) => {
+    const x = 30 + i * 450; g.fillStyle = '#1b2440'; g.font = '700 46px "Chakra Petch", sans-serif'; g.fillText(c === 'POR HACER' ? 'TU APROBACIÓN' : c, x, 66);
+    const list = jobs.filter(f).slice(0, 4);
+    if (!list.length) { g.fillStyle = '#9aa3b8'; g.font = 'italic 30px Figtree, sans-serif'; g.fillText('—', x, 130); }
+    list.forEach((j, k) => {
+      g.fillStyle = ['#ffd166', '#9be7c4', '#a8c5ff', '#ffb3c1'][(i + k) % 4]; g.fillRect(x, 96 + k * 132, 400, 116);
+      g.fillStyle = '#1b2440'; g.font = '700 28px Figtree, sans-serif'; let t0 = String(j.topicFinal || j.topic); while (g.measureText(t0).width > 370 && t0.length > 4) t0 = t0.slice(0, -2); g.fillText(t0, x + 16, 96 + k * 132 + 44);
+      g.font = '500 24px Figtree, sans-serif'; g.fillStyle = '#3a4466'; g.fillText(`${chanName(j.channelId) || ''}${j.pedido ? ' · ' + j.pedido : ''}`, x + 16, 96 + k * 132 + 84);
+    });
+  });
+  boardTex.needsUpdate = true;
+}
+setInterval(drawBoard, 3000);
+const _boardOld = new THREE.Mesh(new THREE.PlaneGeometry(0.01, 0.01), new THREE.MeshBasicMaterial({ map: canvasTex(8, 8, (g, W, H) => {
   g.fillStyle = '#eef1f7'; g.fillRect(0, 0, W, H);
   ['POR HACER', 'EN CURSO', 'HECHO'].forEach((c, i) => {
     g.fillStyle = '#1b2440'; g.font = '700 26px "Chakra Petch", sans-serif'; g.fillText(c, 20 + i * 225, 40);
     for (let k = 0; k < 3 - i % 2; k++) { g.fillStyle = ['#ffd166', '#9be7c4', '#a8c5ff'][(i + k) % 3]; g.fillRect(20 + i * 225, 62 + k * 74, 180, 56); g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(32 + i * 225, 78 + k * 74, 110, 6); g.fillRect(32 + i * 225, 92 + k * 74, 70, 6); }
   });
 }) }));
-board.position.set(-16.1, 1.6, -7.97); scene.add(board);
+board.position.set(-16.1, 1.6, -7.97); scene.add(board); setTimeout(drawBoard, 500);
 box(3.3, 0.05, 0.1, chrome, -16.1, 0.82, -7.94, scene, false);
 frame(-8.4, 1.75, -7.97, 1.0, 1.3, ['#6f8fff', '#9be7c4']);
 const rack = new THREE.Group(); rack.position.set(-OW + 0.45, 0, -1.6); scene.add(rack);
@@ -1002,9 +1030,10 @@ function videoWall(x, ry, tex) {
   box(3.6, 1.9, 0.08, blackMetal, 0, 0, -0.04, g, false);
   g.add(new THREE.Mesh(new THREE.PlaneGeometry(3.44, 1.74), new THREE.MeshBasicMaterial({ map: tex, color: 0xe0e0e0 })));
   box(3.6, 0.03, 0.06, glow(0xb38cff, 1.1), 0, -0.98, 0, g, false);
+  return g;
 }
-videoWall(-HW + 0.12, Math.PI / 2, manualTex);
-videoWall(HW - 0.12, -Math.PI / 2, wallTex);
+const wallL = videoWall(-HW + 0.12, Math.PI / 2, manualTex);
+const wallR = videoWall(HW - 0.12, -Math.PI / 2, wallTex);
 // mesa de debate holográfica
 const debateTable = new THREE.Group(); debateTable.position.copy(TABLE_POS); scene.add(debateTable);
 cyl(0.3, 0.42, 0.06, brass, 0, 0.03, 0, debateTable, 32);
@@ -1076,7 +1105,7 @@ function makeCharacter(L, accent) {
   add(new THREE.BoxGeometry(0.07, 0.09, 0.012), m(accent), 0, 1.0, 0.2, body, false);
   add(new THREE.CylinderGeometry(0.07, 0.08, 0.12, 12), skin, 0, 1.28, 0);
   const head = new THREE.Group(); head.position.set(0, 1.57, 0); body.add(head);
-  head.scale.setScalar(0.9);
+  head.scale.setScalar(0.84);
   const skull = add(new THREE.SphereGeometry(0.235, 32, 24), skin, 0, 0, 0, head); skull.scale.set(0.96, 1.1, 1);
   const jaw = add(new THREE.SphereGeometry(0.17, 24, 16), skin, 0, -0.1, 0.04, head); jaw.scale.set(1, 0.8, 0.95);
   for (const sx of [-1, 1]) { const ear = add(new THREE.SphereGeometry(0.045, 12, 10), skin, sx * 0.225, 0, -0.01, head); ear.scale.set(0.45, 1, 0.75); }
@@ -1238,8 +1267,23 @@ function drawBubble(sp, text, color, progress = -1) {
 /* ============================================================
    4. PANTALLAS ANIMADAS DE CADA PUESTO
    ============================================================ */
-function drawScreen(g, kind, t, working, accent) {
+function drawScreen(g, kind, t, working, accent, info) {
+  g.save(); g.setTransform(2, 0, 0, 2, 0, 0); drawScreenBase(g, kind, t, working, accent); g.restore();
+  if (info) drawScreenInfo(g, t, working, accent, info);
+}
+function drawScreenInfo(g, t, working, accent, info) {
   const W = g.canvas.width, H = g.canvas.height;
+  g.fillStyle = 'rgba(8,11,20,.82)'; g.fillRect(0, H - 116, W, 116);
+  g.fillStyle = accent; g.fillRect(0, H - 116, 6, 116);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#ffffff'; g.font = '700 26px "Chakra Petch", sans-serif';
+  const cut = (t0, w) => { let x = String(t0 || ''); while (g.measureText(x).width > w && x.length > 4) x = x.slice(0, -2); return x === String(t0 || '') ? x : x + '…'; };
+  g.fillText(cut(info.title, W - 40), 20, H - 82);
+  g.fillStyle = '#c9d3ee'; g.font = '500 20px Figtree, sans-serif'; g.fillText(cut(info.sub, W - 40), 20, H - 52);
+  if (info.progress >= 0) { g.fillStyle = '#263150'; g.fillRect(20, H - 34, W - 40, 10); g.fillStyle = accent; g.fillRect(20, H - 34, (W - 40) * info.progress, 10); }
+  else if (info.extra) { g.fillStyle = '#9aa6c4'; g.font = 'italic 18px Figtree, sans-serif'; g.fillText(cut(info.extra, W - 40), 20, H - 22); }
+}
+function drawScreenBase(g, kind, t, working, accent) {
+  const W = 320, H = 180;
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   if (!working) {
     const grd = g.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#101a36'); grd.addColorStop(0.6, '#1c2148'); grd.addColorStop(1, accent); g.fillStyle = grd; g.fillRect(0, 0, W, H);
@@ -1295,7 +1339,7 @@ function buildDesk(def) {
   const ptex = new THREE.CanvasTexture(pc); ptex.colorSpace = THREE.SRGBColorSpace; ptex.anisotropy = 4;
   const pmat = new THREE.MeshBasicMaterial({ map: ptex });
   for (const side of [1, -1]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.155), pmat); pl.position.set(0.45 * side, 0.66, 0.428 * side); if (side < 0) pl.rotation.y = Math.PI; g.add(pl); }
-  const sc = document.createElement('canvas'); sc.width = 320; sc.height = 180;
+  const sc = document.createElement('canvas'); sc.width = 640; sc.height = 360;
   const screenTex = new THREE.CanvasTexture(sc); screenTex.colorSpace = THREE.SRGBColorSpace;
   const screenMat = new THREE.MeshBasicMaterial({ map: screenTex, color: 0x9aa4b8 });
   const monitor = (x, ry, w) => {
@@ -1351,7 +1395,13 @@ class Agent {
     this.redraw(); this.paintScreen(0);
   }
   redraw() { drawNameTag(this.tag, this.def.name, this.def.ai, empleadoMes.id === this.id); this.drawStatus(true); }
-  paintScreen(t) { drawScreen(this.desk.sc.getContext('2d'), this.def.screen, t, this.mode === 'work', AI[this.def.ai].color); this.desk.screenTex.needsUpdate = true; this.desk.screenMat.color.set(this.mode === 'work' ? 0xffffff : 0xc4cbe0); }
+  screenInfo() {
+    const a = this.action;
+    if (a?.type === 'work') return { title: a.task.step.label + ' · ' + (a.task.job.topicFinal || a.task.job.topic), sub: (a.task.step.verb || 'Trabajando') + ' con ' + AI[this.def.ai].name, progress: this.progress };
+    if (this.lastOut) return { title: 'Último trabajo: ' + this.lastOut.label, sub: this.lastOut.topic, progress: -1, extra: this.lastOut.text };
+    return { title: this.def.name + ' · ' + this.def.role, sub: 'Libre · esperando encargo', progress: -1 };
+  }
+  paintScreen(t) { drawScreen(this.desk.sc.getContext('2d'), this.def.screen, t, this.mode === 'work', AI[this.def.ai].color, this.screenInfo()); this.desk.screenTex.needsUpdate = true; this.desk.screenMat.color.set(this.mode === 'work' ? 0xffffff : 0xc4cbe0); }
   setStatus(text, color = '#8d9abb') { this.status = text; this.statusColor = color; this.drawStatus(true); }
   drawStatus(force) {
     const p = this.progress >= 0 ? Math.round(this.progress * 20) / 20 : -1;
@@ -2155,6 +2205,7 @@ const FORMACION = {
   rui: `Eres Rui, analista de CTR y empaquetado del estudio. Para cada vídeo cierras UNA versión definitiva de título y miniatura (D-ESTUDIO-003): promesa central, título final, texto exacto de la miniatura, prompt para Gemini y checklist de revisión. En análisis de métricas extraes solo lo visible, comparas solo con vídeos del mismo canal a edad comparable, no usas un CTR universal ni sacas conclusiones fuertes con muestras pequeñas, y nunca culpas a «penalizaciones» o al «algoritmo» sin pruebas.`,
   paco: `Eres Paco, productor del estudio y responsable de los pedidos a Pixelido (editor definitivo de todos los canales, D-ESTUDIO-006). Los guiones los escribe el estudio, no Pixelido. Por cada vídeo entregas exactamente: TEMA (una frase: de qué va y qué promete) · GUION (solo la locución limpia) · DESCRIPCIÓN DE EDICIÓN (estilo del canal + tabla de bloques con lo que se ve) · OBSERVACIONES (voz asignada al canal, cambios de tono, límites: sin fotos reales de detenidos o víctimas, sin detalles operativos, logos solo con licencia, pantalla final) · MINIATURA (texto exacto + descripción visual, la misma que el prompt de Gemini). Pixelido trabaja por fases con aprobación de Christian: guion, edición y miniatura.`,
   sam: `Eres Sam, analista de retención, crecimiento y monetización del estudio. Analizas por separado: distribución y fuentes de tráfico, atracción del título y la miniatura, cumplimiento de la promesa y retención, encaje del tema y continuidad hacia otros vídeos. Devuelves: qué sabemos, qué no podemos concluir, hipótesis principal, acción recomendada, qué observar después y qué dato cambiaría la recomendación. Tienes presente el PLAN DE MONETIZACIÓN del estudio.`,
+  iris: `Eres Iris, verificadora de datos (fact-checker) del estudio. Revisas el guion antes de que vaya a Pixelido: cada fecha, cifra, nombre, cita y secuencia de hechos. Buscas en internet fuentes primarias y fiables (informes oficiales de investigación, sentencias, hemerotecas de referencia, publicaciones académicas) y contrastas con al menos dos cuando puedas. Eres rigurosa e imparcial: no das nada por bueno sin fuente, y propones la corrección exacta de cada error.`,
   max: `Eres Max, product manager. Conviertes ideas en requisitos claros, pequeños y comprobables. Priorizas lo que da valor antes, piensas primero en móvil y defines criterios de aceptación que se puedan probar uno a uno. La Ruleta Caliente es una web del jefe.`,
   leo: `Eres Leo, desarrollador web sénior (HTML, CSS y JavaScript moderno, sin dependencias innecesarias). Escribes código claro, comentado en español, accesible, seguro (nada de inyectar HTML sin escapar) y que funciona en móvil. Entregas código completo que se pueda copiar y probar, nunca fragmentos con «aquí va el resto».`,
   vera: `Eres Vera, revisora de código sénior. Revisas por orden: fallos que rompen la función, seguridad (XSS, datos del usuario), accesibilidad, rendimiento y móvil, y por último estilo. Eres exigente pero justa: apruebas cuando no queda nada grave y explicas cada cambio con la línea concreta y cómo arreglarlo.`,
@@ -2255,6 +2306,22 @@ ${(d.checklist || []).map(x => '· ' + x).join('\n')}
 DESCARTADAS
 ${(d.descartadas || []).map(x => '· ' + x).join('\n')}`; },
   },
+  verifica: {
+    buscar: true,
+    prompt: j => `${FORMACION.iris}
+${webTxt()}
+${NORMAS_CANAL}
+${canalTxt()}
+Vídeo: «${j.topicFinal || j.topic}».
+Guion de Nora:
+${j.step('guion').output?.text || ''}
+Entrega en texto plano, sin markdown:
+VEREDICTO: «LISTO PARA LOCUTAR» o «NECESITA CORRECCIONES».
+DATOS COMPROBADOS: lista de afirmaciones clave confirmadas, cada una con su fuente (título y enlace).
+CORRECCIONES: cada dato erróneo o dudoso, con el texto original, el texto corregido exacto y la fuente.
+SIN CONFIRMAR: lo que no hayas podido verificar y que hay que quitar o suavizar antes de locutar.
+SENSIBILIDAD: algo que pueda afectar a víctimas, familias o a la monetización y cómo suavizarlo.`,
+  },
   brief: {
     prompt: j => `${FORMACION.paco}
 ${NORMAS_CANAL}
@@ -2263,6 +2330,8 @@ ${estudioCtx('pixelido')}
 Prepara el pedido para Pixelido del vídeo «${j.topicFinal || j.topic}» (encargo #${j.id}, ${today()}).
 Acuerdo de la mesa:
 ${j.step('estudio').output?.text || ''}
+Informe de verificación de Iris (aplica sus correcciones en DATOS A VERIFICAR):
+${(j.step('verifica')?.output?.text || '').slice(0, 5000)}
 Indicaciones visuales del guion de Nora:
 ${(() => { const g = j.step('guion').output?.text || ''; const i = g.search(/INDICACIONES VISUALES/i); return i >= 0 ? g.slice(i, i + 9000) : g.slice(0, 6000); })()}
 Versión definitiva de título y miniatura de Rui:
@@ -2331,7 +2400,7 @@ function videoVerdict(v) {
   return { bueno, ratio, txt: `Comparado con ${ref}: CTR ${m.ctr}% frente a ${base.ctr.toFixed(1)}% · 30 s ${m.r30}% frente a ${base.r30.toFixed(0)}% · visto medio ${m.pct}% frente a ${base.pct.toFixed(0)}% → ${bueno ? 'BUEN RESULTADO (claramente mejor)' : 'resultado normal'}` };
 }
 // Qué aporta cada puesto a un vídeo (para repartir el mérito)
-const APORTA = { lia: 'elección del tema y del ángulo (vidIQ, tendencias)', nora: 'guion: gancho, ritmo y retención', gema: 'concepto de la miniatura', tito: 'título, descripción y SEO', rui: 'combinación final de título y miniatura', paco: 'pedido a Pixelido: montaje y ritmo visual', sam: 'retención y rentabilidad en la mesa' };
+const APORTA = { iris: 'verificación de datos y fuentes', lia: 'elección del tema y del ángulo (vidIQ, tendencias)', nora: 'guion: gancho, ritmo y retención', gema: 'concepto de la miniatura', tito: 'título, descripción y SEO', rui: 'combinación final de título y miniatura', paco: 'pedido a Pixelido: montaje y ritmo visual', sam: 'retención y rentabilidad en la mesa' };
 // Análisis por reglas (cuando no hay IA): con tus números reales y criterios orientativos
 function ruleCtr(v) {
   const m = v.metrics, st = channelStats(), out = [];
@@ -2624,7 +2693,7 @@ async function chooseFolder() {
 function packageText(job) {
   const out = (id, t) => job.step(id)?.output?.text ? `\n\n══════ ${t} ══════\n${job.step(id).output.text}` : '';
   return `PAQUETE PARA PIXELIDO · ${job.topicFinal || job.topic}\nPreparado por La oficina de Jager el ${today()}\nTítulo elegido: ${job.winner?.titulo || '-'}\nMiniatura elegida: ${job.winner?.miniatura || '-'}`
-    + out('brief', 'ENCARGO PARA PIXELIDO') + out('guion', 'GUION') + out('vidiq', 'DATOS DE vidIQ') + (job.concepts?.length ? `\n\n══════ MINIATURAS (A, B, C) ══════\n${job.concepts.map((c, i) => `${'ABC'[i]} · ${c.texto || '(sin texto)'} · ${c.escena} · ${c.emocion} · colores: ${c.colores || '-'}${c.prompt_imagen ? `\n   Prompt para generar la imagen: ${c.prompt_imagen}` : ''}`).join('\n')}` : '') + out('titulos', 'TÍTULOS Y SEO') + out('pretest', 'TEST DE CTR') + out('estudio', 'ACUERDO DE LA MESA DE ANÁLISIS');
+    + out('brief', 'ENCARGO PARA PIXELIDO') + out('guion', 'GUION') + out('verifica', 'VERIFICACIÓN DE DATOS (Iris)') + out('vidiq', 'DATOS DE vidIQ') + (job.concepts?.length ? `\n\n══════ MINIATURAS (A, B, C) ══════\n${job.concepts.map((c, i) => `${'ABC'[i]} · ${c.texto || '(sin texto)'} · ${c.escena} · ${c.emocion} · colores: ${c.colores || '-'}${c.prompt_imagen ? `\n   Prompt para generar la imagen: ${c.prompt_imagen}` : ''}`).join('\n')}` : '') + out('titulos', 'TÍTULOS Y SEO') + out('pretest', 'TEST DE CTR') + out('estudio', 'ACUERDO DE LA MESA DE ANÁLISIS');
 }
 // Pedido completo para Pixelido: todos los vídeos del lote en un solo documento
 async function savePedidoToDrive(code, lote) {
@@ -2680,6 +2749,7 @@ function applyServerRec(rec) {
     setOut('estudio', { kind: 'debate', text, transcript, votos: r.votos, via: 'real', mode: 'estudio' });
   }
   if (out.guion && !A.guion) setOut('guion', { kind: 'text', text: out.guion, via: 'claude' });
+  if (out.verifica && !A.verifica) setOut('verifica', { kind: 'text', text: out.verifica, via: 'claude' });
   if (out.miniaturas && !A.miniaturas) { SPECS.miniaturas.format(out.miniaturas, job); setOut('miniaturas', thumbsOutput(job, 'gemini')); }
   if (out.titulos && !A.titulos) setOut('titulos', { kind: 'text', text: SPECS.titulos.format(out.titulos, job), via: 'chatgpt' });
   if (out.pretest && !A.pretest) setOut('pretest', { kind: 'text', text: SPECS.pretest.format(out.pretest, job), via: 'chatgpt' });
@@ -3128,6 +3198,7 @@ function finishStep(agent, task) {
     log(`<b>Vera</b> pide cambios y devuelve el código a <b>Leo</b>`);
   } else {
     if (!step.preset) step.output = buildOutput(step, job, agent);
+    agent.lastOut = { label: step.label, topic: job.topicFinal || job.topic, text: String(step.output?.text || '').replace(/\s+/g, ' ').slice(0, 140), jobId: job.id, stepId: step.id }; agent.paintScreen(0);
     log(`<b>${agent.def.name}</b> termina «${step.label}»${step.output.via === 'claude' ? ' (con Claude)' : ''}`);
     job.steps.filter(s => s.deps.includes(step.id)).forEach(s => targets.push({
       worker: s.worker, what: step.label.toLowerCase(),
@@ -3603,7 +3674,7 @@ function fitGeneral(view) {
   return view;
 }
 function setView(v) {
-  currentView = v; userMovedCam = false;
+  currentView = v; userMovedCam = false; if (typeof focusTarget !== 'undefined' && focusTarget) { focusTarget = null; renderFocus(); }
   $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v));
   let view = (isTall() && VIEWS_TALL[v]) || VIEWS[v];
   if (v === 'general') view = fitGeneral(view);
@@ -3633,12 +3704,58 @@ function setBig(on) {
 }
 $('#bigBtn').onclick = () => setBig(!stage.classList.contains('big'));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('#modal').hidden = true; if (stage.classList.contains('big')) setBig(false); } });
+// Pulsar un escritorio, una pizarra o una pantalla acerca la cámara con suavidad
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let focusTarget = null;
+function zoomTargets() {
+  const list = [];
+  for (const id in agents) { const a = agents[id]; list.push([a.desk.g, { kind: 'worker', id }], [a.c.g, { kind: 'worker', id }]); }
+  list.push([board, { kind: 'board' }], [wallL, { kind: 'wall', side: -1 }], [wallR, { kind: 'wall', side: 1 }], [debateTable, { kind: 'table' }], [fanGroup, { kind: 'fan' }], [bust, { kind: 'fan' }], [empFrame, { kind: 'emp' }]);
+  return list;
+}
+function pickAt(cx, cy) {
+  const r = renderer.domElement.getBoundingClientRect(); ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  let best = null;
+  for (const [obj, info] of zoomTargets()) { const h = ray.intersectObject(obj, true)[0]; if (h && (!best || h.distance < best.d)) best = { d: h.distance, info }; }
+  return best?.info || null;
+}
+function focusTo(info) {
+  focusTarget = info; $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', false));
+  if (info.kind === 'worker') {
+    const a = agents[info.id], g = a.desk.g; g.updateMatrixWorld(true);
+    camAnim = { pos: g.localToWorld(V(0.95, 1.72, 1.15)), target: g.localToWorld(V(-0.05, 1.12, -0.22)) };
+  } else if (info.kind === 'board') camAnim = { pos: V(-15.5, 2.15, -4.1), target: V(-16.1, 1.55, -7.97) };
+  else if (info.kind === 'wall') camAnim = { pos: V(info.side * 2.6, 1.95, 4.8), target: V(info.side * 5.88, 1.75, 4.8) };
+  else if (info.kind === 'table') camAnim = { pos: V(0, 3.4, 10.4), target: V(0, 1.2, 6.8) };
+  else if (info.kind === 'emp') camAnim = { pos: V(-5.15, 2.1, -5.3), target: V(-5.15, 2.15, -7.95) };
+  else { focusTarget = null; return setView('dir'); }
+  renderFocus();
+}
+function renderFocus() {
+  const f = focusTarget, card = $('#focusCard');
+  if (!f) { card.hidden = true; return; }
+  card.hidden = false;
+  if (f.kind === 'worker') {
+    const a = agents[f.id], info = a.screenInfo();
+    $('#fcTitle').textContent = `${a.def.name} · ${a.def.role}`;
+    $('#fcBody').innerHTML = `<small>Trabaja con ${esc(AI[a.def.ai].name)}${empleadoMes.id === a.id ? ' · ★ empleado del mes' : ''}</small><div>${esc(a.status)}</div>${info.progress >= 0 ? `<div class="fc-bar"><i style="width:${Math.round(info.progress * 100)}%;background:${AI[a.def.ai].color}"></i></div><small>${esc(info.title)}</small>` : a.lastOut ? `<small>Último trabajo: ${esc(a.lastOut.label)} · ${esc(a.lastOut.topic)}</small>` : ''}`;
+    $('#fcActs').innerHTML = a.lastOut && jobs.some(j => j.id === a.lastOut.jobId) ? `<button type="button" class="btn small primary" data-step="${a.lastOut.stepId}" data-job="${a.lastOut.jobId}">Ver su último trabajo</button>` : '';
+  } else {
+    const t = { board: ['Pizarra de encargos', 'Los encargos reales: los que esperan tu aprobación, los que están en marcha y los terminados.'], wall: [f.side < 0 ? 'Manual del canal' : 'Métricas del canal', f.side < 0 ? 'Las lecciones que el equipo aplica en cada vídeo.' : 'Cómo van los vídeos del canal activo.'], table: ['Mesa de debate', D ? 'Debate en curso: ' + (D.job.topicFinal || D.job.topic) : 'Aquí Lía, Rui y Sam debaten el enfoque de cada vídeo.'], emp: ['Empleado del mes', empleadoMes.id ? `${NAME(empleadoMes.id)} con ${empleadoMes.puntos} puntos.` : 'Todavía sin ganador este mes.'] }[f.kind];
+    $('#fcTitle').textContent = t[0]; $('#fcBody').innerHTML = `<div>${esc(t[1])}</div>`; $('#fcActs').innerHTML = '';
+  }
+}
+setInterval(() => { if (focusTarget) renderFocus(); }, 700);
+$('#fcBack').onclick = () => { focusTarget = null; renderFocus(); setView(currentView || 'general'); };
 let tapStart = null;
 renderer.domElement.addEventListener('pointerdown', e => { tapStart = { x: e.clientX, y: e.clientY, t: performance.now() }; });
 renderer.domElement.addEventListener('pointerup', e => {
-  if (!tapStart || stage.classList.contains('big') || !isNarrow()) return;
-  if (Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 10 && performance.now() - tapStart.t < 350) setBig(true);
-  tapStart = null;
+  if (!tapStart) return;
+  const tap = Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 10 && performance.now() - tapStart.t < 350; tapStart = null;
+  if (!tap) return;
+  if (isNarrow() && !stage.classList.contains('big')) return setBig(true);
+  const hit = pickAt(e.clientX, e.clientY); if (hit) focusTo(hit);
 });
 
 /* ============================================================
@@ -3797,8 +3914,9 @@ function loop() {
   ledT -= rdt; if (ledT < 0) { ledT = 0.15; leds.forEach(l => { if (Math.random() < 0.3) l.material.emissiveIntensity = Math.random() < 0.5 ? 0.2 : 2.4; }); }
 
   if (camAnim) {
-    camera.position.lerp(camAnim.pos, Math.min(1, rdt * 3)); controls.target.lerp(camAnim.target, Math.min(1, rdt * 3));
-    if (camera.position.distanceTo(camAnim.pos) < 0.05) camAnim = null;
+    const k = 1 - Math.exp(-rdt * 3.4);
+    camera.position.lerp(camAnim.pos, k); controls.target.lerp(camAnim.target, k);
+    if (camera.position.distanceTo(camAnim.pos) < 0.02 && controls.target.distanceTo(camAnim.target) < 0.02) camAnim = null;
   }
   controls.update();
   if (hq && composer) composer.render(); else renderer.render(scene, camera);
