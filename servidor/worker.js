@@ -52,6 +52,16 @@ export default {
       if (!fn) return json({ error: 'Ruta desconocida' }, 404);
       try { return json(await fn()); } catch (e) { return json({ error: String(e.message || e) }, 502); }
     }
+    // Vigilancia de las webs de los proyectos (solo dominios propios)
+    if (path === '/web/estado') {
+      const b = await req.json().catch(() => ({}));
+      let u; try { u = new URL(b.url); } catch (e) { return json({ error: 'Dirección no válida' }, 400); }
+      const permitidos = String(env.WEBS || 'laruletacaliente.com').split(',').map(x => x.trim()).filter(Boolean);
+      if (!permitidos.some(d => u.hostname === d || u.hostname.endsWith('.' + d))) return json({ error: 'Web no permitida' }, 403);
+      const t0 = Date.now();
+      try { const r = await fetch(u.toString(), { method: 'GET', redirect: 'follow', headers: { 'User-Agent': 'OficinaJager/1.0 (vigilancia de disponibilidad)' } }); return json({ ok: r.ok, status: r.status, ms: Date.now() - t0 }); }
+      catch (e) { return json({ ok: false, error: String(e.message || e), ms: Date.now() - t0 }); }
+    }
     // vidIQ
     if (path === '/vidiq') { try { return json(await vidiq(env, await req.json().catch(() => ({})))); } catch (e) { return json({ error: String(e.message || e) }, 502); } }
     // YouTube Studio

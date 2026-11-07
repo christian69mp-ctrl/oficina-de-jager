@@ -240,6 +240,7 @@ button.step { font: inherit; font-size: 11.5px; }
 .file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .ped-row select { max-width: 42%; } .ped-row input { flex: 1; min-width: 0; }
 .meritos { display: grid; gap: 6px; } .merit-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; } .merit-row small { color: var(--muted); } .merit-row.top { border-color: #d8b46a; background: color-mix(in srgb, #d8b46a 12%, transparent); } .merit-pts { font-family: var(--f-display); font-size: 16px; color: #d8b46a; }
+.ruleta-card { border-color: color-mix(in srgb, #ff4d6d 45%, var(--line)); }
 .yt-list { display: grid; gap: 6px; margin-top: 8px; } .yt-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; } .yt-row small { display: block; color: var(--muted); }
 #ytInfo { color: var(--fg); }
 .estudio-row { margin-top: 8px; display: grid; gap: 6px; }
@@ -337,6 +338,12 @@ button.step { font: inherit; font-size: 11.5px; }
         <button type="button" class="chip" data-order="Proyecto: nueva función para la Ruleta Caliente">Proyecto · Ruleta Caliente</button>
       </div>
     </form>
+
+    <section class="conn ruleta-card" data-tabs="trabajo" aria-label="La Ruleta Caliente">
+      <div class="conn-head"><b>La Ruleta Caliente</b><a class="btn small" href="https://laruletacaliente.com" target="_blank" rel="noopener">Abrir la web</a></div>
+      <div class="conn-state" id="ruletaState">Estado sin comprobar</div>
+      <div class="order-row"><button type="button" class="btn small primary" id="ruletaEncargo">Encargo para la Ruleta</button><button type="button" class="btn small" id="ruletaVer">Ver en la oficina</button></div>
+    </section>
 
     <section class="chan-bar" aria-label="Canal de YouTube" data-tabs="trabajo canal">
       <label for="chanSel">Canal de YouTube</label>
@@ -983,7 +990,42 @@ const _boardOld = new THREE.Mesh(new THREE.PlaneGeometry(0.01, 0.01), new THREE.
 }) }));
 board.position.set(-16.1, 1.6, -7.97); scene.add(board); setTimeout(drawBoard, 500);
 box(3.3, 0.05, 0.1, chrome, -16.1, 0.82, -7.94, scene, false);
-frame(-8.4, 1.75, -7.97, 1.0, 1.3, ['#6f8fff', '#9be7c4']);
+const RULETA_URL = 'https://laruletacaliente.com';
+const ruleta = { estado: null, ms: null, at: null };
+const ruletaTex = canvasTex(1024, 600, () => {});
+const ruletaScreen = new THREE.Group(); ruletaScreen.position.set(-8.3, 1.62, -7.96); scene.add(ruletaScreen);
+box(1.72, 1.04, 0.05, blackMetal, 0, 0, -0.02, ruletaScreen, false);
+{ const rs = new THREE.Mesh(new THREE.PlaneGeometry(1.62, 0.95), new THREE.MeshBasicMaterial({ map: ruletaTex, color: 0xe6e6e6 })); rs.position.z = 0.015; ruletaScreen.add(rs); }
+box(1.72, 0.025, 0.06, glow(0xff4d6d, 1.2), 0, -0.53, 0, ruletaScreen, false);
+function drawRuleta() {
+  const g = ruletaTex.image.getContext('2d'), W = 1024, H = 600;
+  const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#1a0b14'); bg.addColorStop(1, '#3a0d22'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  // ruleta dibujada
+  const cx = 820, cy = 300, r = 200; for (let i = 0; i < 24; i++) { g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, r, i / 24 * Math.PI * 2 + performance.now() / 4000, (i + 1) / 24 * Math.PI * 2 + performance.now() / 4000); g.fillStyle = i % 2 ? '#c21f45' : '#14080d'; g.fill(); }
+  g.beginPath(); g.arc(cx, cy, 60, 0, 7); g.fillStyle = '#d8b46a'; g.fill();
+  g.fillStyle = '#ffffff'; g.font = '700 64px "Chakra Petch", sans-serif'; g.textAlign = 'left'; g.fillText('LA RULETA', 50, 120); g.fillStyle = '#ff4d6d'; g.fillText('CALIENTE', 50, 190);
+  g.fillStyle = '#c9b3bf'; g.font = '500 32px Figtree, sans-serif'; g.fillText('laruletacaliente.com', 50, 245);
+  const ok = ruleta.estado === 'ok', mal = ruleta.estado === 'mal';
+  g.fillStyle = ok ? '#4ade80' : mal ? '#f87171' : '#9aa6c4'; g.beginPath(); g.arc(66, 330, 14, 0, 7); g.fill();
+  g.font = '700 38px Figtree, sans-serif'; g.fillText(ok ? `En línea · ${ruleta.ms} ms` : mal ? 'Sin respuesta' : 'Estado sin comprobar', 92, 344);
+  g.fillStyle = '#c9b3bf'; g.font = '500 26px Figtree, sans-serif';
+  if (ruleta.at) g.fillText('Comprobado a las ' + new Date(ruleta.at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), 50, 394);
+  const enCurso = jobs.filter(j => j.type === 'proyecto' && j.status === 'en curso').length, listos = jobs.filter(j => j.type === 'proyecto' && j.status === 'esperando').length;
+  g.fillText(`Encargos en curso: ${enCurso} · Por aprobar: ${listos}`, 50, 444);
+  ruletaTex.needsUpdate = true;
+}
+async function checkRuleta() {
+  if (!(serverReady() && srv.caps.web)) { drawRuleta(); return renderRuletaCard(); }
+  try { const d = await srvFetch('/web/estado', { url: RULETA_URL }); ruleta.estado = d.ok ? 'ok' : 'mal'; ruleta.ms = d.ms; }
+  catch (e) { ruleta.estado = 'mal'; }
+  ruleta.at = Date.now(); drawRuleta(); renderRuletaCard();
+}
+function renderRuletaCard() {
+  const el = $('#ruletaState'); if (!el) return;
+  el.textContent = ruleta.estado === 'ok' ? `En línea · ${ruleta.ms} ms` : ruleta.estado === 'mal' ? 'La web no responde ahora mismo' : (serverReady() ? 'Comprobando…' : 'Conecta el servidor para vigilar la web');
+  el.className = 'conn-state' + (ruleta.estado === 'ok' ? ' ok' : ruleta.estado === 'mal' ? ' err' : '');
+}
+setTimeout(checkRuleta, 3000); setInterval(checkRuleta, 5 * 60000); setInterval(drawRuleta, 120);
 const rack = new THREE.Group(); rack.position.set(-OW + 0.45, 0, -1.6); scene.add(rack);
 box(0.7, 2.1, 0.8, blackMetal, 0, 1.05, 0, rack);
 const leds = [];
@@ -2977,7 +3019,7 @@ async function testServer() {
   if (srv.ok && !srv.caps.datos) srv.msg += srv.caps.datos === undefined ? ' · Sin sincronizar: falta actualizar worker.js en el servidor' : ' · Sin sincronizar: falta el almacén DATOS en wrangler.toml';
   renderConn();
   if (srv.ok && srv.caps.datos) { sync.ok = null; syncPull(); }
-  ytEstadoLoad(); pedidoPoll();
+  ytEstadoLoad(); pedidoPoll(); checkRuleta();
 }
 
 function renderConn() {
@@ -3065,6 +3107,8 @@ try { const t0 = localStorage.getItem('oficina-pestana'); if (t0) setPanelTab(t0
 // Aviso en «Trabajo» con los vídeos que esperan tu aprobación
 setInterval(() => { const n = jobs.filter(j => ['esperando', 'elige'].includes(j.status)).length; const b = $('#badgeTrabajo'); b.hidden = !n; b.textContent = n; }, 1000);
 $('#estudioVer').onclick = showEstudio;
+$('#ruletaEncargo').onclick = () => { const t = $('#orderText'); t.value = 'Proyecto Ruleta Caliente: '; t.focus(); t.setSelectionRange(t.value.length, t.value.length); };
+$('#ruletaVer').onclick = () => { if (isNarrow() && !stage.classList.contains('big')) setBig(true); focusTo({ kind: 'ruleta' }); };
 $('#pedidoBtn').onclick = openPedido;
 $('#ytTest').onclick = ytEstadoLoad;
 $('#ytImport').onclick = ytImport;
@@ -3710,7 +3754,7 @@ let focusTarget = null;
 function zoomTargets() {
   const list = [];
   for (const id in agents) { const a = agents[id]; list.push([a.desk.g, { kind: 'worker', id }], [a.c.g, { kind: 'worker', id }]); }
-  list.push([board, { kind: 'board' }], [wallL, { kind: 'wall', side: -1 }], [wallR, { kind: 'wall', side: 1 }], [debateTable, { kind: 'table' }], [fanGroup, { kind: 'fan' }], [bust, { kind: 'fan' }], [empFrame, { kind: 'emp' }]);
+  list.push([board, { kind: 'board' }], [wallL, { kind: 'wall', side: -1 }], [wallR, { kind: 'wall', side: 1 }], [debateTable, { kind: 'table' }], [fanGroup, { kind: 'fan' }], [bust, { kind: 'fan' }], [empFrame, { kind: 'emp' }], [ruletaScreen, { kind: 'ruleta' }]);
   return list;
 }
 function pickAt(cx, cy) {
@@ -3728,6 +3772,7 @@ function focusTo(info) {
   } else if (info.kind === 'board') camAnim = { pos: V(-15.5, 2.15, -4.1), target: V(-16.1, 1.55, -7.97) };
   else if (info.kind === 'wall') camAnim = { pos: V(info.side * 2.6, 1.95, 4.8), target: V(info.side * 5.88, 1.75, 4.8) };
   else if (info.kind === 'table') camAnim = { pos: V(0, 3.4, 10.4), target: V(0, 1.2, 6.8) };
+  else if (info.kind === 'ruleta') camAnim = { pos: V(-8.6, 1.85, -5.4), target: V(-8.3, 1.62, -7.96) };
   else if (info.kind === 'emp') camAnim = { pos: V(-5.15, 2.1, -5.3), target: V(-5.15, 2.15, -7.95) };
   else { focusTarget = null; return setView('dir'); }
   renderFocus();
@@ -3742,8 +3787,8 @@ function renderFocus() {
     $('#fcBody').innerHTML = `<small>Trabaja con ${esc(AI[a.def.ai].name)}${empleadoMes.id === a.id ? ' · ★ empleado del mes' : ''}</small><div>${esc(a.status)}</div>${info.progress >= 0 ? `<div class="fc-bar"><i style="width:${Math.round(info.progress * 100)}%;background:${AI[a.def.ai].color}"></i></div><small>${esc(info.title)}</small>` : a.lastOut ? `<small>Último trabajo: ${esc(a.lastOut.label)} · ${esc(a.lastOut.topic)}</small>` : ''}`;
     $('#fcActs').innerHTML = a.lastOut && jobs.some(j => j.id === a.lastOut.jobId) ? `<button type="button" class="btn small primary" data-step="${a.lastOut.stepId}" data-job="${a.lastOut.jobId}">Ver su último trabajo</button>` : '';
   } else {
-    const t = { board: ['Pizarra de encargos', 'Los encargos reales: los que esperan tu aprobación, los que están en marcha y los terminados.'], wall: [f.side < 0 ? 'Manual del canal' : 'Métricas del canal', f.side < 0 ? 'Las lecciones que el equipo aplica en cada vídeo.' : 'Cómo van los vídeos del canal activo.'], table: ['Mesa de debate', D ? 'Debate en curso: ' + (D.job.topicFinal || D.job.topic) : 'Aquí Lía, Rui y Sam debaten el enfoque de cada vídeo.'], emp: ['Empleado del mes', empleadoMes.id ? `${NAME(empleadoMes.id)} con ${empleadoMes.puntos} puntos.` : 'Todavía sin ganador este mes.'] }[f.kind];
-    $('#fcTitle').textContent = t[0]; $('#fcBody').innerHTML = `<div>${esc(t[1])}</div>`; $('#fcActs').innerHTML = '';
+    const t = { board: ['Pizarra de encargos', 'Los encargos reales: los que esperan tu aprobación, los que están en marcha y los terminados.'], wall: [f.side < 0 ? 'Manual del canal' : 'Métricas del canal', f.side < 0 ? 'Las lecciones que el equipo aplica en cada vídeo.' : 'Cómo van los vídeos del canal activo.'], table: ['Mesa de debate', D ? 'Debate en curso: ' + (D.job.topicFinal || D.job.topic) : 'Aquí Lía, Rui y Sam debaten el enfoque de cada vídeo.'], emp: ['Empleado del mes', empleadoMes.id ? `${NAME(empleadoMes.id)} con ${empleadoMes.puntos} puntos.` : 'Todavía sin ganador este mes.'], ruleta: ['La Ruleta Caliente', (ruleta.estado === 'ok' ? `La web está en línea (${ruleta.ms} ms).` : ruleta.estado === 'mal' ? 'La web no responde ahora mismo.' : 'Estado sin comprobar.') + ' Max, Leo y Vera se encargan de sus mejoras.'] }[f.kind];
+    $('#fcTitle').textContent = t[0]; $('#fcBody').innerHTML = `<div>${esc(t[1])}</div>`; $('#fcActs').innerHTML = f.kind === 'ruleta' ? `<a class="btn small primary" href="${RULETA_URL}" target="_blank" rel="noopener">Abrir la web</a>` : '';
   }
 }
 setInterval(() => { if (focusTarget) renderFocus(); }, 700);
