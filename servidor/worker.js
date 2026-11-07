@@ -18,7 +18,7 @@ export default {
     if (env.OFICINA_TOKEN && req.headers.get('X-Oficina-Token') !== env.OFICINA_TOKEN) return json({ error: 'Clave de la oficina incorrecta' }, 401);
 
     const path = new URL(req.url).pathname;
-    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL, youtube: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), vidiq: !!env.VIDIQ_API_KEY });
+    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL, youtube: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), vidiq: !!env.VIDIQ_API_KEY, web: !!env.ANTHROPIC_API_KEY });
     // Datos compartidos entre el móvil y el ordenador (canales, vídeos, métricas y manual)
     if (path === '/datos') {
       if (!env.DATOS) return json({ error: 'Falta el almacén DATOS en el servidor (ver servidor/README.md)' }, 400);
@@ -59,7 +59,7 @@ export default {
 
     try {
       if (path === '/texto') {
-        if (body.ia === 'claude') return json({ texto: await claude(env, body.prompt, !!body.rapido) });
+        if (body.ia === 'claude') return json({ texto: await claude(env, body.prompt, !!body.rapido, !!body.buscar) });
         if (body.ia === 'gemini') return json({ texto: await gemini(env, body.prompt) });
         if (body.ia === 'chatgpt') return json({ texto: await chatgpt(env, body.prompt) });
         return json({ error: 'IA desconocida: usa claude, gemini o chatgpt' }, 400);
@@ -75,22 +75,37 @@ export default {
 
 // Claude piensa lo que dice Nyx y hace el trabajo de los trabajadores de Claude.
 // rapido = respuestas cortas de Nyx: menos esfuerzo para que conteste antes.
-async function claude(env, prompt, rapido) {
+// buscar = Claude puede investigar en internet (búsqueda web de Anthropic) antes de responder.
+async function claude(env, prompt, rapido, buscar) {
   if (!env.ANTHROPIC_API_KEY) throw new Error('Falta la clave ANTHROPIC_API_KEY en el servidor');
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2026-10-21' },
-    body: JSON.stringify({
-      model: env.CLAUDE_MODEL || 'claude-opus-5-5',
-      max_tokens: rapido ? 2000 : 32000,
-      ...(rapido ? { output_config: { effort: 'low' } } : {}),
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-  const d = await r.json();
-  if (!r.ok) throw new Error('Claude: ' + (d.error?.message || r.status));
-  if (d.stop_reason === 'refusal') throw new Error('Claude ha preferido no responder a eso');
-  return (d.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+  const messages = [{ role: 'user', content: prompt }];
+  const fuentes = new Map();
+  for (let vuelta = 0; vuelta < 6; vuelta++) {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2026-10-21' },
+      body: JSON.stringify({
+        model: env.CLAUDE_MODEL || 'claude-opus-5-5',
+        max_tokens: rapido ? 2000 : 32000,
+        ...(rapido ? { output_config: { effort: 'low' } } : {}),
+        ...(buscar ? { tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: +(env.MAX_BUSQUEDAS || 12) }] } : {}),
+        messages,
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error('Claude: ' + (d.error?.message || r.status));
+    if (d.stop_reason === 'refusal') throw new Error('Claude ha preferido no responder a eso');
+    for (const b of d.content || []) {
+      if (b.type === 'web_search_tool_result' && Array.isArray(b.content)) for (const x of b.content) if (x.url) fuentes.set(x.url, x.title || x.url);
+      for (const c of b.citations || []) if (c.url) fuentes.set(c.url, c.title || c.url);
+    }
+    // La búsqueda se ha pausado a mitad: se reanuda con lo que ya lleva
+    if (d.stop_reason === 'pause_turn') { messages.push({ role: 'assistant', content: d.content }); continue; }
+    const texto = (d.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    if (buscar && fuentes.size && !/FUENTES CONSULTADAS EN INTERNET/.test(texto)) return texto + '\n\nFUENTES CONSULTADAS EN INTERNET\n' + [...fuentes].slice(0, 40).map(([u, ti]) => `- ${ti}: ${u}`).join('\n');
+    return texto;
+  }
+  throw new Error('Claude no terminó la investigación');
 }
 
 async function gemini(env, prompt) {

@@ -1917,7 +1917,7 @@ function parseJsonText(t) {
 }
 async function askClaude(prompt, opts = {}) {
   const s = await samplePromise;
-  if (!s && serverReady() && srv.caps.claude) { const txt = await askServer('claude', prompt, opts.tier); return opts.json ? parseJsonText(txt) : txt; }
+  if (!s && serverReady() && srv.caps.claude) { const txt = await askServer('claude', prompt, opts.tier, opts.buscar); return opts.json ? parseJsonText(txt) : txt; }
   if (!s || brainState === 'off') return null;
   try { return opts.json ? await s.json(prompt, { modelTier: opts.tier || 'default' }) : (await s(prompt, { modelTier: opts.tier || 'default' })).text; }
   catch (e) { if (['not_granted', 'capability_disabled', 'capability_removed', 'unavailable'].includes(e?.code)) { brainState = 'off'; updateBadge(); } return null; }
@@ -2015,6 +2015,8 @@ const NORMAS_CANAL = `Normas del estudio de Jager (resumen de CLAUDE.md del repo
 - Solo vídeos largos en todos los canales: NO se hacen Shorts (D-ESTUDIO-005).
 - Temas sensibles con respeto a víctimas y familias, sin detalles gráficos y con lenguaje apto para anunciantes.
 - No contradigas una decisión registrada en DECISIONES sin explicar qué información nueva lo justifica.`;
+// Si el servidor tiene búsqueda web, se investiga antes de escribir
+const webTxt = () => (serverReady() && srv.caps.web) ? `INVESTIGACIÓN EN INTERNET (tienes la herramienta de búsqueda web): antes de escribir, investiga el caso con fuentes fiables (informes oficiales de investigación, sentencias, archivos de prensa de referencia, libros y artículos académicos). Contrasta fechas, cifras, nombres y la secuencia de hechos con al menos dos fuentes cuando puedas. Usa [HECHO] con la fuente para lo comprobado y marca [VERIFICAR] solo lo que no hayas podido confirmar. En FUENTES pon el título y el enlace de cada fuente que hayas usado.` : '';
 const canalTxt = () => `Canal: ${store.ch.name}\nResumen del canal: ${store.nicho}`;
 const FORMACION = {
   lia: `Eres Lía, estratega de contenidos y tendencias de YouTube del estudio. Sigues el protocolo de selección de temas: evalúas cada candidato con los criterios del canal (encaje con la audiencia, promesa concreta, curiosidad y conflicto, diferenciación frente a lo publicado, fuentes disponibles, viabilidad visual, esfuerzo de producción, relación con otros vídeos y riesgo de repetición). Pocas opciones bien razonadas y una recomendada. Tus puntuaciones son valoración editorial, no predicción de visitas, y lo dices. Compruebas TEMAS CUBIERTOS para no repetir. Lo que dependa de datos en tiempo real: «comprobar en vidIQ o Google Trends».`,
@@ -2048,7 +2050,9 @@ Devuelve SOLO JSON: {"temas":[{"tema":"título de trabajo","angulo":"enfoque con
     format: (d, j) => { j.picks = (d.temas || []).slice(0, 5); return 'TEMAS PROPUESTOS (el primero es el recomendado)\n\n' + j.picks.map((p, i) => `${i + 1}. ${p.tema} · ${p.puntuacion}/100\n   Ángulo: ${p.angulo}${p.gancho ? `\n   Gancho: «${p.gancho}»` : ''}\n   Por qué: ${p.por_que}${p.comprobar ? `\n   Comprobar: ${p.comprobar}` : ''}`).join('\n\n'); },
   },
   guion: {
+    buscar: true,
     prompt: j => `${FORMACION.nora}
+${webTxt()}
 ${NORMAS_CANAL}
 ${canalTxt()}
 ${estudioCtx('guion')}
@@ -2252,7 +2256,7 @@ function startRealWork(agent, job, step) {
   step.realPending = true; step.realData = null; step.realVia = route;
   const timeout = new Promise(r => setTimeout(() => r(null), step.id === 'guion' ? 600000 : 300000));
   const work = (async () => {
-    const res = route ? await askAI(route, inChannel(job, () => spec.prompt(job)), { json: !!spec.json }) : null;
+    const res = route ? await askAI(route, inChannel(job, () => spec.prompt(job)), { json: !!spec.json, buscar: !!spec.buscar && route === 'claude' }) : null;
     step.realData = res && (typeof res === 'object' || String(res).trim()) ? res : null;
     if (step.id === 'miniaturas' && serverReady()) {
       if (step.realData?.conceptos) job.concepts = step.realData.conceptos.slice(0, 3);
@@ -2610,7 +2614,7 @@ async function srvFetch(path, body) {
   if (!r.ok) throw new Error(d.error || 'El servidor respondió ' + r.status);
   return d;
 }
-async function askServer(ai, prompt, tier) { try { return (await srvFetch('/texto', { ia: ai, prompt, rapido: tier === 'quick' })).texto || null; } catch (e) { log('Servidor: ' + esc(e.message)); return null; } }
+async function askServer(ai, prompt, tier, buscar) { try { return (await srvFetch('/texto', { ia: ai, prompt, rapido: tier === 'quick', buscar: !!buscar })).texto || null; } catch (e) { log('Servidor: ' + esc(e.message)); return null; } }
 async function askServerImage(prompt) { const d = await srvFetch('/imagen', { prompt }); return d.base64 ? `data:${d.mime || 'image/png'};base64,${d.base64}` : null; }
 // ---------- YouTube Studio ----------
 const ytReady = () => serverReady() && !!srv.caps.youtube;
@@ -2676,7 +2680,7 @@ async function ytMetricas(id) {
 async function testServer() {
   if (!srv.url) { srv.ok = false; srv.msg = 'Escribe la dirección del servidor.'; return renderConn(); }
   srv.msg = 'Probando…'; renderConn();
-  try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz || d.claude); if (d.claude && !hasRuntime) { brainState = 'lista'; updateBadge(); } updateVoiceNote(); srv.msg = `Conectado · Claude ${d.claude ? 'sí' : 'sin clave'} · vidIQ ${d.vidiq ? 'sí' : 'no'} · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
+  try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz || d.claude); if (d.claude && !hasRuntime) { brainState = 'lista'; updateBadge(); } updateVoiceNote(); srv.msg = `Conectado · Claude ${d.claude ? 'sí' + (d.web ? ' (con búsqueda web)' : '') : 'sin clave'} · vidIQ ${d.vidiq ? 'sí' : 'no'} · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
   catch (e) { srv.ok = false; srv.msg = /Clave de la oficina incorrecta/.test(e.message) ? 'Clave de la oficina incorrecta: escríbela exactamente igual que en OFICINA_TOKEN (mayúsculas y minúsculas cuentan). Pulsa «Ver» para comprobarla.' : 'No responde: ' + e.message; }
   if (srv.ok && !srv.caps.datos) srv.msg += srv.caps.datos === undefined ? ' · Sin sincronizar: falta actualizar worker.js en el servidor' : ' · Sin sincronizar: falta el almacén DATOS en wrangler.toml';
   renderConn();

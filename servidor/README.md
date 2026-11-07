@@ -112,6 +112,10 @@ En cada vídeo de un pedido, Lía hace 2 consultas a vidIQ (unos 10 créditos): 
 2. Guárdala en el servidor: `npx wrangler secret put VIDIQ_API_KEY`
 3. En la oficina, **Conexiones → Servidor → Probar** debe decir «vidIQ sí».
 
+## Búsqueda en internet para los guiones
+
+Nora escribe cada guion con Claude y la búsqueda web de Anthropic: investiga el caso con fuentes fiables, marca [VERIFICAR] solo lo que no pudo confirmar y añade al final las fuentes consultadas con su enlace. Usa la misma clave ANTHROPIC_API_KEY (cada búsqueda tiene un coste pequeño aparte; MAX_BUSQUEDAS, por defecto 12, limita cuántas hace por guion). Si la búsqueda web no está activada en tu organización de la consola de Claude, actívala en Settings → Privacy/Features.
+
 ## Coste aproximado
 
 Cloudflare Workers es gratis hasta 100.000 peticiones al día. Lo que pagas son las IAs: un vídeo completo hace unas 15 peticiones de texto y 3 imágenes, y cada frase de Nyx es una petición corta a Claude más unos segundos de voz de ElevenLabs. El precio exacto depende de los modelos que elijas en `wrangler.toml`.
