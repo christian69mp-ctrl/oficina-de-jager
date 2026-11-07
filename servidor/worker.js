@@ -12,11 +12,13 @@ export default {
     const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
 
+    // Google vuelve aquí al conectar un canal de YouTube (va protegido con una firma, no con la clave)
+    if (new URL(req.url).pathname === '/youtube/callback') return ytCallback(env, req);
     // Clave de la oficina: evita que otra persona gaste tus créditos con tu servidor
     if (env.OFICINA_TOKEN && req.headers.get('X-Oficina-Token') !== env.OFICINA_TOKEN) return json({ error: 'Clave de la oficina incorrecta' }, 401);
 
     const path = new URL(req.url).pathname;
-    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL });
+    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL, youtube: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) });
     // Datos compartidos entre el móvil y el ordenador (canales, vídeos, métricas y manual)
     if (path === '/datos') {
       if (!env.DATOS) return json({ error: 'Falta el almacén DATOS en el servidor (ver servidor/README.md)' }, 400);
@@ -41,6 +43,13 @@ export default {
       return json(d, d.error ? 502 : 200);
     }
 
+    // YouTube Studio
+    if (path.startsWith('/youtube/')) {
+      const b = await req.json().catch(() => ({}));
+      const fn = { '/youtube/enlace': () => ytEnlace(env, req, b), '/youtube/estado': () => ytEstado(env), '/youtube/canal': () => ytCanal(env, b), '/youtube/videos': () => ytVideos(env, b), '/youtube/metricas': () => ytMetricas(env, b) }[path];
+      if (!fn) return json({ error: 'Ruta desconocida' }, 404);
+      try { return json(await fn()); } catch (e) { return json({ error: String(e.message || e) }, 502); }
+    }
     if (path === '/oir') { try { return json(await oir(env, req)); } catch (e) { return json({ error: String(e.message || e) }, 502); } }
     const body = await req.json().catch(() => ({}));
     if (!body.prompt || typeof body.prompt !== 'string') return json({ error: 'Falta el texto de la petición (prompt)' }, 400);
@@ -184,4 +193,125 @@ function mezclar(a = {}, b = {}) {
   const porId = (xs, ys) => { const m = new Map(); for (const x of xs || []) if (x?.id) m.set(x.id, x); for (const y of ys || []) if (y?.id) m.set(y.id, !m.has(y.id) || t(y) >= t(m.get(y.id)) ? y : m.get(y.id)); return [...m.values()]; };
   const bd = (b.driveUpd || 0) >= (a.driveUpd || 0);
   return { channels: porId(a.channels, b.channels), videos: porId(a.videos, b.videos).filter(v => !v.demo).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0)), drive: (bd ? b.drive : a.drive) || null, driveUpd: Math.max(a.driveUpd || 0, b.driveUpd || 0) };
+}
+
+// ---------- YouTube Studio: tus canales conectados con permiso de solo lectura ----------
+// Necesita GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET (ver README) y el almacén DATOS para guardar el permiso de cada canal.
+const YT_SCOPES = 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly';
+const enc = t => new TextEncoder().encode(t);
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)));
+async function firmar(env, txt) {
+  const k = await crypto.subtle.importKey('raw', enc((env.OFICINA_TOKEN || '') + '|youtube|' + (env.GOOGLE_CLIENT_SECRET || '')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return b64u(await crypto.subtle.sign('HMAC', k, enc(txt)));
+}
+const ytRedirect = req => new URL(req.url).origin + '/youtube/callback';
+function ytListo(env) {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) throw new Error('Faltan GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en el servidor');
+  if (!env.DATOS) throw new Error('Falta el almacén DATOS en el servidor');
+}
+// 1. La oficina pide el enlace de Google para conectar un canal
+async function ytEnlace(env, req, b) {
+  ytListo(env);
+  if (!b.canal) throw new Error('Falta el canal');
+  const payload = b64u(enc(JSON.stringify({ canal: String(b.canal), nombre: String(b.nombre || ''), exp: Date.now() + 20 * 60e3 })));
+  const state = payload + '.' + await firmar(env, payload);
+  const u = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  u.search = new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, redirect_uri: ytRedirect(req), response_type: 'code', scope: YT_SCOPES, access_type: 'offline', prompt: 'consent select_account', state }).toString();
+  return { url: u.toString() };
+}
+// 2. Google vuelve aquí: se guarda el permiso del canal elegido
+async function ytCallback(env, req) {
+  const page = (titulo, texto, ok) => new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${titulo}</title><body style="font-family:system-ui,sans-serif;background:#05070d;color:#eef2ff;display:grid;place-items:center;min-height:100vh;margin:0;padding:24px"><div style="max-width:440px;text-align:center"><h1 style="color:${ok ? '#4ade80' : '#f87171'}">${titulo}</h1><p style="line-height:1.5">${texto}</p><p style="color:#9aa6c4">Ya puedes cerrar esta pestaña y volver a la oficina.</p></div></body>`, { status: ok ? 200 : 400, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  try {
+    ytListo(env);
+    const q = new URL(req.url).searchParams;
+    if (q.get('error')) return page('No se ha conectado', 'Has cancelado el permiso o Google lo ha rechazado: ' + esc(q.get('error')), false);
+    const [payload, sig] = String(q.get('state') || '').split('.');
+    if (!payload || sig !== await firmar(env, payload)) return page('Enlace no válido', 'Vuelve a pulsar «Conectar» en la oficina.', false);
+    const st = JSON.parse(unb64u(payload));
+    if (Date.now() > st.exp) return page('Enlace caducado', 'Han pasado más de 20 minutos. Vuelve a pulsar «Conectar» en la oficina.', false);
+    const tr = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ code: q.get('code') || '', client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, redirect_uri: ytRedirect(req), grant_type: 'authorization_code' }) });
+    const tk = await tr.json();
+    if (!tr.ok || !tk.refresh_token) return page('No se ha conectado', 'Google no ha dado el permiso: ' + esc(tk.error_description || tk.error || 'falta el permiso permanente'), false);
+    const ch = await ytApi(tk.access_token, 'https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails,statistics&mine=true');
+    const c = ch.items?.[0];
+    if (!c) return page('Sin canal', 'Esa cuenta no tiene canal de YouTube. Vuelve a intentarlo y elige la cuenta del canal.', false);
+    const rec = { refresh: tk.refresh_token, access: tk.access_token, exp: Date.now() + (tk.expires_in - 60) * 1000, channelId: c.id, title: c.snippet.title, uploads: c.contentDetails.relatedPlaylists.uploads, at: Date.now() };
+    await env.DATOS.put('yt:' + st.canal, JSON.stringify(rec));
+    return page('Canal conectado', `«${esc(c.snippet.title)}» está conectado a la ficha «${esc(st.nombre || st.canal)}» de la oficina.${st.nombre && st.nombre.toLowerCase() !== c.snippet.title.toLowerCase() ? '<br><br><b>Ojo:</b> los nombres no coinciden. Si te has equivocado de cuenta, vuelve a conectar y elige el canal correcto.' : ''}`, true);
+  } catch (e) { return page('Error', esc(e.message || e), false); }
+}
+async function ytApi(token, url) {
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error('YouTube: ' + (d.error?.message || r.status));
+  return d;
+}
+async function ytToken(env, canal) {
+  ytListo(env);
+  const rec = JSON.parse((await env.DATOS.get('yt:' + canal)) || 'null');
+  if (!rec) throw new Error('Este canal no está conectado a YouTube');
+  if (rec.access && Date.now() < rec.exp) return rec;
+  const r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ refresh_token: rec.refresh, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, grant_type: 'refresh_token' }) });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error === 'invalid_grant' ? 'El permiso de YouTube ha caducado o se retiró: vuelve a conectar el canal' : 'Google: ' + (d.error_description || d.error));
+  rec.access = d.access_token; rec.exp = Date.now() + (d.expires_in - 60) * 1000;
+  await env.DATOS.put('yt:' + canal, JSON.stringify(rec));
+  return rec;
+}
+async function ytEstado(env) {
+  if (!env.DATOS) return { canales: {} };
+  const l = await env.DATOS.list({ prefix: 'yt:' }); const out = {};
+  for (const k of l.keys) { const r = JSON.parse((await env.DATOS.get(k.name)) || '{}'); out[k.name.slice(3)] = { title: r.title, channelId: r.channelId, at: r.at }; }
+  return { canales: out };
+}
+const isoMin = d => { const m = String(d || '').match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/); if (!m) return 0; return ((+m[1] || 0) * 1440) + ((+m[2] || 0) * 60) + (+m[3] || 0) + (+m[4] || 0) / 60; };
+const hoy = () => new Date().toISOString().slice(0, 10);
+// Resumen del canal: totales y últimos 28 días
+async function ytCanal(env, b) {
+  const rec = await ytToken(env, b.canal);
+  const ch = await ytApi(rec.access, `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${rec.channelId}`);
+  const s = ch.items?.[0]?.statistics || {};
+  const desde = new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10);
+  let ult = null;
+  try {
+    const a = await ytApi(rec.access, `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&startDate=${desde}&endDate=${hoy()}&metrics=views,estimatedMinutesWatched,averageViewPercentage,subscribersGained,subscribersLost`);
+    const r = a.rows?.[0] || []; ult = { vistas: r[0] || 0, minutos: r[1] || 0, pctMedio: r[2] || 0, subsGanados: r[3] || 0, subsPerdidos: r[4] || 0 };
+  } catch (e) { ult = { error: e.message }; }
+  return { title: rec.title, suscriptores: +s.subscriberCount || 0, vistas: +s.viewCount || 0, videos: +s.videoCount || 0, ult28: ult };
+}
+// Últimos vídeos subidos (los de 3 minutos o menos se marcan como shorts)
+async function ytVideos(env, b) {
+  const rec = await ytToken(env, b.canal);
+  const pl = await ytApi(rec.access, `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&maxResults=${Math.min(50, b.max || 30)}&playlistId=${rec.uploads}`);
+  const ids = (pl.items || []).map(i => i.contentDetails.videoId);
+  if (!ids.length) return { videos: [] };
+  const vs = await ytApi(rec.access, `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics,status&id=${ids.join(',')}`);
+  return { videos: (vs.items || []).map(v => ({ ytId: v.id, title: v.snippet.title, publishedAt: v.snippet.publishedAt, duracion: +isoMin(v.contentDetails.duration).toFixed(1), vistas: +v.statistics.viewCount || 0, likes: +v.statistics.likeCount || 0, comentarios: +v.statistics.commentCount || 0, privacidad: v.status?.privacyStatus, short: isoMin(v.contentDetails.duration) <= 3, miniatura: v.snippet.thumbnails?.medium?.url || '' })) };
+}
+// Métricas de un vídeo desde YouTube Analytics
+async function ytMetricas(env, b) {
+  const rec = await ytToken(env, b.canal);
+  const v = (await ytApi(rec.access, `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(b.ytId)}`)).items?.[0];
+  if (!v) throw new Error('No encuentro ese vídeo en el canal');
+  const desde = v.snippet.publishedAt.slice(0, 10), dur = isoMin(v.contentDetails.duration);
+  const base = `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&startDate=${desde}&endDate=${hoy()}&filters=video==${encodeURIComponent(b.ytId)}`;
+  const a = await ytApi(rec.access, base + '&metrics=views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained');
+  const r = a.rows?.[0] || [];
+  const out = { vistas: r[0] ?? +v.statistics.viewCount ?? 0, minutos: r[1] ?? 0, duracionMedia: r[2] ?? 0, pct: r[3] != null ? +(+r[3]).toFixed(1) : null, subs: r[4] ?? 0, duracion: +dur.toFixed(1), desde, hasta: hoy() };
+  // Retención a los 30 segundos (curva de audiencia)
+  try {
+    const ret = await ytApi(rec.access, base + '&dimensions=elapsedVideoTimeRatio&metrics=audienceWatchRatio&sort=elapsedVideoTimeRatio');
+    const objetivo = dur > 0 ? Math.min(1, 0.5 / dur) : 0;
+    let mejor = null; for (const row of ret.rows || []) if (!mejor || Math.abs(row[0] - objetivo) < Math.abs(mejor[0] - objetivo)) mejor = row;
+    if (mejor) out.r30 = Math.min(100, +(mejor[1] * 100).toFixed(1));
+  } catch (e) { out.r30Error = e.message; }
+  // Impresiones y CTR: solo si la API de YouTube los ofrece; si no, se copian de Studio
+  try {
+    const im = await ytApi(rec.access, base + '&metrics=videoThumbnailImpressions,videoThumbnailImpressionsClickRate');
+    const ri = im.rows?.[0]; if (ri) { out.impresiones = ri[0]; out.ctr = +(ri[1] < 1 ? ri[1] * 100 : ri[1]).toFixed(2); }
+  } catch (e) { out.ctrError = 'La API de YouTube no da impresiones ni CTR para este vídeo'; }
+  return out;
 }

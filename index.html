@@ -238,6 +238,8 @@ button.step { font: inherit; font-size: 11.5px; }
 .fan-talk input { background: #0b1020; border-color: #263150; min-width: 0; }
 .file-btn { display: inline-flex; align-items: center; position: relative; }
 .file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.yt-list { display: grid; gap: 6px; margin-top: 8px; } .yt-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; } .yt-row small { display: block; color: var(--muted); }
+#ytInfo { color: var(--fg); }
 .estudio-row { margin-top: 8px; display: grid; gap: 6px; }
 #estudioState.ok { color: var(--ok); }
 .estudio-doc { white-space: pre-wrap; font-size: 12.5px; line-height: 1.5; max-height: 360px; overflow: auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
@@ -313,6 +315,7 @@ button.step { font: inherit; font-size: 11.5px; }
       <div class="field-row"><select id="chanSel"></select><button type="button" class="btn small" id="chanNew">Nuevo canal</button></div>
       <div class="field-row" id="chanNewRow" hidden><input id="chanNewName" placeholder="Nombre del nuevo canal" aria-label="Nombre del nuevo canal"><button type="button" class="btn small primary" id="chanCreate">Crear</button></div>
       <p class="note">Los vídeos, las métricas y el manual son de cada canal. Los proyectos (como la Ruleta Caliente) no dependen del canal.</p>
+      <p class="note" id="ytInfo" hidden></p>
       <div class="estudio-row"><p class="note" id="estudioState">Ficha del estudio: cargando…</p><div class="order-row"><button type="button" class="btn small" id="estudioVer">Ver ficha del canal</button><button type="button" class="btn small" id="estudioAct">Actualizar desde GitHub</button></div></div>
     </section>
 
@@ -327,7 +330,8 @@ button.step { font: inherit; font-size: 11.5px; }
     </section>
 
     <section>
-      <h2>Vídeos entregados <small id="videoCount"></small></h2>
+      <h2>Vídeos del canal <small id="videoCount"></small></h2>
+      <div class="order-row" id="ytImportRow" hidden><button type="button" class="btn small" id="ytImport">Traer vídeos de YouTube</button></div>
       <div class="videos" id="videos"></div>
     </section>
 
@@ -358,11 +362,16 @@ button.step { font: inherit; font-size: 11.5px; }
           <label class="toggle"><input type="checkbox" id="driveOn" checked> Guardar cada paquete aprobado en Drive</label>
         </div>
         <div class="conn" id="connServer" hidden>
-          <div class="conn-head"><b>Servidor de Gemini y ChatGPT</b><button type="button" class="btn small" id="srvTest">Probar</button></div>
+          <div class="conn-head"><b>Servidor de la oficina</b><button type="button" class="btn small" id="srvTest">Probar</button></div>
           <div class="conn-state" id="srvState">Con tu servidor (carpeta servidor/ del proyecto), Lía y Gema usan Gemini y Rui, Tito y Max usan ChatGPT de verdad. Gema genera miniaturas reales.</div>
           <div class="field-row"><input id="srvUrl" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://oficina-jager.tu-cuenta.workers.dev" aria-label="Dirección del servidor"></div>
           <div class="field-row"><input id="srvKey" type="password" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="Clave de la oficina (OFICINA_TOKEN)" aria-label="Clave de la oficina"><button type="button" class="btn small" id="srvShow" aria-pressed="false">Ver</button><button type="button" class="btn small" id="srvSave">Guardar</button></div>
         </div>
+        <div class="conn" id="connYt" hidden>
+          <div class="conn-head"><b>YouTube Studio · tus canales</b><button type="button" class="btn small" id="ytTest">Comprobar</button></div>
+          <div class="conn-state" id="ytState">Conecta el servidor para enlazar tus canales de YouTube.</div>
+          <div class="yt-list" id="ytList"></div>
+</div>
       </div>
     </section>
 
@@ -1712,7 +1721,7 @@ function estudioCtx(rol) {
   if (rol === 'pixelido') s += part('ESTILO del canal (para la edición)', c.ESTILO, 2600) + part('PIXELIDO: cómo trabaja y voces por canal', gdoc('PIXELIDO'), 3000);
   if (rol === 'metricas') s += part('Protocolo de análisis de métricas', sec(gdoc('PROTOCOLOS'), '8'), 2500) + part('Registro de métricas del canal', c.REGISTRO_METRICAS, 2500) + part('Análisis público del canal', c.ANALISIS_PUBLICO, 2500) + part('Plan de monetización del estudio', gdoc('PLAN_MONETIZACION_2026'), 3000);
   if (rol === 'mesa') s += part('DECISIONES del canal', c.DECISIONES, 2000);
-  if (rol === 'nyx') s = part('ESTADO ACTUAL del canal activo', c.ESTADO_ACTUAL, 1500) + part('PANEL GENERAL del estudio', gdoc('PANEL_GENERAL'), 1800) + part('Estado de la última sesión del estudio', gdoc('ESTADO_SESION'), 1500) + part('Índice de canales', gdoc('INDICE_CANALES'), 2000);
+  if (rol === 'nyx') s = part('YouTube Studio del canal activo (datos reales)', yt.info[store.active] && !yt.info[store.active].error ? JSON.stringify(yt.info[store.active]) : '', 800) + part('ESTADO ACTUAL del canal activo', c.ESTADO_ACTUAL, 1500) + part('PANEL GENERAL del estudio', gdoc('PANEL_GENERAL'), 1800) + part('Estado de la última sesión del estudio', gdoc('ESTADO_SESION'), 1500) + part('Índice de canales', gdoc('INDICE_CANALES'), 2000);
   return `\nBIBLIOTECA DEL ESTUDIO (repositorio Estudio-youtube, canal «${repoIdFor(store.ch)}»). Es la fuente de verdad de este canal: si algo de aquí contradice una instrucción general, manda lo de aquí.${s}`;
 }
 // Lectura en directo desde GitHub (en claude.ai no se puede: allí se usa la copia)
@@ -1769,6 +1778,8 @@ function showEstudio() {
     + docs.filter(([, t]) => t && t.trim()).map(([n, t]) => `<details><summary>${esc(n)}</summary><pre class="estudio-doc">${esc(t)}</pre></details>`).join('');
 }
 
+// Datos de YouTube Studio de cada canal (los rellena el servidor)
+const yt = { canales: {}, info: {}, msg: '' };
 const store = {
   db: null, videos: [],
   channels: JSON.parse(JSON.stringify(DEFAULT_CHANNELS)), active: 'c1',
@@ -2541,6 +2552,67 @@ async function srvFetch(path, body) {
 }
 async function askServer(ai, prompt, tier) { try { return (await srvFetch('/texto', { ia: ai, prompt, rapido: tier === 'quick' })).texto || null; } catch (e) { log('Servidor: ' + esc(e.message)); return null; } }
 async function askServerImage(prompt) { const d = await srvFetch('/imagen', { prompt }); return d.base64 ? `data:${d.mime || 'image/png'};base64,${d.base64}` : null; }
+// ---------- YouTube Studio ----------
+const ytReady = () => serverReady() && !!srv.caps.youtube;
+async function ytEstadoLoad() {
+  if (!ytReady()) return renderYt();
+  try { yt.canales = (await srvFetch('/youtube/estado', {})).canales || {}; yt.msg = ''; } catch (e) { yt.msg = e.message; }
+  renderYt(); ytInfoLoad();
+}
+async function ytInfoLoad() {
+  const c = store.active; if (!ytReady() || !yt.canales[c]) return renderYt();
+  try { yt.info[c] = await srvFetch('/youtube/canal', { canal: c }); } catch (e) { yt.info[c] = { error: e.message }; }
+  renderYt();
+}
+const nf = n => Number(n || 0).toLocaleString('es-ES');
+function renderYt() {
+  if (hasRuntime) { $('#connYt').hidden = true; return; }
+  $('#connYt').hidden = false;
+  const ok = ytReady(); window.__ytOk = ok && !!yt.canales[store.active];
+  const st = (msg, good) => { $('#ytState').textContent = msg; $('#ytState').className = 'conn-state' + (good === true ? ' ok' : good === false ? ' err' : ''); };
+  if (!serverReady()) { st('Conecta primero el servidor (aquí arriba).'); $('#ytList').innerHTML = ''; }
+  else if (!srv.caps.youtube) { st('Falta configurar Google en el servidor: GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET (ver servidor/README.md).', false); $('#ytList').innerHTML = ''; }
+  else {
+    const n = store.channels.filter(c => yt.canales[c.id]).length;
+    st(yt.msg ? 'YouTube: ' + yt.msg : `${n} de ${store.channels.length} canales conectados (permiso de solo lectura). Al pulsar «Conectar», elige en Google la cuenta de ESE canal.`, yt.msg ? false : n ? true : undefined);
+    $('#ytList').innerHTML = store.channels.map(c => { const y = yt.canales[c.id]; return `<div class="yt-row"><span><b>${esc(c.name)}</b><small>${y ? 'Conectado a «' + esc(y.title) + '»' : 'Sin conectar'}</small></span><button type="button" class="btn small${y ? '' : ' primary'}" data-ytcon="${esc(c.id)}">${y ? 'Reconectar' : 'Conectar'}</button></div>`; }).join('');
+  }
+  $('#ytImportRow').hidden = !window.__ytOk;
+  const inf = yt.info[store.active];
+  $('#ytInfo').hidden = !(window.__ytOk && inf);
+  if (inf) $('#ytInfo').textContent = inf.error ? 'YouTube: ' + inf.error : `YouTube: ${nf(inf.suscriptores)} suscriptores · ${nf(inf.videos)} vídeos${inf.ult28 && !inf.ult28.error ? ` · últimos 28 días: ${nf(inf.ult28.vistas)} vistas, ${nf(Math.round(inf.ult28.minutos / 60))} h vistas, +${nf(inf.ult28.subsGanados)} suscriptores` : ''}`;
+}
+async function ytConectar(id) {
+  const ch = store.channels.find(c => c.id === id); if (!ch) return;
+  const w = window.open('', '_blank');   // se abre ya para que el navegador no la bloquee
+  try {
+    const d = await srvFetch('/youtube/enlace', { canal: id, nombre: ch.name });
+    if (w) w.location.href = d.url; else location.href = d.url;
+    $('#ytState').textContent = `En la pestaña de Google elige la cuenta de «${ch.name}» y acepta. Después vuelve aquí y pulsa «Comprobar».`;
+  } catch (e) { if (w) w.close(); $('#ytState').textContent = 'YouTube: ' + e.message; }
+}
+async function ytImport() {
+  const c = store.active, b = $('#ytImport'); b.disabled = true; b.textContent = 'Trayendo vídeos…';
+  try {
+    const d = await srvFetch('/youtube/videos', { canal: c, max: 30 });
+    let nuevos = 0, enlazados = 0;
+    for (const yv of d.videos || []) {
+      if (yv.short || yv.privacidad === 'private') continue;   // el estudio solo hace vídeos largos
+      let v = store.videos.find(x => x.ytId === yv.ytId) || chanVideos().find(x => !x.ytId && normName(x.title) === normName(yv.title));
+      if (v) { if (!v.ytId) enlazados++; Object.assign(v, { ytId: yv.ytId, publishedAt: yv.publishedAt, ytVistas: yv.vistas, duracion: yv.duracion }); store.saveVideo(v); }
+      else { nuevos++; store.saveVideo({ id: 'yt-' + yv.ytId, ytId: yv.ytId, title: yv.title, topic: yv.title, createdAt: Date.parse(yv.publishedAt) || Date.now(), publishedAt: yv.publishedAt, ytVistas: yv.vistas, duracion: yv.duracion, metrics: null, analysis: null, channelId: c, fuente: 'youtube' }); }
+    }
+    log(`YouTube: ${nuevos} vídeos nuevos y ${enlazados} enlazados con encargos de la oficina en «${esc(store.ch.name)}»`);
+    directorSay(`He traído de YouTube ${nuevos} vídeos largos de «${store.ch.name}»${enlazados ? ` y he enlazado ${enlazados} con nuestros encargos` : ''}. Pulsa «Métricas de YouTube» en cualquiera para analizarlo.`, 'aviso');
+  } catch (e) { log('YouTube: ' + esc(e.message)); directorSay('No he podido traer los vídeos de YouTube: ' + e.message, 'aviso'); }
+  b.disabled = false; b.textContent = 'Traer vídeos de YouTube';
+}
+async function ytMetricas(id) {
+  const v = store.videos.find(x => x.id === id); if (!v?.ytId) return;
+  log(`Pidiendo a YouTube las métricas de «${esc(v.title)}»…`);
+  try { const m = await srvFetch('/youtube/metricas', { canal: v.channelId || store.active, ytId: v.ytId }); openMetrics(id, m); }
+  catch (e) { directorSay('No he podido leer las métricas de YouTube: ' + e.message, 'aviso'); }
+}
 async function testServer() {
   if (!srv.url) { srv.ok = false; srv.msg = 'Escribe la dirección del servidor.'; return renderConn(); }
   srv.msg = 'Probando…'; renderConn();
@@ -2549,6 +2621,7 @@ async function testServer() {
   if (srv.ok && !srv.caps.datos) srv.msg += srv.caps.datos === undefined ? ' · Sin sincronizar: falta actualizar worker.js en el servidor' : ' · Sin sincronizar: falta el almacén DATOS en wrangler.toml';
   renderConn();
   if (srv.ok && srv.caps.datos) { sync.ok = null; syncPull(); }
+  ytEstadoLoad();
 }
 
 function renderConn() {
@@ -2561,6 +2634,9 @@ function renderConn() {
 }
 $('#driveBtn').onclick = chooseFolder;
 $('#estudioVer').onclick = showEstudio;
+$('#ytTest').onclick = ytEstadoLoad;
+$('#ytImport').onclick = ytImport;
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !hasRuntime && srv.ok) ytEstadoLoad(); });
 $('#estudioAct').onclick = () => loadEstudio(true);
 $('#folders').addEventListener('click', e => { const b = e.target.closest('[data-folder]'); if (!b) return; const f = conn.folders.find(x => x.id === b.dataset.folder); store.drive = f; conn.driveMsg = `Carpeta elegida: ${f.title}. Los próximos paquetes aprobados se guardarán ahí.`; conn.driveOk = true; store.saveDrive(); });
 $('#srvSave').onclick = () => { srv.url = $('#srvUrl').value.trim(); if ($('#srvKey').value.trim()) srv.key = $('#srvKey').value.trim(); try { localStorage.setItem('oficina-servidor', JSON.stringify({ url: srv.url, key: srv.key })); } catch (e) {} $('#srvKey').value = ''; testServer(); };
@@ -2876,8 +2952,8 @@ function renderChannel() {
     const m = v.metrics;
     return `<article class="video"><div class="video-head"><div class="job-title">${esc(v.title || v.topic)}${v.demo ? ' <small>(demo)</small>' : ''}</div></div>
       <div class="video-meta">${v.predCtr ? `<span class="pill">CTR previsto ${esc(v.predCtr)}%</span>` : ''}${m ? `<span class="pill ${grade(m.ctr, TARGETS.ctr)}">CTR ${esc(m.ctr)}%</span><span class="pill ${grade(m.r30, TARGETS.r30, 0.85)}">30 s ${esc(m.r30)}%</span><span class="pill ${grade(m.pct, TARGETS.pct, 0.75)}">visto ${esc(m.pct)}%</span><span class="pill">${Number(m.vistas).toLocaleString('es-ES')} vistas</span>` : '<span>En Pixelido o publicado · faltan métricas</span>'}</div>
-      <div class="order-row"><button type="button" class="btn small lab" data-metrics="${v.id}">${m ? 'Actualizar métricas' : 'Añadir métricas'}</button>${v.analysis ? `<button type="button" class="btn small" data-analysis="${v.id}">Ver análisis</button>` : ''}${v.driveUrl ? `<a href="${esc(v.driveUrl)}" target="_blank" rel="noopener">Paquete en Drive</a>` : ''}</div>${v.driveErr ? `<span class="note">${esc(v.driveErr)}</span>` : ''}</article>`;
-  }).join('') : '<div class="empty">Cuando apruebes un vídeo y Paco lo entregue a Pixelido, aparecerá aquí. Después añade sus métricas de YouTube Studio y el equipo de Análisis las estudiará.</div>';
+      <div class="order-row">${window.__ytOk && v.ytId ? `<button type="button" class="btn small primary" data-ytmet="${v.id}">Métricas de YouTube</button>` : ''}<button type="button" class="btn small lab" data-metrics="${v.id}">${m ? 'Editar métricas' : 'Añadir métricas a mano'}</button>${v.analysis ? `<button type="button" class="btn small" data-analysis="${v.id}">Ver análisis</button>` : ''}${v.driveUrl ? `<a href="${esc(v.driveUrl)}" target="_blank" rel="noopener">Paquete en Drive</a>` : ''}</div>${v.driveErr ? `<span class="note">${esc(v.driveErr)}</span>` : ''}</article>`;
+  }).join('') : '<div class="empty">Aquí aparecen los vídeos que Paco entrega a Pixelido y los que traigas de YouTube (Conexiones → YouTube Studio). Con sus métricas, el equipo de Análisis los estudia y actualiza el manual del canal.</div>';
   $('#lessonCount').textContent = store.lecciones.length ? `${store.lecciones.length} lecciones` : '';
   if (document.activeElement !== $('#nicheInput')) $('#nicheInput').value = store.ch.nicho || '';
   if (document.activeElement !== $('#chanName')) $('#chanName').value = store.ch.name;
@@ -2961,18 +3037,18 @@ function openAnalysis(id) {
   const body = openModal(`Análisis · ${v.title || v.topic}`, 'Rui (CTR) y Sam (retención y crecimiento)', false);
   body.innerHTML = '<pre></pre>'; body.querySelector('pre').textContent = [v.analysis.plan, v.analysis.ctr, v.analysis.retencion].filter(Boolean).join('\n\n────────\n\n');
 }
-function openMetrics(id) {
+function openMetrics(id, pre) {
   const v = store.videos.find(x => x.id === id); if (!v) return;
-  const m = v.metrics || {};
-  const body = openModal(`Métricas · ${v.title || v.topic}`, 'Cópialas de YouTube Studio → Estadísticas del vídeo (mejor tras 7 días)', false);
+  const m = { ...(v.metrics || {}) };
+  if (pre) for (const k of ['impresiones', 'ctr', 'vistas', 'r30', 'pct', 'duracion', 'subs']) if (pre[k] != null) m[k] = pre[k];
+  const body = openModal(`Métricas · ${v.title || v.topic}`, pre ? `Datos de YouTube del ${pre.desde} al ${pre.hasta}${pre.ctr == null ? ' · Impresiones y CTR: cópialos de YouTube Studio → Alcance' : ''}` : 'Cópialas de YouTube Studio → Estadísticas del vídeo (mejor tras 7 días)', !!pre);
   const f = (k, l, ph) => `<label class="field" for="m_${k}">${l}<input id="m_${k}" type="number" step="any" min="0" inputmode="decimal" placeholder="${ph}" value="${m[k] ?? ''}"></label>`;
   body.innerHTML = `<form id="metricsForm" style="display:flex;flex-direction:column;gap:14px"><div class="form-grid">
     ${f('impresiones', 'Impresiones', '12000')}${f('ctr', 'CTR de impresiones (%)', '5.4')}${f('vistas', 'Visualizaciones', '1800')}
     ${f('r30', 'Siguen viendo a los 30 s (%)', '68')}${f('pct', 'Porcentaje medio visto (%)', '42')}${f('duracion', 'Duración del vídeo (min)', '8')}
     ${f('subs', 'Suscriptores ganados', '25')}</div>
     <p class="note" id="mErr"></p>
-    <div class="order-row"><button type="button" class="btn ghost" id="mDemo">Rellenar con un ejemplo</button><button type="submit" class="btn primary">Guardar y analizar</button></div></form>`;
-  $('#mDemo').onclick = () => { const d = { impresiones: Math.round(rand(4000, 30000)), ctr: +rand(2.5, 9).toFixed(1), r30: Math.round(rand(50, 82)), pct: Math.round(rand(28, 55)), duracion: Math.round(rand(6, 11)) }; d.vistas = Math.round(d.impresiones * d.ctr / 100 * rand(1.1, 1.6)); d.subs = Math.round(d.vistas * rand(0.002, 0.012)); for (const k in d) $('#m_' + k).value = d[k]; };
+    <div class="order-row"><button type="submit" class="btn primary">Guardar y analizar</button></div></form>`;
   $('#metricsForm').addEventListener('submit', e => {
     e.preventDefault();
     const keys = ['impresiones', 'ctr', 'vistas', 'r30', 'pct', 'duracion', 'subs'], d = {};
@@ -2990,6 +3066,8 @@ document.addEventListener('click', e => {
   const ch = e.target.closest('[data-changes]'); if (ch) return requestChanges(jobs.find(j => j.id === +ch.dataset.changes));
   const pr = e.target.closest('[data-produce]'); if (pr) { const [jid, i] = pr.dataset.produce.split(':'); return produceTopic(jobs.find(j => j.id === +jid), +i); }
   const me = e.target.closest('[data-metrics]'); if (me) return openMetrics(me.dataset.metrics);
+  const yc = e.target.closest('[data-ytcon]'); if (yc) return ytConectar(yc.dataset.ytcon);
+  const ym = e.target.closest('[data-ytmet]'); if (ym) return ytMetricas(ym.dataset.ytmet);
   const an = e.target.closest('[data-analysis]'); if (an) return openAnalysis(an.dataset.analysis);
   const dl = e.target.closest('[data-dellesson]'); if (dl) { store.lecciones.splice(+dl.dataset.dellesson, 1); return store.saveManual(); }
   const fo = e.target.closest('[data-focus]'); if (fo) return focusOn(fo.dataset.focus);
@@ -2998,7 +3076,7 @@ document.addEventListener('click', e => {
   const sp = e.target.closest('[data-speed]'); if (sp) { speed = +sp.dataset.speed; $$('[data-speed]').forEach(b => b.setAttribute('aria-pressed', b === sp)); }
 });
 $('#nicheSave').onclick = () => { const n = $('#chanName').value.trim(); if (n) store.ch.name = n; store.ch.nicho = $('#nicheInput').value.trim(); store.saveManual(); log(`Canal «${esc(store.ch.name)}» actualizado`); };
-$('#chanSel').addEventListener('change', e => { store.active = e.target.value; store.saveManual(); log(`Trabajando en el canal «${esc(store.ch.name)}»`); markDirty(); });
+$('#chanSel').addEventListener('change', e => { store.active = e.target.value; store.saveManual(); if (!hasRuntime) { renderYt(); ytInfoLoad(); } log(`Trabajando en el canal «${esc(store.ch.name)}»`); markDirty(); });
 $('#chanNew').onclick = () => { $('#chanNewRow').hidden = false; $('#chanNewName').focus(); };
 $('#chanCreate').onclick = () => {
   const n = $('#chanNewName').value.trim(); if (!n) return;

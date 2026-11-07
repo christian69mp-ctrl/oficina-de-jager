@@ -86,6 +86,24 @@ npx wrangler deploy
 
 7. En la oficina, **Conexiones → Entrega a Pixelido → Elegir carpeta** y elige la carpeta con «Pixelido» en el nombre.
 
+## YouTube Studio (tus 5 canales)
+
+Con esto la oficina lee de cada canal (solo lectura): suscriptores, vistas de los últimos 28 días, la lista de vídeos y las métricas de cada vídeo (vistas, retención a los 30 segundos, % medio visto, suscriptores ganados). Las impresiones y el CTR solo llegan si la API de YouTube los ofrece; si no, se copian de YouTube Studio.
+
+1. En [console.cloud.google.com](https://console.cloud.google.com) elige el proyecto (puede ser el mismo de Gemini).
+2. **APIs y servicios → Biblioteca**: activa **YouTube Data API v3** y **YouTube Analytics API**.
+3. **Google Auth Platform** (pantalla de consentimiento): nombre «Oficina de Jager», público **Externo**. En **Público**, pulsa **Publicar aplicación** para que quede **En producción** (si se queda en «Prueba», el permiso caduca cada 7 días).
+4. **Clientes → Crear cliente**: tipo **Aplicación web**. En **URI de redireccionamiento autorizados** añade `https://TU-SERVIDOR.workers.dev/youtube/callback`.
+5. Copia el ID de cliente y el secreto y guárdalos en el servidor:
+
+```bash
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+npx wrangler deploy
+```
+
+6. En la oficina, **Conexiones → YouTube Studio → Conectar** en cada canal. En Google elige la cuenta de ese canal (o su cuenta de marca). Como la app no está verificada por Google, saldrá un aviso: **Configuración avanzada → Ir a Oficina de Jager**. Es tu propia app y solo pide lectura.
+
 ## Coste aproximado
 
 Cloudflare Workers es gratis hasta 100.000 peticiones al día. Lo que pagas son las IAs: un vídeo completo hace unas 15 peticiones de texto y 3 imágenes, y cada frase de Nyx es una petición corta a Claude más unos segundos de voz de ElevenLabs. El precio exacto depende de los modelos que elijas en `wrangler.toml`.
