@@ -2,6 +2,8 @@
 // Se publica gratis en Cloudflare Workers (ver servidor/README.md).
 // Las claves nunca llegan al navegador: se guardan como secretos del Worker.
 
+import { WorkflowEntrypoint } from 'cloudflare:workers';
+
 export default {
   async fetch(req, env) {
     const cors = {
@@ -18,7 +20,7 @@ export default {
     if (env.OFICINA_TOKEN && req.headers.get('X-Oficina-Token') !== env.OFICINA_TOKEN) return json({ error: 'Clave de la oficina incorrecta' }, 401);
 
     const path = new URL(req.url).pathname;
-    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL, youtube: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), vidiq: !!env.VIDIQ_API_KEY, web: !!env.ANTHROPIC_API_KEY });
+    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL, youtube: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), vidiq: !!env.VIDIQ_API_KEY, web: !!env.ANTHROPIC_API_KEY, pedidos: !!(env.PEDIDO && env.DATOS) });
     // Datos compartidos entre el móvil y el ordenador (canales, vídeos, métricas y manual)
     if (path === '/datos') {
       if (!env.DATOS) return json({ error: 'Falta el almacén DATOS en el servidor (ver servidor/README.md)' }, 400);
@@ -43,6 +45,13 @@ export default {
       return json(d, d.error ? 502 : 200);
     }
 
+    // Pedidos en el servidor
+    if (path.startsWith('/pedido/')) {
+      const b = await req.json().catch(() => ({}));
+      const fn = { '/pedido/iniciar': () => pedidoIniciar(env, b), '/pedido/estado': () => pedidoEstado(env, b), '/pedido/olvidar': () => pedidoOlvidar(env, b) }[path];
+      if (!fn) return json({ error: 'Ruta desconocida' }, 404);
+      try { return json(await fn()); } catch (e) { return json({ error: String(e.message || e) }, 502); }
+    }
     // vidIQ
     if (path === '/vidiq') { try { return json(await vidiq(env, await req.json().catch(() => ({})))); } catch (e) { return json({ error: String(e.message || e) }, 502); } }
     // YouTube Studio
@@ -365,3 +374,179 @@ async function vidiq(env, b) {
   if (d.result?.isError) throw new Error('vidIQ: ' + texto.slice(0, 300));
   return { texto };
 }
+
+// ---------- PEDIDOS EN EL SERVIDOR (Cloudflare Workflows) ----------
+// Cada vídeo de un pedido es un trabajo que avanza paso a paso en el servidor, aunque la oficina esté cerrada.
+// La oficina manda el contexto de cada vídeo (ficha del canal, normas, formación…) y aquí se hacen los pasos.
+// El progreso se guarda en el almacén DATOS (claves «pv:…») y la oficina lo consulta para enseñarlo.
+const jsonDe = t => { if (!t) return null; t = String(t).replace(/```(?:json)?/g, ''); const a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a < 0 || b <= a) return null; try { return JSON.parse(t.slice(a, b + 1)); } catch (e) { return null; } };
+const corta = (t, n) => { t = String(t || '').trim(); return t.length > n ? t.slice(0, n).trimEnd() + '\n…(recortado)' : t; };
+// Cada puesto con su IA; si falta la clave, lo hace Claude
+async function pensar(env, ia, prompt, o = {}) {
+  if (ia === 'gemini' && env.GEMINI_API_KEY) return gemini(env, prompt + (o.json ? '\n\nResponde solo con el JSON, sin texto alrededor.' : ''));
+  if (ia === 'chatgpt' && env.OPENAI_API_KEY) return chatgpt(env, prompt + (o.json ? '\n\nResponde solo con el JSON, sin texto alrededor.' : ''));
+  return claude(env, prompt, !!o.rapido, !!o.buscar);
+}
+const P = {
+  vidiqTxt: out => out.vidiq ? `\nDATOS REALES DE vidIQ (úsalos: palabras con volumen y poca competencia, y patrones de los outliers):\n${corta(out.vidiq, 5000)}\n` : '',
+  mesaBase: (job, c, out) => `Tema que propone el jefe: «${job.topic}».${P.vidiqTxt(out)}\n${c.normas}\n${c.canal}\n${c.mesa}\nManual del canal:\n${c.lessons}\nHistorial de vídeos:\n${c.history}`,
+  propuesta: (job, c, out, id, otros) => `Estás en una reunión de "La oficina de Jager" con tus compañeros ${otros} para decidir ${c.goal}. Eres ${c.persona[id]}
+${P.mesaBase(job, c, out)}
+Ronda 1: da tu propuesta concreta desde tu especialidad.
+Habla en primera persona, en español de España, con tono de reunión y frases cortas. Máximo 70 palabras. Escribe solo tu intervención, sin tu nombre delante.`,
+  acuerdo: (job, c, out, debate) => `Eres la secretaria de la reunión de análisis de "La oficina de Jager". Lee las propuestas de Lía (tendencias, Gemini), Rui (CTR, ChatGPT) y Sam (retención y rentabilidad, Claude) y redacta el acuerdo final para decidir ${c.goal}. Quédate con la opción más viral y rentable en la que coincidan o que mejor hayan defendido, y refleja el voto real de cada uno.
+${P.mesaBase(job, c, out)}
+Propuestas:
+${debate}
+Devuelve SOLO JSON: ${c.schema}`,
+  guion: (job, c, out) => `${c.formacion.nora}
+${c.web}
+${c.normas}
+${c.canal}
+${c.guion}
+Vídeo: «${out.tema}».
+Acuerdo de la mesa de análisis (enfoque, gancho, promesa y público):
+${out.estudioTxt || '(sin estudio)'}
+Lecciones del manual de la oficina (aplícalas):
+${c.lessons}
+Escribe el GUION completo de un vídeo largo. Extensión: mínimo 3.750 palabras de locución (norma del estudio); si faltan datos verificados, completa con recapitulaciones, transiciones, cliffhangers y pasajes de tono, nunca con datos inventados.
+Entrega en texto plano, sin markdown, con estas cuatro partes y estos títulos exactos:
+1. LOCUCIÓN LIMPIA — solo el texto que se lee en voz alta, en párrafos, sin títulos, marcas ni notas.
+2. INDICACIONES VISUALES — por bloques numerados (B1, B2…), con el minuto aproximado y lo que se ve (archivo, mapa, documento, recreación 3D, rótulo con dato; las recreaciones marcadas como tales).
+3. FUENTES — informes oficiales, sentencias, libros o artículos que respaldan los datos; si no estás seguro de una, márcala [VERIFICAR].
+4. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.`,
+  miniaturas: (job, c, out) => `${c.formacion.gema}
+${c.normas}
+${c.canal}
+${c.miniatura}
+Vídeo: «${out.tema}».
+Acuerdo de la mesa: ${String(out.estudioTxt || '').split('\n').slice(0, 10).join(' ')}
+Diseña 3 conceptos de miniatura realmente distintos (ángulo distinto, no un adjetivo distinto) que sigan la identidad visual del canal.
+Devuelve SOLO JSON: {"conceptos":[{"texto":"0-4 palabras exactas o vacío","escena":"composición, sujeto principal, fondo y colocación del texto","emocion":"qué siente quien la ve","colores":"colores e iluminación","excluir":"lo que no debe aparecer","prompt_imagen":"prompt para Gemini en español, listo para copiar, 16:9"}]}`,
+  titulos: (job, c, out) => `${c.formacion.tito}
+${c.normas}
+${c.canal}
+${c.titulos}
+Vídeo: «${out.tema}».${P.vidiqTxt(out)}
+Guion (inicio): ${String(out.guion || '').slice(0, 2500)}
+Escribe 8 títulos muy distintos entre sí, la descripción natural del vídeo (2 primeras líneas que enganchen, resumen, capítulos con los minutos de las indicaciones visuales, fuentes si corresponde y 2-3 hashtags relevantes) y un comentario fijado que abra una conversación concreta.
+Devuelve SOLO JSON: {"titulos":["..."],"descripcion":"...","hashtags":["#..."],"comentario_fijado":"..."}`,
+  pretest: (job, c, out) => `${c.formacion.rui}
+${c.canal}
+${c.titulos}
+Vídeo: «${out.tema}». Cierra la versión definitiva de título y miniatura.${P.vidiqTxt(out)}
+Títulos de Tito:
+${(out.titulos?.titulos || []).map((t, i) => `${i + 1}. ${t}`).join('\n')}
+Conceptos de miniatura de Gema:
+${(out.miniaturas?.conceptos || []).map((x, i) => `${'ABC'[i]}: texto «${x.texto}» · ${x.escena} · ${x.emocion} · prompt: ${x.prompt_imagen || ''}`).join('\n') || '(sin conceptos de miniatura)'}
+Historial de la oficina (previsto y real): ${c.history}
+Elige o mejora la mejor combinación (puedes ajustar el título o el prompt) y estima su CTR de forma orientativa. Explica las 2 alternativas descartadas en una frase.
+Devuelve SOLO JSON: {"promesa":"promesa central del vídeo","ganador":{"titulo":"título final","miniatura":"A|B|C","texto_miniatura":"texto exacto","prompt_gemini":"prompt final para copiar","ctr_estimado":número},"como_funcionan_juntos":"...","riesgo":"riesgo principal de interpretación","checklist":["¿Se entiende a 160 px?","..."],"descartadas":["..."]}`,
+  brief: (job, c, out) => { const g = String(out.guion || ''); const i = g.search(/INDICACIONES VISUALES/i); return `${c.formacion.paco}
+${c.normas}
+${c.canal}
+${c.pixelido}
+Prepara el pedido para Pixelido del vídeo «${out.tema}» (pedido ${job.pedido}, ${c.hoy}).
+Acuerdo de la mesa:
+${out.estudioTxt || ''}
+Indicaciones visuales del guion de Nora:
+${i >= 0 ? g.slice(i, i + 9000) : g.slice(0, 6000)}
+Versión definitiva de título y miniatura de Rui: ${JSON.stringify(out.pretest || {})}
+En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION (escribe solo «Ver LOCUCIÓN LIMPIA del guion adjunto»; el texto completo va aparte en el paquete) · DESCRIPCIÓN DE EDICIÓN (estilo del canal y tabla de bloques: bloque, minuto, qué se ve, rótulos) · OBSERVACIONES (voz asignada a este canal según PIXELIDO, cambios de tono, límites, pantalla final) · MINIATURA (texto exacto + descripción visual igual al prompt de Gemini) · DATOS A VERIFICAR ANTES DE LOCUTAR. Máximo 650 palabras.`; },
+};
+
+export class Pedido extends WorkflowEntrypoint {
+  async run(event, step) {
+    const env = this.env;
+    const { key, job, ctx: c } = event.payload;
+    const out = { tema: job.topic };
+    const guardar = async (paso, cambios = {}) => {
+      const cur = JSON.parse((await env.DATOS.get(key)) || '{}');
+      cur.out = { ...(cur.out || {}), ...cambios }; cur.paso = paso; cur.estado = paso === 'listo' ? 'listo' : 'en curso'; cur.upd = Date.now();
+      await env.DATOS.put(key, JSON.stringify(cur));
+    };
+    const R = { retries: { limit: 4, delay: '30 seconds', backoff: 'exponential' }, timeout: '30 minutes' };
+    try {
+      // 1. Lía: investigación con vidIQ (si falla, se sigue sin ella)
+      out.vidiq = await step.do('vidiq', { retries: { limit: 1, delay: '10 seconds' } }, async () => {
+        let txt = null;
+        if (env.VIDIQ_API_KEY) try {
+          const tema = String(job.topic).slice(0, 140);
+          const kw = await vidiq(env, { tool: 'vidiq_keyword_research', args: { mode: 'research', keyword: tema, country: 'ES', limit: 15, userGoal: 'choose keywords and angle for a Spanish long-form documentary video' } });
+          const ol = await vidiq(env, { tool: 'vidiq_outliers', args: { keyword: tema, language: 'es', contentType: 'long', limit: 10, userGoal: 'find overperforming Spanish long-form videos on this topic as title and thumbnail references' } }).catch(e => ({ texto: 'No se pudieron leer los outliers: ' + e.message }));
+          txt = `PALABRAS CLAVE EN ESPAÑA (vidIQ · ${c.hoy})\n${corta(kw.texto, 6000)}\n\nVÍDEOS OUTLIER EN ESPAÑOL SOBRE EL TEMA (vidIQ)\n${corta(ol.texto, 6000)}`;
+        } catch (e) { txt = null; }
+        await guardar('estudio', { vidiq: txt });
+        return txt;
+      });
+      // 2. Mesa de análisis: propuesta de cada analista con su IA y acuerdo final
+      const mesa = await step.do('estudio', R, async () => {
+        const quien = { lia: 'gemini', rui: 'chatgpt', sam: 'claude' };
+        const nombres = { lia: 'Lía', rui: 'Rui', sam: 'Sam' };
+        const transcript = [];
+        for (const id of ['lia', 'rui', 'sam']) {
+          const otros = Object.keys(nombres).filter(x => x !== id).map(x => nombres[x]).join(' y ');
+          const t = await pensar(env, quien[id], P.propuesta(job, c, out, id, otros), { rapido: true }).catch(() => null);
+          transcript.push({ who: id, round: 1, text: String(t || `(${nombres[id]} no ha podido conectar con su IA.)`).trim().replace(/^(Lía|Rui|Sam)\s*:\s*/i, ''), via: t ? quien[id] : 'error' });
+        }
+        const debate = transcript.map(m => `${nombres[m.who]}: ${m.text}`).join('\n');
+        const result = jsonDe(await claude(env, P.acuerdo(job, c, out, debate), false, false)) || { acuerdo: 'La mesa no ha podido cerrar un acuerdo. Seguimos con el tema tal cual.', tema_final: job.topic };
+        const r = { transcript, result };
+        await guardar('guion', { estudio: r });
+        return r;
+      });
+      out.tema = mesa.result.tema_final || job.topic;
+      const pz = mesa.result.puntuaciones || {};
+      out.estudioTxt = `ACUERDO: ${mesa.result.acuerdo}\nTema final: ${out.tema}\nÁngulo: ${mesa.result.angulo || ''}\nGancho: ${mesa.result.gancho || ''}\nPromesa: ${mesa.result.promesa || ''}\nPúblico: ${mesa.result.publico || ''}\nDuración ideal: ${mesa.result.duracion_ideal || ''}\nViral ${pz.viral ?? '?'}/100 · Rentabilidad ${pz.rentabilidad ?? '?'}/100`;
+      // 3. Nora: guion completo con Claude e investigación en internet
+      out.guion = await step.do('guion', R, async () => {
+        const t = await claude(env, P.guion(job, c, out), false, true);
+        if (!t || t.length < 500) throw new Error('Guion demasiado corto');
+        await guardar('miniaturas', { guion: t });
+        return t;
+      });
+      // 4. Gema (miniaturas) y 5. Tito (títulos y SEO)
+      out.miniaturas = await step.do('miniaturas', R, async () => { const d = jsonDe(await pensar(env, 'gemini', P.miniaturas(job, c, out), { json: true })); if (!d?.conceptos) throw new Error('Miniaturas sin formato'); await guardar('titulos', { miniaturas: d }); return d; });
+      out.titulos = await step.do('titulos', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.titulos(job, c, out), { json: true })); if (!d?.titulos) throw new Error('Títulos sin formato'); await guardar('pretest', { titulos: d }); return d; });
+      // 6. Rui: versión definitiva de título y miniatura
+      out.pretest = await step.do('pretest', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out), { json: true })); if (!d?.ganador) throw new Error('Test de CTR sin formato'); await guardar('brief', { pretest: d }); return d; });
+      // 7. Paco: pedido para Pixelido
+      await step.do('brief', R, async () => { const t = await claude(env, P.brief(job, c, out), false, false); await guardar('listo', { brief: t }); return true; });
+    } catch (e) {
+      const cur = JSON.parse((await env.DATOS.get(key)) || '{}');
+      cur.estado = 'error'; cur.error = String(e.message || e).slice(0, 300); cur.upd = Date.now();
+      await env.DATOS.put(key, JSON.stringify(cur));
+      throw e;
+    }
+  }
+}
+
+async function pedidoIniciar(env, b) {
+  if (!env.PEDIDO) throw new Error('Falta el motor de pedidos (PEDIDO) en wrangler.toml');
+  if (!env.DATOS) throw new Error('Falta el almacén DATOS');
+  const code = String(b.pedido || 'PX').replace(/[^A-Za-z0-9-]/g, '').slice(0, 20) || 'PX';
+  const res = [];
+  for (const [i, v] of (b.videos || []).slice(0, 20).entries()) {
+    const key = `pv:${code}:${Date.now().toString(36)}${i}`;
+    const job = { topic: String(v.topic || '').slice(0, 300), channelId: v.channelId, pedido: code };
+    await env.DATOS.put(key, JSON.stringify({ key, job, estado: 'en cola', paso: 'vidiq', out: {}, creado: Date.now(), upd: Date.now() }));
+    await env.PEDIDO.create({ id: key.replace(/:/g, '-'), params: { key, job, ctx: v.ctx } });
+    res.push(key);
+  }
+  return { claves: res };
+}
+async function pedidoEstado(env, b) {
+  if (!env.DATOS) return { videos: [] };
+  const conocidos = b.conocidos || {}, videos = [];
+  let cursor;
+  do {
+    const l = await env.DATOS.list({ prefix: 'pv:', cursor });
+    for (const k of l.keys) {
+      const r = JSON.parse((await env.DATOS.get(k.name)) || 'null'); if (!r) continue;
+      videos.push(conocidos[k.name] === r.upd ? { key: k.name, upd: r.upd, igual: true } : r);
+    }
+    cursor = l.list_complete ? null : l.cursor;
+  } while (cursor);
+  return { videos };
+}
+async function pedidoOlvidar(env, b) { if (env.DATOS && String(b.key || '').startsWith('pv:')) await env.DATOS.delete(b.key); return { ok: true }; }

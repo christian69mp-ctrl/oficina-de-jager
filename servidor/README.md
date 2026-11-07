@@ -116,6 +116,21 @@ En cada vídeo de un pedido, Lía hace 2 consultas a vidIQ (unos 10 créditos): 
 
 Nora escribe cada guion con Claude y la búsqueda web de Anthropic: investiga el caso con fuentes fiables, marca [VERIFICAR] solo lo que no pudo confirmar y añade al final las fuentes consultadas con su enlace. Usa la misma clave ANTHROPIC_API_KEY (cada búsqueda tiene un coste pequeño aparte; MAX_BUSQUEDAS, por defecto 12, limita cuántas hace por guion). Si la búsqueda web no está activada en tu organización de la consola de Claude, actívala en Settings → Privacy/Features.
 
+## Pedidos que siguen aunque cierres la oficina
+
+Con el motor de pedidos (Cloudflare Workflows, incluido en el plan gratuito), cada vídeo de un pedido trabaja en el servidor: vidIQ, mesa de análisis, guion con búsqueda web, miniaturas, títulos, test de CTR y pedido para Pixelido. Puedes cerrar la oficina o apagar el ordenador; al volver, verás lo que lleven hecho y los vídeos listos para aprobar.
+
+Añade al final de tu `wrangler.toml`:
+
+```toml
+[[workflows]]
+name = "oficina-pedido"
+binding = "PEDIDO"
+class_name = "Pedido"
+```
+
+y publica con `npx wrangler deploy`. En la oficina, **Probar** activa los pedidos en el servidor automáticamente.
+
 ## Coste aproximado
 
 Cloudflare Workers es gratis hasta 100.000 peticiones al día. Lo que pagas son las IAs: un vídeo completo hace unas 15 peticiones de texto y 3 imágenes, y cada frase de Nyx es una petición corta a Claude más unos segundos de voz de ElevenLabs. El precio exacto depende de los modelos que elijas en `wrangler.toml`.

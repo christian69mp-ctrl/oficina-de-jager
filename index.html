@@ -2500,6 +2500,74 @@ function nextPedidoCode() {
   for (const x of [...store.videos, ...jobs]) { const m = String(x.pedido || '').match(/PX-(\d+)/); if (m) max = Math.max(max, +m[1]); }
   return 'PX-' + String(max + 1).padStart(2, '0');
 }
+// ---------- Pedidos que trabajan en el servidor (siguen aunque cierres la oficina) ----------
+const serverPedidos = () => serverReady() && !!srv.caps.pedidos;
+const PASO_ORDEN = ['vidiq', 'estudio', 'guion', 'miniaturas', 'titulos', 'pretest', 'brief', 'listo'];
+function pedidoCtx(channelId) {
+  return inChannel({ channelId }, () => ({
+    normas: NORMAS_CANAL, canal: canalTxt(), lessons: lessonsTxt(), history: historyTxt(), web: webTxt(), hoy: today(),
+    mesa: estudioCtx('mesa'), guion: estudioCtx('guion'), miniatura: estudioCtx('miniatura'), titulos: estudioCtx('titulos'), pixelido: estudioCtx('pixelido'),
+    formacion: FORMACION, persona: PERSONA, goal: GOAL.estudio, schema: SCHEMA.estudio,
+  }));
+}
+// Un encargo de la oficina que refleja un vídeo que trabaja en el servidor
+function serverJob(rec) {
+  let job = jobs.find(j => j.server === rec.key);
+  if (job) return job;
+  const flow = FLOWS.video, topic = rec.job.topic;
+  job = { channelId: rec.job.channelId, pedido: rec.job.pedido, server: rec.key, applied: {},
+    id: ++jobSeq, type: 'video', topic, version: 1, short: topic.length > 34 ? topic.slice(0, 32) + '…' : topic,
+    steps: flow.steps.map(x => ({ ...x, state: 'espera', progress: 0, output: null, preset: true })), got: {}, status: 'en curso', round: 0 };
+  job.steps.forEach(x => job.got[x.id] = new Set());
+  job.step = id => job.steps.find(x => x.id === id);
+  jobs.unshift(job);
+  return job;
+}
+function applyServerRec(rec) {
+  const job = serverJob(rec), out = rec.out || {}, A = job.applied;
+  const setOut = (id, output) => { const st = job.step(id); st.output = output; st.state = 'hecho'; st.progress = 1; A[id] = true; };
+  if ('vidiq' in out && !A.vidiq) setOut('vidiq', out.vidiq ? { kind: 'text', text: out.vidiq, via: 'vidiq' } : SPECS.vidiq.fallback());
+  if (out.estudio && !A.estudio) {
+    const r = out.estudio.result || {}, pz = r.puntuaciones || {};
+    job.topicFinal = r.tema_final || job.topic; job.viral = pz.viral ?? null; job.study = r;
+    const transcript = [...(out.estudio.transcript || []), { who: 'sam', round: 3, text: r.acuerdo || '', acuerdo: true }];
+    const text = `ACUERDO DE LA MESA DE ANÁLISIS\n${r.acuerdo}\n\nTema final: ${job.topicFinal}\nViral ${pz.viral ?? '?'}/100 · CTR estimado ${pz.ctr_estimado ?? '?'}% · Retención 30 s ${pz.retencion_30s ?? '?'}% · Rentabilidad ${pz.rentabilidad ?? '?'}/100\n\nÁNGULO: ${r.angulo || ''}\nGANCHO: ${r.gancho || ''}\nPROMESA: ${r.promesa || ''}\nPÚBLICO: ${r.publico || ''}\nDURACIÓN IDEAL: ${r.duracion_ideal || ''}\n\n${VOTE_TXT(r.votos)}\n\nPROPUESTAS\n${(out.estudio.transcript || []).map(m => `${NAME(m.who)}: ${m.text}`).join('\n')}`;
+    setOut('estudio', { kind: 'debate', text, transcript, votos: r.votos, via: 'real', mode: 'estudio' });
+  }
+  if (out.guion && !A.guion) setOut('guion', { kind: 'text', text: out.guion, via: 'claude' });
+  if (out.miniaturas && !A.miniaturas) { SPECS.miniaturas.format(out.miniaturas, job); setOut('miniaturas', thumbsOutput(job, 'gemini')); }
+  if (out.titulos && !A.titulos) setOut('titulos', { kind: 'text', text: SPECS.titulos.format(out.titulos, job), via: 'chatgpt' });
+  if (out.pretest && !A.pretest) setOut('pretest', { kind: 'text', text: SPECS.pretest.format(out.pretest, job), via: 'chatgpt' });
+  if (out.brief && !A.brief) setOut('brief', { kind: 'text', text: out.brief, via: 'claude' });
+  // Paso en marcha: su trabajador lo enseña
+  if (rec.estado === 'en curso' || rec.estado === 'en cola') {
+    const st = job.step(rec.paso);
+    if (st && st.state !== 'hecho') {
+      st.state = 'trabajando'; st.progress = 0.5;
+      const ids = st.debate ? MEMBERS : [st.worker];
+      ids.forEach(id => agents[id]?.setStatus(st.debate ? 'En la mesa (servidor)' : (st.verb || st.label) + '… (servidor)', st.debate ? '#b38cff' : AI[agents[id].def.ai].color));
+    }
+  }
+  if (rec.estado === 'listo' && job.status === 'en curso') {
+    job.status = 'esperando'; job.step('ok').state = 'cola';
+    log(`Vídeo <b>${esc(job.short)}</b> del pedido ${esc(job.pedido)} listo para tu aprobación`);
+    WORKERS.forEach(w => { if (agents[w.id] && !agents[w.id].busy()) agents[w.id].setStatus('Libre'); });
+  }
+  if (rec.estado === 'error' && job.status === 'en curso' && !A.error) {
+    A.error = true; log(`⚠ El vídeo <b>${esc(job.short)}</b> se ha parado en el servidor: ${esc(rec.error || 'error')}`);
+  }
+}
+const pedidoSeen = {};
+async function pedidoPoll() {
+  if (!serverPedidos()) return;
+  try {
+    const d = await srvFetch('/pedido/estado', { conocidos: pedidoSeen });
+    for (const r of d.videos || []) { if (r.igual) continue; pedidoSeen[r.key] = r.upd; applyServerRec(r); }
+    markDirty();
+  } catch (e) { log('Pedido: ' + esc(e.message)); }
+}
+setInterval(() => { if (jobs.some(j => j.server && j.status === 'en curso')) pedidoPoll(); }, 15000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pedidoPoll(); });
 function openPedido() {
   const body = openModal('Nuevo pedido para Pixelido', `Hasta 10 vídeos. Cada vídeo pasa por todo el equipo y, con vidIQ conectado, gasta unos 10 créditos de vidIQ (${serverReady() && srv.caps.vidiq ? 'vidIQ conectado' : 'vidIQ sin conectar: se hará sin sus datos'}).`, false);
   const order = []; for (const c of store.channels.slice(0, 5)) order.push(c.id, c.id);
@@ -2517,6 +2585,15 @@ function openPedido() {
     const filas = order.map((_, i) => ({ ch: $('#pedCh' + i).value, tema: $('#pedT' + i).value.trim() })).filter(f => f.tema);
     if (!filas.length) { $('#pedErr').textContent = 'Escribe al menos un tema.'; return; }
     $('#modal').hidden = true;
+    if (serverPedidos()) {
+      $('#pedErr').textContent = 'Enviando el pedido al servidor…';
+      srvFetch('/pedido/iniciar', { pedido: code, videos: filas.map(f => ({ topic: f.tema, channelId: f.ch, ctx: pedidoCtx(f.ch) })) })
+        .then(() => { log(`Pedido <b>${esc(code)}</b> lanzado en el servidor: ${filas.length} vídeos. Puedes cerrar la oficina; seguirán trabajando.`); pedidoPoll(); })
+        .catch(e => { directorSay('No he podido lanzar el pedido en el servidor: ' + e.message, 'aviso'); });
+      $('#modal').hidden = true;
+      directorSay(`Pedido ${code} en marcha en el servidor, jefe: ${filas.length} vídeos. Puedes cerrar la oficina; cuando vuelvas, verás lo que lleven hecho.`, 'aviso');
+      return;
+    }
     filas.forEach(f => newOrder('video', f.tema, { channelId: f.ch, pedido: code, silencioso: true }));
     log(`Pedido <b>${esc(code)}</b> lanzado: ${filas.length} vídeos`);
     directorSay(`Pedido ${code} en marcha, jefe: ${filas.length} vídeos. Lía empieza con vidIQ y la mesa va estudiando cada uno. Te aviso cuando haya paquetes para aprobar.`, 'aviso');
@@ -2685,7 +2762,7 @@ async function testServer() {
   if (srv.ok && !srv.caps.datos) srv.msg += srv.caps.datos === undefined ? ' · Sin sincronizar: falta actualizar worker.js en el servidor' : ' · Sin sincronizar: falta el almacén DATOS en wrangler.toml';
   renderConn();
   if (srv.ok && srv.caps.datos) { sync.ok = null; syncPull(); }
-  ytEstadoLoad();
+  ytEstadoLoad(); pedidoPoll();
 }
 
 function renderConn() {
@@ -2889,6 +2966,7 @@ function arriveDirector(job) {
 
 function approve(job) {
   if (!job || job.status !== 'esperando') return;
+  if (job.server) srvFetch('/pedido/olvidar', { key: job.server }).catch(() => {});
   job.step('ok').state = 'hecho'; job.status = 'aprobado';
   const crew = job.steps.filter(s => agents[s.worker]).map(s => agents[s.worker]);
   if (job.type === 'video') {
@@ -2919,6 +2997,7 @@ function approve(job) {
 }
 function requestChanges(job) {
   if (!job || job.status !== 'esperando') return;
+  if (job.server) srvFetch('/pedido/olvidar', { key: job.server }).catch(() => {});
   job.status = 'rehecho'; job.step('ok').state = 'cambios';
   log(`Pides cambios en <b>#${job.id}</b>: se repite el encargo`);
   newOrder(job.type, job.topic, { version: job.version + 1, reply: 'De acuerdo, jefe. Lo repetimos con una versión nueva.' });
