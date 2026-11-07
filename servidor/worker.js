@@ -18,7 +18,7 @@ export default {
     if (env.OFICINA_TOKEN && req.headers.get('X-Oficina-Token') !== env.OFICINA_TOKEN) return json({ error: 'Clave de la oficina incorrecta' }, 401);
 
     const path = new URL(req.url).pathname;
-    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL, youtube: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) });
+    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL, youtube: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), vidiq: !!env.VIDIQ_API_KEY });
     // Datos compartidos entre el móvil y el ordenador (canales, vídeos, métricas y manual)
     if (path === '/datos') {
       if (!env.DATOS) return json({ error: 'Falta el almacén DATOS en el servidor (ver servidor/README.md)' }, 400);
@@ -43,6 +43,8 @@ export default {
       return json(d, d.error ? 502 : 200);
     }
 
+    // vidIQ
+    if (path === '/vidiq') { try { return json(await vidiq(env, await req.json().catch(() => ({})))); } catch (e) { return json({ error: String(e.message || e) }, 502); } }
     // YouTube Studio
     if (path.startsWith('/youtube/')) {
       const b = await req.json().catch(() => ({}));
@@ -314,4 +316,37 @@ async function ytMetricas(env, b) {
     const ri = im.rows?.[0]; if (ri) { out.impresiones = ri[0]; out.ctr = +(ri[1] < 1 ? ri[1] * 100 : ri[1]).toFixed(2); }
   } catch (e) { out.ctrError = 'La API de YouTube no da impresiones ni CTR para este vídeo'; }
   return out;
+}
+
+// ---------- vidIQ (servidor MCP de vidIQ con tu clave de API, solo lectura) ----------
+// La oficina solo puede usar estas herramientas (para no gastar créditos en otras cosas)
+const VIDIQ_TOOLS = ['vidiq_keyword_research', 'vidiq_outliers', 'vidiq_trending_videos', 'vidiq_balance'];
+async function vidiq(env, b) {
+  if (!env.VIDIQ_API_KEY) throw new Error('Falta VIDIQ_API_KEY en el servidor');
+  if (!VIDIQ_TOOLS.includes(b.tool)) throw new Error('Herramienta de vidIQ no permitida');
+  const url = env.VIDIQ_MCP_URL || 'https://mcp.vidiq.com/mcp';
+  const head = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', Authorization: 'Bearer ' + env.VIDIQ_API_KEY };
+  const post = (body, sid) => fetch(url, { method: 'POST', headers: { ...head, ...(sid ? { 'Mcp-Session-Id': sid } : {}) }, body: JSON.stringify(body) });
+  // Las respuestas llegan como JSON o como eventos (text/event-stream)
+  const leer = async r => {
+    const t = await r.text();
+    if ((r.headers.get('content-type') || '').includes('text/event-stream')) {
+      const datos = t.split('\n').filter(l => l.startsWith('data:')).map(l => l.slice(5).trim()).filter(Boolean).reverse();
+      for (const l of datos) { try { const j = JSON.parse(l); if (j.id !== undefined) return j; } catch (e) {} }
+      return null;
+    }
+    try { return JSON.parse(t); } catch (e) { return null; }
+  };
+  let r = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'oficina-jager', version: '1.0' } } });
+  if (!r.ok) throw new Error('vidIQ respondió ' + r.status + (r.status === 401 || r.status === 403 ? ' (revisa la clave VIDIQ_API_KEY)' : ''));
+  const sid = r.headers.get('mcp-session-id') || undefined;
+  await leer(r);
+  await post({ jsonrpc: '2.0', method: 'notifications/initialized' }, sid).catch(() => {});
+  r = await post({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: b.tool, arguments: b.args || {} } }, sid);
+  const d = await leer(r);
+  if (!d) throw new Error('vidIQ no ha devuelto una respuesta válida (' + r.status + ')');
+  if (d.error) throw new Error('vidIQ: ' + (d.error.message || JSON.stringify(d.error)));
+  const texto = (d.result?.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
+  if (d.result?.isError) throw new Error('vidIQ: ' + texto.slice(0, 300));
+  return { texto };
 }

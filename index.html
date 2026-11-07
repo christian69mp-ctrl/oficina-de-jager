@@ -238,6 +238,7 @@ button.step { font: inherit; font-size: 11.5px; }
 .fan-talk input { background: #0b1020; border-color: #263150; min-width: 0; }
 .file-btn { display: inline-flex; align-items: center; position: relative; }
 .file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.ped-row select { max-width: 42%; } .ped-row input { flex: 1; min-width: 0; }
 .yt-list { display: grid; gap: 6px; margin-top: 8px; } .yt-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; } .yt-row small { display: block; color: var(--muted); }
 #ytInfo { color: var(--fg); }
 .estudio-row { margin-top: 8px; display: grid; gap: 6px; }
@@ -304,6 +305,7 @@ button.step { font: inherit; font-size: 11.5px; }
         <button type="submit" class="btn primary">Enviar orden</button>
       </div>
       <div class="chips" aria-label="Encargos de ejemplo">
+        <button type="button" class="chip lab" id="pedidoBtn">Nuevo pedido (10 vídeos)</button>
         <button type="button" class="chip lab" data-order="Busca temas virales para el canal">Buscar temas virales</button>
         <button type="button" class="chip" data-order="Analiza qué tal va el canal y qué deberíamos hacer ahora">Cómo va el canal</button>
         <button type="button" class="chip" data-order="Proyecto: nueva función para la Ruleta Caliente">Proyecto · Ruleta Caliente</button>
@@ -494,7 +496,8 @@ const FLOWS = {
   video: {
     label: 'Vídeo · Pixelido',
     steps: [
-      { id: 'estudio',    label: 'Mesa de análisis', worker: 'lia',  deps: [], debate: 'estudio' },
+      { id: 'vidiq',      label: 'Investigación vidIQ', worker: 'lia', deps: [],                verb: 'Investigando con vidIQ',   secs: 6 },
+      { id: 'estudio',    label: 'Mesa de análisis', worker: 'lia',  deps: ['vidiq'], debate: 'estudio' },
       { id: 'guion',      label: 'Guion',            worker: 'nora', deps: ['estudio'],               verb: 'Escribiendo el guion',     secs: 11 },
       { id: 'miniaturas', label: 'Miniaturas',       worker: 'gema', deps: ['guion'],                 verb: 'Diseñando miniaturas',     secs: 10 },
       { id: 'titulos',    label: 'Títulos y SEO',    worker: 'tito', deps: ['guion'],                 verb: 'Probando títulos',         secs: 8 },
@@ -2027,6 +2030,8 @@ const FORMACION = {
 };
 
 const SPECS = {
+  // Datos reales de vidIQ (no es una IA): palabras clave en España y vídeos outlier en español
+  vidiq: { optional: true, fallback: () => ({ kind: 'text', via: 'reglas', text: 'Sin datos de vidIQ: el servidor no tiene VIDIQ_API_KEY o vidIQ no respondió. El equipo sigue sin ellos.' }) },
   radar: {
     json: true,
     prompt: j => `${FORMACION.lia}
@@ -2077,7 +2082,7 @@ Devuelve SOLO JSON: {"conceptos":[{"texto":"0-4 palabras exactas o vacío","esce
 ${NORMAS_CANAL}
 ${canalTxt()}
 ${estudioCtx('titulos')}
-Vídeo: «${j.topicFinal || j.topic}».
+Vídeo: «${j.topicFinal || j.topic}».${vidiqTxt(j)}
 Guion (inicio): ${(j.step('guion').output?.text || '').slice(0, 2500)}
 Escribe 8 títulos muy distintos entre sí, la descripción natural del vídeo (2 primeras líneas que enganchen, resumen, capítulos con los minutos de las indicaciones visuales, fuentes si corresponde y 2-3 hashtags relevantes) y un comentario fijado que abra una conversación concreta.
 Devuelve SOLO JSON: {"titulos":["..."],"descripcion":"...","hashtags":["#..."],"comentario_fijado":"..."}`,
@@ -2088,7 +2093,7 @@ Devuelve SOLO JSON: {"titulos":["..."],"descripcion":"...","hashtags":["#..."],"
     prompt: j => `${FORMACION.rui}
 ${canalTxt()}
 ${estudioCtx('titulos')}
-Vídeo: «${j.topicFinal || j.topic}». Cierra la versión definitiva de título y miniatura.
+Vídeo: «${j.topicFinal || j.topic}». Cierra la versión definitiva de título y miniatura.${vidiqTxt(j)}
 Títulos de Tito:
 ${(j.titles || []).map((t, i) => `${i + 1}. ${t}`).join('\n')}
 Conceptos de miniatura de Gema:
@@ -2226,8 +2231,22 @@ async function askAI(route, prompt, opts = {}) {
   if (!opts.json || txt == null) return txt;
   try { const m = String(txt).match(/[\[{][\s\S]*[\]}]/); return m ? JSON.parse(m[0]) : null; } catch (e) { return null; }
 }
+// Lía consulta vidIQ: 2 consultas por vídeo (unos 10 créditos)
+async function vidiqResearch(job) {
+  const tema = String(job.topic || '').replace(/^\s*(v[ií]deo|sobre)\s*[:\-–]?\s*/i, '').slice(0, 140);
+  const kw = await srvFetch('/vidiq', { tool: 'vidiq_keyword_research', args: { mode: 'research', keyword: tema, country: 'ES', limit: 15, userGoal: 'choose keywords and angle for a Spanish long-form documentary video' } });
+  const ol = await srvFetch('/vidiq', { tool: 'vidiq_outliers', args: { keyword: tema, language: 'es', contentType: 'long', limit: 10, userGoal: 'find overperforming Spanish long-form videos on this topic as title and thumbnail references' } }).catch(e => ({ texto: 'No se pudieron leer los outliers: ' + e.message }));
+  return `PALABRAS CLAVE EN ESPAÑA (vidIQ · ${today()})\n${clip(kw.texto, 6000)}\n\nVÍDEOS OUTLIER EN ESPAÑOL SOBRE EL TEMA (vidIQ)\n${clip(ol.texto, 6000)}`;
+}
+const vidiqTxt = j => { const o = j.step?.('vidiq')?.output; return o && o.via === 'vidiq' ? `\nDATOS REALES DE vidIQ (úsalos: palabras con volumen y poca competencia, y patrones de los outliers):\n${clip(o.text, 5000)}\n` : ''; };
 function startRealWork(agent, job, step) {
   const spec = SPECS[step.id];
+  if (step.id === 'vidiq') {
+    if (!(serverReady() && srv.caps.vidiq) || job.demo) return;
+    step.realPending = true; step.realData = null; step.realVia = 'vidiq';
+    (async () => { try { step.realData = await vidiqResearch(job); } catch (e) { log('vidIQ: ' + esc(e.message)); } finally { step.realPending = false; } })();
+    return;
+  }
   const route = spec?.prompt ? routeFor(agent.def.ai, job.demo) : null;
   if (!route && !(step.id === 'miniaturas' && serverReady() && !job.demo)) return;
   step.realPending = true; step.realData = null; step.realVia = route;
@@ -2269,7 +2288,7 @@ let D = null;
 function debateContext(d) {
   const j = d.job;
   const base = `${NORMAS_CANAL}\n${canalTxt()}\n${estudioCtx('mesa')}\nManual del canal:\n${lessonsTxt()}\nHistorial de vídeos:\n${historyTxt()}`;
-  if (d.mode === 'estudio') return `Tema que propone el jefe: «${j.topic}».\n${base}`;
+  if (d.mode === 'estudio') return `Tema que propone el jefe: «${j.topic}».${vidiqTxt(j)}\n${base}`;
   if (d.mode === 'eleccion') return `Temas candidatos que ha encontrado Lía:\n${(j.picks || []).map((p, i) => `${i + 1}. ${p.tema} (${p.formato}): ${p.angulo}`).join('\n')}\n${base}`;
   const v = videoOf(j);
   return `Vídeo publicado: «${v.title || v.topic}». Métricas: ${J(v.metrics)} (r30 = % que sigue a los 30 s; pct = % medio visto).\nCTR previsto antes de publicar: ${v.predCtr ? v.predCtr + '%' : 'no hay'}.\nAnálisis de CTR de Rui:\n${j.step('ctr').output?.text || ''}\nAnálisis de retención de Sam:\n${j.step('retencion').output?.text || ''}\n${base}`;
@@ -2456,7 +2475,48 @@ async function chooseFolder() {
 function packageText(job) {
   const out = (id, t) => job.step(id)?.output?.text ? `\n\n══════ ${t} ══════\n${job.step(id).output.text}` : '';
   return `PAQUETE PARA PIXELIDO · ${job.topicFinal || job.topic}\nPreparado por La oficina de Jager el ${today()}\nTítulo elegido: ${job.winner?.titulo || '-'}\nMiniatura elegida: ${job.winner?.miniatura || '-'}`
-    + out('brief', 'ENCARGO PARA PIXELIDO') + out('guion', 'GUION') + (job.concepts?.length ? `\n\n══════ MINIATURAS (A, B, C) ══════\n${job.concepts.map((c, i) => `${'ABC'[i]} · ${c.texto || '(sin texto)'} · ${c.escena} · ${c.emocion} · colores: ${c.colores || '-'}${c.prompt_imagen ? `\n   Prompt para generar la imagen: ${c.prompt_imagen}` : ''}`).join('\n')}` : '') + out('titulos', 'TÍTULOS Y SEO') + out('pretest', 'TEST DE CTR') + out('estudio', 'ACUERDO DE LA MESA DE ANÁLISIS');
+    + out('brief', 'ENCARGO PARA PIXELIDO') + out('guion', 'GUION') + out('vidiq', 'DATOS DE vidIQ') + (job.concepts?.length ? `\n\n══════ MINIATURAS (A, B, C) ══════\n${job.concepts.map((c, i) => `${'ABC'[i]} · ${c.texto || '(sin texto)'} · ${c.escena} · ${c.emocion} · colores: ${c.colores || '-'}${c.prompt_imagen ? `\n   Prompt para generar la imagen: ${c.prompt_imagen}` : ''}`).join('\n')}` : '') + out('titulos', 'TÍTULOS Y SEO') + out('pretest', 'TEST DE CTR') + out('estudio', 'ACUERDO DE LA MESA DE ANÁLISIS');
+}
+// Pedido completo para Pixelido: todos los vídeos del lote en un solo documento
+async function savePedidoToDrive(code, lote) {
+  const texto = `PEDIDO ${code} PARA PIXELIDO · ${lote.length} vídeos · ${today()}\nPreparado por La oficina de Jager. Voces y límites de cada canal: ver OBSERVACIONES de cada vídeo.\n\n` + lote.map((j, i) => `\n\n████████ VÍDEO ${i + 1} de ${lote.length} · ${chanName(j.channelId)} ████████\n` + packageText(j)).join('');
+  const titulo = `Pedido ${code} para Pixelido · ${lote.length} vídeos · ${today()}`;
+  const folder = store.drive?.id ? store.drive : null;
+  try {
+    const mcp = await mcpPromise;
+    if (mcp) await mcp.callTool('Google Drive', 'create_file', { title: titulo, textContent: texto, contentMimeType: 'text/plain', ...(folder ? { parentId: folder.id } : {}) });
+    else if (serverDrive()) await srvFetch('/drive', { accion: 'guardar', carpeta: folder?.id || null, titulo, texto });
+    else return;
+    log(`Pedido <b>${esc(code)}</b> completo guardado en Drive (${lote.length} vídeos)`);
+    directorSay(`Pedido ${code} completo: los ${lote.length} vídeos están entregados y el documento del pedido está en tu carpeta de Drive.`, 'aviso');
+  } catch (e) { log('No se pudo guardar el pedido completo en Drive: ' + esc(e.message || e)); }
+}
+function nextPedidoCode() {
+  let max = 1; // PX-01 ya existe (pedido del estudio)
+  for (const x of [...store.videos, ...jobs]) { const m = String(x.pedido || '').match(/PX-(\d+)/); if (m) max = Math.max(max, +m[1]); }
+  return 'PX-' + String(max + 1).padStart(2, '0');
+}
+function openPedido() {
+  const body = openModal('Nuevo pedido para Pixelido', `Hasta 10 vídeos. Cada vídeo pasa por todo el equipo y, con vidIQ conectado, gasta unos 10 créditos de vidIQ (${serverReady() && srv.caps.vidiq ? 'vidIQ conectado' : 'vidIQ sin conectar: se hará sin sus datos'}).`, false);
+  const order = []; for (const c of store.channels.slice(0, 5)) order.push(c.id, c.id);
+  while (order.length < 10) order.push(store.active);
+  const opts = id => store.channels.map(c => `<option value="${esc(c.id)}"${c.id === id ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+  body.innerHTML = `<form id="pedidoForm" style="display:flex;flex-direction:column;gap:10px">
+    <label class="field" for="pedCode">Código del pedido<input id="pedCode" value="${esc(nextPedidoCode())}"></label>
+    ${order.map((cid, i) => `<div class="field-row ped-row"><select id="pedCh${i}" aria-label="Canal del vídeo ${i + 1}">${opts(cid)}</select><input id="pedT${i}" placeholder="Vídeo ${i + 1}: tema (vacío = no se hace)" aria-label="Tema del vídeo ${i + 1}"></div>`).join('')}
+    <p class="note" id="pedErr">Consejo: comprueba antes en «Ver ficha del canal» los temas ya cubiertos.</p>
+    <div class="order-row"><button type="submit" class="btn primary">Lanzar pedido</button></div></form>`;
+  $('#pedidoForm').addEventListener('submit', e => {
+    e.preventDefault();
+    if (brainState !== 'lista') { $('#pedErr').textContent = 'Sin IA conectada no se pueden hacer encargos: conecta el servidor.'; return; }
+    const code = $('#pedCode').value.trim() || nextPedidoCode();
+    const filas = order.map((_, i) => ({ ch: $('#pedCh' + i).value, tema: $('#pedT' + i).value.trim() })).filter(f => f.tema);
+    if (!filas.length) { $('#pedErr').textContent = 'Escribe al menos un tema.'; return; }
+    $('#modal').hidden = true;
+    filas.forEach(f => newOrder('video', f.tema, { channelId: f.ch, pedido: code, silencioso: true }));
+    log(`Pedido <b>${esc(code)}</b> lanzado: ${filas.length} vídeos`);
+    directorSay(`Pedido ${code} en marcha, jefe: ${filas.length} vídeos. Lía empieza con vidIQ y la mesa va estudiando cada uno. Te aviso cuando haya paquetes para aprobar.`, 'aviso');
+  });
 }
 async function savePackageToDrive(job, video) {
   if (!video || !$('#driveOn').checked || job.demo) return;
@@ -2616,7 +2676,7 @@ async function ytMetricas(id) {
 async function testServer() {
   if (!srv.url) { srv.ok = false; srv.msg = 'Escribe la dirección del servidor.'; return renderConn(); }
   srv.msg = 'Probando…'; renderConn();
-  try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz || d.claude); if (d.claude && !hasRuntime) { brainState = 'lista'; updateBadge(); } updateVoiceNote(); srv.msg = `Conectado · Claude ${d.claude ? 'sí' : 'sin clave'} · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
+  try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz || d.claude); if (d.claude && !hasRuntime) { brainState = 'lista'; updateBadge(); } updateVoiceNote(); srv.msg = `Conectado · Claude ${d.claude ? 'sí' : 'sin clave'} · vidIQ ${d.vidiq ? 'sí' : 'no'} · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
   catch (e) { srv.ok = false; srv.msg = /Clave de la oficina incorrecta/.test(e.message) ? 'Clave de la oficina incorrecta: escríbela exactamente igual que en OFICINA_TOKEN (mayúsculas y minúsculas cuentan). Pulsa «Ver» para comprobarla.' : 'No responde: ' + e.message; }
   if (srv.ok && !srv.caps.datos) srv.msg += srv.caps.datos === undefined ? ' · Sin sincronizar: falta actualizar worker.js en el servidor' : ' · Sin sincronizar: falta el almacén DATOS en wrangler.toml';
   renderConn();
@@ -2634,6 +2694,7 @@ function renderConn() {
 }
 $('#driveBtn').onclick = chooseFolder;
 $('#estudioVer').onclick = showEstudio;
+$('#pedidoBtn').onclick = openPedido;
 $('#ytTest').onclick = ytEstadoLoad;
 $('#ytImport').onclick = ytImport;
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !hasRuntime && srv.ok) ytEstadoLoad(); });
@@ -2695,7 +2756,7 @@ function newOrder(type, topic, o = {}) {
   if (brainState !== 'lista') { directorSay('No puedo poner al equipo a trabajar sin IA conectada, jefe. Conecta el servidor en «Conexiones» y empezamos.', 'aviso'); return null; }
   const flow = FLOWS[type];
   const job = {
-    channelId: store.active,
+    channelId: o.channelId || store.active, pedido: o.pedido || null,
     id: ++jobSeq, type, topic, version: o.version || 1, demo: !!o.demo, videoId: o.videoId || null,
     short: topic.length > 34 ? topic.slice(0, 32) + '…' : topic,
     steps: flow.steps.map(s => ({ ...s, state: 'espera', progress: 0, output: null })),
@@ -2706,7 +2767,7 @@ function newOrder(type, topic, o = {}) {
   jobs.unshift(job);
   log(`Orden recibida: <b>${esc(topic)}</b>${job.version > 1 ? ' (v' + job.version + ')' : ''}`);
   if (o.reply) directorSay(o.reply, 'habla', undefined, !!o.voz);
-  else nyxSay(`El jefe te ha hecho un encargo de tipo «${type}»: «${topic}». Díselo a tu manera y cuéntale quién se encarga (${REPLIES[type]}).`, REPLIES[type]);
+  else if (!o.silencioso) nyxSay(`El jefe te ha hecho un encargo de tipo «${type}»: «${topic}». Díselo a tu manera y cuéntale quién se encarga (${REPLIES[type]}).`, REPLIES[type]);
   setTimeout(() => {
     job.steps.filter(s => s.deps.length === 0).forEach(s => {
       s.state = 'cola';
@@ -2742,7 +2803,7 @@ function buildOutput(step, job, agent) {
     if (!spec.json) return { kind: 'text', text: String(data).trim().replace(/^```\w*\n?|```$/g, ''), via, subFor };
   }
   // Análisis hechos con reglas sobre métricas reales: son válidos sin IA
-  if (spec.fallback && ['ctr', 'retencion'].includes(step.id)) return spec.fallback(job);
+  if (spec.fallback && (['ctr', 'retencion'].includes(step.id) || spec.optional)) return spec.fallback(job);
   job.fallos = (job.fallos || 0) + 1;
   return { kind: 'text', via: 'error', text: `⚠ ${agent.def.name} no ha podido hacer «${step.label}»: su IA no ha respondido a tiempo. No se ha inventado nada. Pide a Nyx que lo rehaga.` };
 }
@@ -2836,9 +2897,10 @@ function approve(job) {
       store.saveVideo({
         id: 'v' + Date.now().toString(36), topic: job.topicFinal || job.topic, title: job.winner?.titulo || job.topicFinal || job.topic,
         thumb: job.winner?.miniatura || 'A', thumbIdea: job.concepts?.[ci]?.escena || '', predCtr: job.winner?.ctr_estimado ? +job.winner.ctr_estimado : null,
-        viral: job.viral || null, guion: (job.step('guion').output?.text || '').slice(0, 14000), createdAt: Date.now(), metrics: null, analysis: null, demo: job.demo, channelId: job.channelId,
+        viral: job.viral || null, guion: (job.step('guion').output?.text || '').slice(0, 14000), createdAt: Date.now(), metrics: null, analysis: null, demo: job.demo, pedido: job.pedido || null, channelId: job.channelId,
       });
       savePackageToDrive(job, store.videos[store.videos.length - 1]);
+      if (job.pedido) { const lote = jobs.filter(x => x.pedido === job.pedido); if (lote.every(x => x.status === 'enviado')) savePedidoToDrive(job.pedido, lote); }
       nyxSay(`Paco acaba de entregar a Pixelido el paquete de «${job.short}». Pide al jefe que, cuando lo publiquen, te pase las métricas.`, `Entregado. Pixelido ya tiene «${job.short}». Cuando lo publiquen, pásame las métricas.`);
       crew.forEach(a => { if (!a.busy()) a.celebrate = 2.5; }); markDirty();
     } });
@@ -2908,7 +2970,7 @@ function renderJobs() {
   if (!jobs.length) { boxEl.innerHTML = '<div class="empty">Todavía no hay encargos. Pide «Busca temas virales», «Prepara un vídeo sobre…» o «Proyecto: …», y Nyx lo repartirá entre el equipo.</div>'; }
   else boxEl.innerHTML = jobs.slice(0, 12).map(j => `
     <article class="job ${['esperando', 'elige'].includes(j.status) ? 'wait' : ''}">
-      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>
+      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>
       <div class="steps">${j.steps.map(s => {
         const inner = `<span>${s.label} · ${stepOwner(s, j)}</span>`;
         return s.output

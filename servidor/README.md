@@ -104,6 +104,14 @@ npx wrangler deploy
 
 6. En la oficina, **Conexiones → YouTube Studio → Conectar** en cada canal. En Google elige la cuenta de ese canal (o su cuenta de marca). Como la app no está verificada por Google, saldrá un aviso: **Configuración avanzada → Ir a Oficina de Jager**. Es tu propia app y solo pide lectura.
 
+## vidIQ (investigación en cada pedido)
+
+En cada vídeo de un pedido, Lía hace 2 consultas a vidIQ (unos 10 créditos): palabras clave en España (volumen y competencia) y vídeos outlier en español sobre el tema. La mesa de análisis, Tito y Rui usan esos datos, y van en el paquete para Pixelido. Un pedido de 10 vídeos gasta unos 100 créditos (el plan gratuito da 150 al mes).
+
+1. Crea una clave de API en vidiq.com/mcp (pestaña de un cliente como Cursor).
+2. Guárdala en el servidor: `npx wrangler secret put VIDIQ_API_KEY`
+3. En la oficina, **Conexiones → Servidor → Probar** debe decir «vidIQ sí».
+
 ## Coste aproximado
 
 Cloudflare Workers es gratis hasta 100.000 peticiones al día. Lo que pagas son las IAs: un vídeo completo hace unas 15 peticiones de texto y 3 imágenes, y cada frase de Nyx es una petición corta a Claude más unos segundos de voz de ElevenLabs. El precio exacto depende de los modelos que elijas en `wrangler.toml`.
