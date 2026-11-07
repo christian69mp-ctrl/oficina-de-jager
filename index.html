@@ -263,6 +263,20 @@ button.step { font: inherit; font-size: 11.5px; }
   .stage:not(.big) .say { display: none; }
   .stage.big .say { bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
 }
+/* Pestañas del panel */
+.ptabs { position: sticky; top: -16px; z-index: 5; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 6px; margin: -16px -16px 0; background: color-mix(in srgb, var(--panel) 94%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.ptabs button { position: relative; border: 0; background: transparent; color: var(--muted); padding: 10px 4px; border-radius: 8px; font-family: var(--f-display); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; min-height: 40px; }
+.ptabs button[aria-pressed="true"] { background: var(--panel-2); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line); }
+.pbadge { position: absolute; top: 4px; right: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--warn, #fbbf24); color: #0a0f1c; font: 700 11px/18px var(--f-body); letter-spacing: 0; }
+.panel[data-tab="trabajo"] > [data-tabs]:not([data-tabs~="trabajo"]),
+.panel[data-tab="canal"] > [data-tabs]:not([data-tabs~="canal"]),
+.panel[data-tab="equipo"] > [data-tabs]:not([data-tabs~="equipo"]),
+.panel[data-tab="ajustes"] > [data-tabs]:not([data-tabs~="ajustes"]) { display: none; }
+@media (max-width: 900px) {
+  .ptabs { position: fixed; top: auto; bottom: 0; left: 0; right: 0; margin: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); border-bottom: 0; z-index: 30; }
+  .panel { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  body.no-scroll .ptabs { display: none; }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -295,8 +309,14 @@ button.step { font: inherit; font-size: 11.5px; }
     </div>
   </section>
 
-  <aside class="panel">
-    <form class="order" id="orderForm">
+  <aside class="panel" data-tab="trabajo">
+    <nav class="ptabs" aria-label="Secciones del panel">
+      <button type="button" data-ptab="trabajo" aria-pressed="true">Trabajo<span class="pbadge" id="badgeTrabajo" hidden></span></button>
+      <button type="button" data-ptab="canal" aria-pressed="false">Canal</button>
+      <button type="button" data-ptab="equipo" aria-pressed="false">Equipo</button>
+      <button type="button" data-ptab="ajustes" aria-pressed="false">Ajustes</button>
+    </nav>
+    <form class="order" id="orderForm" data-tabs="trabajo">
       <label class="title" for="orderText">Orden para <span>Nyx</span></label>
       <textarea id="orderText" placeholder="Ej.: ¿Qué pasa, Nyx? Prepárame un vídeo sobre el vuelo JAL 123"></textarea>
       <div class="order-row">
@@ -312,7 +332,7 @@ button.step { font: inherit; font-size: 11.5px; }
       </div>
     </form>
 
-    <section class="chan-bar" aria-label="Canal de YouTube">
+    <section class="chan-bar" aria-label="Canal de YouTube" data-tabs="trabajo canal">
       <label for="chanSel">Canal de YouTube</label>
       <div class="field-row"><select id="chanSel"></select><button type="button" class="btn small" id="chanNew">Nuevo canal</button></div>
       <div class="field-row" id="chanNewRow" hidden><input id="chanNewName" placeholder="Nombre del nuevo canal" aria-label="Nombre del nuevo canal"><button type="button" class="btn small primary" id="chanCreate">Crear</button></div>
@@ -321,40 +341,40 @@ button.step { font: inherit; font-size: 11.5px; }
       <div class="estudio-row"><p class="note" id="estudioState">Ficha del estudio: cargando…</p><div class="order-row"><button type="button" class="btn small" id="estudioVer">Ver ficha del canal</button><button type="button" class="btn small" id="estudioAct">Actualizar desde GitHub</button></div></div>
     </section>
 
-    <section>
+    <section data-tabs="trabajo">
       <h2>Encargos <small id="stats">0 hechos</small></h2>
       <div class="jobs" id="jobs"></div>
     </section>
 
-    <section>
+    <section data-tabs="canal">
       <h2>Métricas del canal <small id="kpiNote">orientativo</small></h2>
       <div class="kpis" id="kpis"></div>
     </section>
 
-    <section>
+    <section data-tabs="canal">
       <h2>Vídeos del canal <small id="videoCount"></small></h2>
       <div class="order-row" id="ytImportRow" hidden><button type="button" class="btn small" id="ytImport">Traer vídeos de YouTube</button></div>
       <div class="videos" id="videos"></div>
     </section>
 
-    <section>
+    <section data-tabs="canal">
       <h2>Manual del canal <small id="lessonCount"></small></h2>
       <div class="niche"><input id="chanName" aria-label="Nombre del canal" placeholder="Nombre del canal"></div>
       <div class="niche"><input id="nicheInput" aria-label="De qué va el canal" placeholder="De qué va el canal y para quién (nicho)"><button type="button" class="btn small" id="nicheSave">Guardar</button></div>
       <ul class="lessons" id="lessons"></ul>
     </section>
 
-    <section>
+    <section data-tabs="equipo">
       <h2>Equipo</h2>
       <div class="team" id="team"></div>
     </section>
 
-    <section>
+    <section data-tabs="equipo">
       <h2>Registro</h2>
       <ol class="log" id="log"></ol>
     </section>
 
-    <section>
+    <section data-tabs="ajustes">
       <h2>Conexiones</h2>
       <div class="conns">
         <div class="conn" id="connDrive">
@@ -377,7 +397,7 @@ button.step { font: inherit; font-size: 11.5px; }
       </div>
     </section>
 
-    <section class="settings">
+    <section class="settings" data-tabs="ajustes">
       <h2>Ajustes</h2>
       <input type="checkbox" id="subOn" checked hidden>
       <div class="voice-box">
@@ -688,6 +708,31 @@ function slatTex(base, gap) {
   });
   t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
+function herringboneTex(c1, c2) {
+  const t = canvasTex(512, 512, (g, W, H) => {
+    g.fillStyle = '#0b0806'; g.fillRect(0, 0, W, H);
+    const bw = 22, bl = 88, a = new THREE.Color(c1), b = new THREE.Color(c2);
+    for (let row = -2; row < 14; row++) for (let col = -2; col < 14; col++) {
+      for (const dir of [0, 1]) {
+        g.save(); g.translate(col * bl * 0.707 + (row % 2) * bl * 0.354, row * bw * 1.414 * 2 + dir * bw * 1.414); g.rotate(dir ? -Math.PI / 4 : Math.PI / 4);
+        const k = rand(0.82, 1.12), c = (Math.random() < 0.5 ? a : b);
+        g.fillStyle = `rgb(${Math.min(255, c.r * 255 * k) | 0},${Math.min(255, c.g * 255 * k) | 0},${Math.min(255, c.b * 255 * k) | 0})`;
+        g.fillRect(0, 0, bl - 2, bw - 2);
+        g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 1; for (let v = 0; v < 4; v++) { g.beginPath(); g.moveTo(4, 4 + v * 4 + rand(0, 3)); g.lineTo(bl - 6, 4 + v * 4 + rand(0, 3)); g.stroke(); }
+        g.restore();
+      }
+    }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+// Alfombra con borde (bajo las mesas)
+function rugTex(fill, border) {
+  return canvasTex(512, 256, (g, W, H) => {
+    g.fillStyle = border; g.fillRect(0, 0, W, H); g.fillStyle = fill; g.fillRect(14, 14, W - 28, H - 28);
+    g.strokeStyle = border; g.globalAlpha = 0.5; g.lineWidth = 2; g.strokeRect(26, 26, W - 52, H - 52); g.globalAlpha = 1;
+    const img = g.getImageData(0, 0, W, H); for (let q = 0; q < img.data.length; q += 4) { const n = (Math.random() - 0.5) * 10; img.data[q] += n; img.data[q + 1] += n; img.data[q + 2] += n; } g.putImageData(img, 0, 0);
+  });
+}
 function floor(w, d, x, z, mat, y = 0) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
   m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true; scene.add(m); return m;
@@ -697,12 +742,14 @@ const mt = marbleTex(); mt.repeat.set(1.5, 1);
 floor(HW * 2, 9.6, 0, -3.2, std(0xffffff, { map: mt, roughness: 0.22, metalness: 0.05, envMapIntensity: 0.3 }));
 const tt = techTex(); tt.repeat.set(3, 1.6);
 floor(HW * 2, 6.4, 0, 4.8, std(0xffffff, { map: tt, roughness: 0.35, metalness: 0.2, envMapIntensity: 0.25 }));
-const ct1 = carpetTex(226, 30, 20); ct1.repeat.set(6, 8);
-floor(12, 16, -12, 0, std(0xffffff, { map: ct1, roughness: 1, envMapIntensity: 0.2 }));
-const ct2 = carpetTex(330, 24, 20); ct2.repeat.set(6, 8);
-floor(12, 16, 12, 0, std(0xffffff, { map: ct2, roughness: 1, envMapIntensity: 0.2 }));
-floor(9.2, 3.4, -12, -4.6, std(0x24325e, { roughness: 1 }), 0.01);
-floor(9.2, 3.4, 12, -4.6, std(0x4a2235, { roughness: 1 }), 0.01);
+const ct1 = herringboneTex('#7a5636', '#6a4a2e'); ct1.repeat.set(3, 4);
+floor(12, 16, -12, 0, std(0xffffff, { map: ct1, roughness: 0.45, envMapIntensity: 0.35 }));
+const ct2 = herringboneTex('#3a2a24', '#2e211c'); ct2.repeat.set(3, 4);
+floor(12, 16, 12, 0, std(0xffffff, { map: ct2, roughness: 0.42, envMapIntensity: 0.35 }));
+floor(9.2, 3.4, -12, -4.6, std(0xffffff, { map: rugTex('#24325e', '#c9a45c'), roughness: 1 }), 0.01);
+floor(9.2, 3.4, 12, -4.6, std(0xffffff, { map: rugTex('#4a2235', '#c9a45c'), roughness: 1 }), 0.01);
+floor(9.2, 3.4, -12, 4.2, std(0xffffff, { map: rugTex('#1f2b4f', '#8fa6ff'), roughness: 1 }), 0.01);
+floor(9.2, 3.4, 12, 4.2, std(0xffffff, { map: rugTex('#3d1d2c', '#ff8a96'), roughness: 1 }), 0.01);
 const strip = new THREE.Mesh(new THREE.PlaneGeometry(OW * 2, 0.05), new THREE.MeshBasicMaterial({ color: 0x5ce8ff, transparent: true, opacity: 0.35 }));
 strip.rotation.x = -Math.PI / 2; strip.position.set(0, 0.015, AISLE_Z); scene.add(strip);
 const labEdge = new THREE.Mesh(new THREE.PlaneGeometry(HW * 2, 0.06), new THREE.MeshBasicMaterial({ color: 0xb38cff, transparent: true, opacity: 0.7 }));
@@ -775,7 +822,9 @@ const drawLogo = (g, W, H) => {
 };
 const logoTex = canvasTex(1024, 300, drawLogo);
 const logo = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.23), new THREE.MeshStandardMaterial({ map: logoTex, transparent: true, metalness: 0.8, roughness: 0.3, emissive: 0x6b5220, emissiveIntensity: 0.25 }));
-logo.position.set(0, 2.25, -7.97); scene.add(logo);
+logo.position.set(0, 3.45, -7.98); logo.scale.setScalar(0.62); scene.add(logo);
+box(3.0, 0.82, 0.06, std(0x0c0d12, { metalness: 0.6, roughness: 0.35 }), 0, 3.45, -8.04, scene, false);
+box(3.0, 0.025, 0.07, glow(0xd8b46a, 1.2), 0, 3.05, -8.0, scene, false);
 signs.push({ userData: { redraw: () => { drawLogo(logoTex.image.getContext('2d'), 1024, 300); logoTex.needsUpdate = true; } } });
 
 // --- Reloj de pared con la hora real
@@ -803,10 +852,10 @@ const potMat = std(0x1a1b20, { metalness: 0.2, roughness: 0.4 });
 function bigPlant(x, z, s = 1) {
   const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); scene.add(g);
   cyl(0.28, 0.22, 0.55, potMat, 0, 0.275, 0, g); cyl(0.29, 0.29, 0.04, brass, 0, 0.56, 0, g);
-  for (let i = 0; i < 9; i++) {
-    const a = i / 9 * Math.PI * 2 + rand(-0.2, 0.2), h = rand(0.9, 1.6);
+  for (let i = 0; i < 14; i++) {
+    const a = i / 14 * Math.PI * 2 + rand(-0.2, 0.2), h = rand(0.8, 1.7);
     const stem = box(0.02, h, 0.02, std(0x2a5a35), Math.cos(a) * 0.12, 0.55 + h / 2, Math.sin(a) * 0.12, g, false); stem.rotation.z = Math.cos(a) * 0.3; stem.rotation.x = -Math.sin(a) * 0.3;
-    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 6), i % 2 ? leafMat : leafMat2);
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 8), i % 2 ? leafMat : leafMat2);
     leaf.scale.set(1, 0.12, 0.65); leaf.position.set(Math.cos(a) * (0.12 + h * 0.3), 0.55 + h, Math.sin(a) * (0.12 + h * 0.3)); leaf.rotation.y = -a; leaf.rotation.z = 0.5; leaf.castShadow = true; g.add(leaf);
   }
 }
@@ -815,7 +864,7 @@ function tree(x, z) {
   const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
   cyl(0.42, 0.36, 0.6, potMat, 0, 0.3, 0, g); cyl(0.43, 0.43, 0.04, brass, 0, 0.61, 0, g);
   cyl(0.05, 0.08, 1.9, std(0x5a4030), 0, 1.5, 0, g);
-  for (let i = 0; i < 7; i++) { const f = new THREE.Mesh(new THREE.IcosahedronGeometry(rand(0.35, 0.55), 1), i % 2 ? leafMat : leafMat2); f.position.set(rand(-0.45, 0.45), rand(2.2, 3.0), rand(-0.4, 0.4)); f.castShadow = true; g.add(f); }
+  for (let i = 0; i < 16; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(rand(0.22, 0.38), 14, 10), i % 3 ? leafMat : leafMat2); f.position.set(rand(-0.5, 0.5), rand(2.15, 3.05), rand(-0.45, 0.45)); f.scale.set(1, rand(0.75, 0.95), 1); f.castShadow = true; g.add(f); }
 }
 tree(-3.2, -7.2); tree(3.2, -7.2);
 function frame(x, y, z, w, h, colors) {
@@ -987,18 +1036,26 @@ function makeCharacter(L, accent) {
   add(new THREE.BoxGeometry(0.07, 0.09, 0.012), m(accent), 0, 1.0, 0.2, body, false);
   add(new THREE.CylinderGeometry(0.07, 0.08, 0.12, 12), skin, 0, 1.28, 0);
   const head = new THREE.Group(); head.position.set(0, 1.57, 0); body.add(head);
-  const skull = add(new THREE.SphereGeometry(0.235, 24, 18), skin, 0, 0, 0, head); skull.scale.set(1, 1.08, 1);
-  add(new THREE.SphereGeometry(0.05, 10, 8), skin, -0.23, 0, 0, head); add(new THREE.SphereGeometry(0.05, 10, 8), skin, 0.23, 0, 0, head);
-  add(new THREE.SphereGeometry(0.035, 10, 8), m(shade(L.skin, 0.92)), 0, -0.03, 0.235, head, false);
+  head.scale.setScalar(0.9);
+  const skull = add(new THREE.SphereGeometry(0.235, 32, 24), skin, 0, 0, 0, head); skull.scale.set(0.96, 1.1, 1);
+  const jaw = add(new THREE.SphereGeometry(0.17, 24, 16), skin, 0, -0.1, 0.04, head); jaw.scale.set(1, 0.8, 0.95);
+  for (const sx of [-1, 1]) { const ear = add(new THREE.SphereGeometry(0.045, 12, 10), skin, sx * 0.225, 0, -0.01, head); ear.scale.set(0.45, 1, 0.75); }
+  const nose = add(new THREE.SphereGeometry(0.03, 14, 10), m(shade(L.skin, 0.94)), 0, -0.035, 0.232, head, false); nose.scale.set(0.8, 1.25, 0.9);
+  const blushM = new THREE.MeshBasicMaterial({ color: 0xff8a8a, transparent: true, opacity: 0.18, depthWrite: false });
+  for (const sx of [-1, 1]) { const ch = new THREE.Mesh(new THREE.CircleGeometry(0.035, 16), blushM); ch.position.set(sx * 0.12, -0.05, 0.205); ch.rotation.y = sx * 0.5; head.add(ch); }
   const eyes = new THREE.Group(); head.add(eyes);
   for (const s of [-1, 1]) {
-    const w = add(new THREE.SphereGeometry(0.036, 12, 8), whiteM, s * 0.085, 0.03, 0.2, eyes, false); w.scale.set(1, 0.85, 0.5);
-    add(new THREE.SphereGeometry(0.02, 10, 8), m(0x2b1b12), s * 0.085, 0.03, 0.218, eyes, false);
-    add(new THREE.BoxGeometry(0.075, 0.016, 0.02), hairM, s * 0.085, 0.09, 0.215, head, false).rotation.z = -s * 0.12;
+    const w = add(new THREE.SphereGeometry(0.036, 16, 12), whiteM, s * 0.082, 0.03, 0.2, eyes, false); w.scale.set(1, 0.8, 0.5);
+    const iris = add(new THREE.SphereGeometry(0.019, 14, 10), m(L.eyeC || 0x5a3a22), s * 0.082, 0.028, 0.214, eyes, false); iris.scale.z = 0.5;
+    add(new THREE.SphereGeometry(0.0105, 10, 8), m(0x0b0b0b), s * 0.082, 0.028, 0.221, eyes, false);
+    add(new THREE.SphereGeometry(0.005, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }), s * 0.082 + 0.006, 0.036, 0.226, eyes, false);
+    const brow = add(new THREE.CapsuleGeometry(0.009, 0.05, 4, 8), hairM, s * 0.083, 0.088, 0.212, head, false); brow.rotation.z = Math.PI / 2 - s * 0.12;
   }
-  const mouth = add(new THREE.BoxGeometry(0.08, 0.016, 0.02), m(0x8a3b3b), 0, -0.11, 0.22, head, false);
+  const mouth = add(new THREE.CapsuleGeometry(0.011, 0.045, 4, 10), m(0xa04a4a), 0, -0.112, 0.21, head, false); mouth.rotation.z = Math.PI / 2; mouth.scale.set(1, 1, 0.6);
   const cap = add(new THREE.SphereGeometry(0.25, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.52), hairM, 0, 0.03, -0.015, head); cap.rotation.x = -0.28; cap.scale.set(1.02, 1.08, 1.05);
-  if (L.hair === 'long') { const back = add(new THREE.CapsuleGeometry(0.2, 0.3, 4, 12), hairM, 0, -0.18, -0.1, head); back.scale.set(1.15, 1, 0.55); }
+  if (L.hair === 'long') { const back = add(new THREE.CapsuleGeometry(0.2, 0.3, 4, 12), hairM, 0, -0.18, -0.1, head); back.scale.set(1.15, 1, 0.55);
+    for (const sx of [-1, 1]) { const lock = add(new THREE.CapsuleGeometry(0.05, 0.28, 4, 10), hairM, sx * 0.2, -0.12, 0.06, head); lock.rotation.z = sx * 0.08; } }
+  if (['long', 'bun', 'ponytail'].includes(L.hair)) { const fringe = add(new THREE.SphereGeometry(0.22, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.3), hairM, 0, 0.1, 0.03, head); fringe.rotation.x = 0.32; fringe.scale.set(1.04, 1, 1.02); }
   if (L.hair === 'bun') add(new THREE.SphereGeometry(0.1, 14, 10), hairM, 0, 0.22, -0.16, head);
   if (L.hair === 'ponytail') { const pt = add(new THREE.CapsuleGeometry(0.06, 0.3, 4, 10), hairM, 0, -0.08, -0.27, head); pt.rotation.x = 0.35; add(new THREE.TorusGeometry(0.06, 0.015, 6, 12), m(accent), 0, 0.08, -0.23, head, false).rotation.x = 1.2; }
   if (L.hair === 'curly') for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; add(new THREE.SphereGeometry(0.075, 8, 6), hairM, Math.cos(a) * 0.19, 0.14 + Math.sin(i * 1.7) * 0.03, Math.sin(a) * 0.17 - 0.03, head); }
@@ -1008,23 +1065,27 @@ function makeCharacter(L, accent) {
     add(new THREE.BoxGeometry(0.06, 0.008, 0.008), blackMetal, 0, 0.04, 0.24, head, false);
   }
   if (L.headset) {
-    const band = add(new THREE.TorusGeometry(0.255, 0.014, 6, 24, Math.PI), blackMetal, 0, 0.02, 0, head, false); band.rotation.y = Math.PI / 2;
+    const band = add(new THREE.TorusGeometry(0.255, 0.014, 6, 24, Math.PI), blackMetal, 0, 0.02, -0.02, head, false); band.scale.y = 1.08;
     for (const s of [-1, 1]) add(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 14), m(0x222222), s * 0.25, 0, 0, head, false).rotation.z = Math.PI / 2;
-    const mic = add(new THREE.CylinderGeometry(0.006, 0.006, 0.18, 4), blackMetal, -0.2, -0.1, 0.12, head, false); mic.rotation.x = 1.1; mic.rotation.z = 0.3;
-    add(new THREE.SphereGeometry(0.018, 6, 6), m(accent), -0.17, -0.14, 0.2, head, false);
+    const a0 = V(-0.25, -0.03, 0.03), a1 = V(-0.07, -0.13, 0.21), dir = a1.clone().sub(a0);
+    const mic = add(new THREE.CylinderGeometry(0.006, 0.006, dir.length(), 6), blackMetal, 0, 0, 0, head, false);
+    mic.position.copy(a0.clone().add(a1).multiplyScalar(0.5)); mic.quaternion.setFromUnitVectors(V(0, 1, 0), dir.normalize());
+    add(new THREE.SphereGeometry(0.017, 10, 8), m(accent), a1.x, a1.y, a1.z, head, false);
   }
   const arm = side => {
     const p = new THREE.Group(); p.position.set(side * 0.31, 1.18, 0); body.add(p);
     add(new THREE.SphereGeometry(0.075, 10, 8), topM, 0, 0, 0, p);
     add(new THREE.CylinderGeometry(0.06, 0.052, 0.4, 10), topM, 0, -0.2, 0, p);
-    add(new THREE.SphereGeometry(0.058, 10, 8), skin, 0, -0.43, 0, p);
+    const hand = add(new THREE.SphereGeometry(0.055, 14, 10), skin, 0, -0.44, 0.005, p); hand.scale.set(0.85, 1.15, 0.7);
+    const thumb = add(new THREE.CapsuleGeometry(0.016, 0.04, 4, 8), skin, side * -0.035, -0.425, 0.035, p); thumb.rotation.z = side * 0.6;
+    add(new THREE.CylinderGeometry(0.062, 0.058, 0.05, 12), m(shade(L.topC, 0.82)), 0, -0.39, 0, p);
     return p;
   };
   const armL = arm(-1), armR = arm(1);
   const doc = add(new THREE.BoxGeometry(0.3, 0.025, 0.4), m(0xf4f1e8), 0, 0.98, 0.42); doc.visible = false;
   const docMark = add(new THREE.BoxGeometry(0.18, 0.03, 0.05), m(accent), 0, 0.995, 0.34); docMark.visible = false;
   const cup = add(new THREE.CylinderGeometry(0.05, 0.042, 0.11, 12), m(0xf4f1e8), 0, -0.5, 0.06, armR); cup.visible = false;
-  return { g, body, head, eyes, legL, legR, armL, armR, mouth, doc, docMark, cup };
+  return { g, body, head, eyes, legL, legR, armL, armR, mouth, doc, docMark, cup, torso };
 }
 
 function poseCharacter(c, mode, t, phase, extra = {}) {
@@ -1033,7 +1094,8 @@ function poseCharacter(c, mode, t, phase, extra = {}) {
   c.head.rotation.set(0, 0, 0);
   c.legL.rotation.set(0, 0, 0); c.legR.rotation.set(0, 0, 0);
   c.armL.rotation.set(0, 0, 0); c.armR.rotation.set(0, 0, 0);
-  c.mouth.scale.set(1, 1, 1);
+  c.mouth.scale.set(1, 1, 0.6);
+  c.torso.scale.y = 1 + s(t * 1.6 + phase) * 0.018;
   const blink = ((t + phase * 3) % 4.2) < 0.12;
   c.eyes.scale.y = blink ? 0.1 : 1; c.eyes.position.y = blink ? 0.027 : 0;
   const carry = !!extra.carry;
@@ -1046,13 +1108,16 @@ function poseCharacter(c, mode, t, phase, extra = {}) {
       if (carry) c.armL.rotation.x = c.armR.rotation.x = -1.25;
       else { c.armL.rotation.x = -s(w) * 0.5; c.armR.rotation.x = s(w) * 0.5; }
       break;
-    case 'work':
-      c.armL.rotation.x = -1.15 + s(t * 20 + phase) * 0.1; c.armL.rotation.z = 0.15;
-      c.armR.rotation.x = -1.15 + s(t * 20 + phase + 2) * 0.1; c.armR.rotation.z = -0.15;
+    case 'work': {
+      const think = ((t + phase * 7) % 11) < 1.8;   // de vez en cuando se para a pensar con la mano en la barbilla
+      c.armL.rotation.x = -1.15 + (think ? 0 : s(t * 20 + phase) * 0.1); c.armL.rotation.z = 0.15;
+      c.armR.rotation.x = think ? -2.35 : -1.15 + s(t * 20 + phase + 2) * 0.1; c.armR.rotation.z = think ? 0.55 : -0.15;
+      if (think) { c.head.rotation.set(-0.12, 0.25, 0.08); c.body.rotation.x = -0.04; break; }
       c.head.rotation.x = 0.1 + s(t * 3 + phase) * 0.04;
       c.head.rotation.y = s(t * 0.8 + phase) * 0.15;
       c.body.rotation.x = 0.06;
       break;
+    }
     case 'give':
       c.armL.rotation.x = c.armR.rotation.x = -1.4; c.body.rotation.x = 0.1;
       c.doc.visible = c.docMark.visible = true; c.head.rotation.x = 0.1;
@@ -1135,7 +1200,8 @@ function drawScreen(g, kind, t, working, accent) {
   const W = g.canvas.width, H = g.canvas.height;
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   if (!working) {
-    const grd = g.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#0b1020'); grd.addColorStop(1, '#151b33'); g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    const grd = g.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#101a36'); grd.addColorStop(0.6, '#1c2148'); grd.addColorStop(1, accent); g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    g.globalAlpha = 0.25; g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(W * 0.75, H * 1.1, W * 0.6, H * 0.55, 0, 0, 7); g.fill(); g.globalAlpha = 1;
     g.fillStyle = 'rgba(216,180,106,.6)'; g.font = '700 30px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.fillText('JAGER', W / 2, H / 2 + 4);
     g.font = '500 14px Figtree, sans-serif'; g.fillStyle = 'rgba(200,210,240,.5)'; g.fillText(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), W / 2, H / 2 + 28);
     g.textAlign = 'left'; return;
@@ -1201,7 +1267,7 @@ function buildDesk(def) {
   box(0.07, 0.025, 0.11, std(0x24262e), 0.36, 0.815, 0.16, g);
   cyl(0.045, 0.04, 0.1, std(AI[def.ai].color), 0.66, 0.85, 0.12, g);
   box(0.24, 0.025, 0.32, white, -0.6, 0.815, 0.12, g, false);
-  cyl(0.06, 0.05, 0.1, white, -0.68, 0.85, -0.28, g); const sp = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 0), leafMat); sp.position.set(-0.68, 0.96, -0.28); g.add(sp);
+  cyl(0.06, 0.05, 0.1, white, -0.68, 0.85, -0.28, g); for (let k = 0; k < 5; k++) { const sp = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), k % 2 ? leafMat : leafMat2); sp.scale.set(1, 0.55, 1); sp.position.set(-0.68 + rand(-0.04, 0.04), 0.94 + k * 0.025, -0.28 + rand(-0.04, 0.04)); sp.rotation.y = k; g.add(sp); }
   cyl(0.06, 0.07, 0.02, brass, 0.72, 0.81, -0.3, g); box(0.015, 0.4, 0.015, brass, 0.72, 1.0, -0.3, g, false);
   const lampShade = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.12, 16, 1, true), new THREE.MeshStandardMaterial({ color: 0xc9a45c, metalness: 1, roughness: 0.3, emissive: 0xffd9a0, emissiveIntensity: 0.5, side: THREE.DoubleSide }));
   lampShade.position.set(0.68, 1.22, -0.22); lampShade.rotation.z = 0.5; g.add(lampShade);
@@ -1242,7 +1308,7 @@ class Agent {
     this.redraw(); this.paintScreen(0);
   }
   redraw() { drawNameTag(this.tag, this.def.name, this.def.ai); this.drawStatus(true); }
-  paintScreen(t) { drawScreen(this.desk.sc.getContext('2d'), this.def.screen, t, this.mode === 'work', AI[this.def.ai].color); this.desk.screenTex.needsUpdate = true; this.desk.screenMat.color.set(this.mode === 'work' ? 0xffffff : 0x8a94a8); }
+  paintScreen(t) { drawScreen(this.desk.sc.getContext('2d'), this.def.screen, t, this.mode === 'work', AI[this.def.ai].color); this.desk.screenTex.needsUpdate = true; this.desk.screenMat.color.set(this.mode === 'work' ? 0xffffff : 0xc4cbe0); }
   setStatus(text, color = '#8d9abb') { this.status = text; this.statusColor = color; this.drawStatus(true); }
   drawStatus(force) {
     const p = this.progress >= 0 ? Math.round(this.progress * 20) / 20 : -1;
@@ -1359,7 +1425,7 @@ class Agent {
 }
 
 WORKERS.forEach(d => agents[d.id] = new Agent(d));
-const tableHolo = makeSprite(768, 300, 0.85); tableHolo.s.position.set(TABLE_POS.x, 3.45, TABLE_POS.z); scene.add(tableHolo.s);
+const tableHolo = makeSprite(768, 300, 0.85); tableHolo.s.position.set(TABLE_POS.x, 2.75, TABLE_POS.z + 0.2); tableHolo.s.visible = false; scene.add(tableHolo.s);
 let tableDirty = true;
 
 /* ============================================================
@@ -1395,7 +1461,7 @@ const avatar = { media: placeholder, tex: new THREE.CanvasTexture(placeholder) }
 avatar.tex.colorSpace = THREE.SRGBColorSpace;
 const bustMat = new THREE.SpriteMaterial({ map: avatar.tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
 const bust = new THREE.Sprite(bustMat); bust.position.set(FAN_POS.x, 2.55, FAN_POS.z - 0.1); bust.scale.set(2.2, 2.2, 1); bust.userData.base = { x: 2.2, y: 2.2 }; scene.add(bust);
-const jagerTag = makeSprite(512, 96, 0.55); jagerTag.s.position.set(FAN_POS.x, 4.05, FAN_POS.z); scene.add(jagerTag.s);
+const jagerTag = makeSprite(512, 96, 0.55); jagerTag.s.position.set(FAN_POS.x, 4.25, FAN_POS.z); scene.add(jagerTag.s);
 
 let avatarDoc = null;
 // Puntos de la cara de Nyx (proporción de la imagen): boca y ojos
@@ -2774,6 +2840,17 @@ function renderConn() {
   if (!hasRuntime) { if (document.activeElement !== $('#srvUrl')) $('#srvUrl').value = srv.url; if (srv.msg) st($('#srvState'), srv.msg, srv.ok); }
 }
 $('#driveBtn').onclick = chooseFolder;
+// Pestañas del panel (se recuerda la última en este navegador)
+function setPanelTab(tab, scroll) {
+  const panel = $('.panel'); panel.dataset.tab = tab;
+  $$('[data-ptab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ptab === tab));
+  try { localStorage.setItem('oficina-pestana', tab); } catch (e) {}
+  if (scroll) { if (isNarrow()) panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); else panel.scrollTop = 0; }
+}
+$$('[data-ptab]').forEach(b => b.onclick = () => setPanelTab(b.dataset.ptab, true));
+try { const t0 = localStorage.getItem('oficina-pestana'); if (t0) setPanelTab(t0); } catch (e) {}
+// Aviso en «Trabajo» con los vídeos que esperan tu aprobación
+setInterval(() => { const n = jobs.filter(j => ['esperando', 'elige'].includes(j.status)).length; const b = $('#badgeTrabajo'); b.hidden = !n; b.textContent = n; }, 1000);
 $('#estudioVer').onclick = showEstudio;
 $('#pedidoBtn').onclick = openPedido;
 $('#ytTest').onclick = ytEstadoLoad;
@@ -3526,6 +3603,7 @@ function loop() {
   updateVoiceLevel();
   debateTick(dt);
   if (tableDirty) { tableDirty = false; drawTable(); }
+  tableHolo.s.visible = !!(D && D.state !== 'fin');
   tableRing.material.emissiveIntensity = D && D.state === 'hablando' ? 1.6 + Math.sin(t * 6) * 0.6 : 1.0;
   tableBeam.material.opacity = D && D.state === 'hablando' ? 0.09 + Math.sin(t * 4) * 0.03 : 0.04;
 
