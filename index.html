@@ -342,7 +342,7 @@ button.step { font: inherit; font-size: 11.5px; }
     <section class="conn ruleta-card" data-tabs="trabajo" aria-label="La Ruleta Caliente">
       <div class="conn-head"><b>La Ruleta Caliente</b><a class="btn small" href="https://laruletacaliente.com" target="_blank" rel="noopener">Abrir la web</a></div>
       <div class="conn-state" id="ruletaState">Estado sin comprobar</div>
-      <div class="order-row"><button type="button" class="btn small primary" id="ruletaEncargo">Encargo para la Ruleta</button><button type="button" class="btn small" id="ruletaVer">Ver en la oficina</button></div>
+      <div class="order-row"><button type="button" class="btn small primary" id="ruletaEncargo">Encargo para la Ruleta</button><button type="button" class="btn small" id="ruletaVer">Ver en la oficina</button><button type="button" class="btn small" id="ruletaPend">Pendientes</button></div>
     </section>
 
     <section class="chan-bar" aria-label="Canal de YouTube" data-tabs="trabajo canal">
@@ -991,7 +991,37 @@ const _boardOld = new THREE.Mesh(new THREE.PlaneGeometry(0.01, 0.01), new THREE.
 board.position.set(-16.1, 1.6, -7.97); scene.add(board); setTimeout(drawBoard, 500);
 box(3.3, 0.05, 0.1, chrome, -16.1, 0.82, -7.94, scene, false);
 const RULETA_URL = 'https://laruletacaliente.com';
-const ruleta = { estado: null, ms: null, at: null };
+const ruleta = { estado: null, ms: null, at: null, docs: null, pendientes: [] };
+// Código y documentación de la Ruleta: repositorio Reino-peludos, rama claude/videochat-mvp, carpeta videochat/
+const RULETA_REPO = { raw: 'https://raw.githubusercontent.com/christian69mp-ctrl/Reino-peludos/claude/videochat-mvp/videochat/', web: 'https://github.com/christian69mp-ctrl/Reino-peludos/tree/claude/videochat-mvp/videochat', tree: 'https://api.github.com/repos/christian69mp-ctrl/Reino-peludos/git/trees/claude/videochat-mvp?recursive=1' };
+async function loadRuletaDocs() {
+  if (hasRuntime) return;
+  const get = async f => { const r = await fetch(RULETA_REPO.raw + f + '?t=' + Date.now()); if (!r.ok) throw new Error(f + ': ' + r.status); return r.text(); };
+  try {
+    const [readme, docs, pend] = await Promise.all([get('README.md'), get('docs/README.md').catch(() => ''), get('docs/pendientes.md').catch(() => '')]);
+    let archivos = [];
+    try { const tr = await (await fetch(RULETA_REPO.tree)).json(); archivos = (tr.tree || []).map(x => x.path).filter(x => x.startsWith('videochat/') && !x.startsWith('videochat/docs/marca/')).map(x => x.slice(10)); } catch (e) {}
+    ruleta.docs = { readme, docs, pend, archivos, at: Date.now() };
+    ruleta.pendientes = pend.split('\n').filter(l => /^\s*- \[ \]/.test(l)).map(l => l.replace(/^\s*- \[ \]\s*/, '').replace(/\*\*/g, '').trim());
+  } catch (e) { ruleta.docs = null; }
+  drawRuleta(); renderRuletaCard();
+}
+setTimeout(loadRuletaDocs, 2500); setInterval(loadRuletaDocs, 3600e3);
+// Lo que leen Max, Leo y Vera cuando el encargo es de la Ruleta
+function ruletaCtx(topic) {
+  if (!/ruleta|videochat/i.test(topic || '') || !ruleta.docs) return '';
+  const d = ruleta.docs;
+  return `\nPROYECTO LA RULETA CALIENTE (repositorio Reino-peludos, rama claude/videochat-mvp, carpeta videochat/). Es la fuente de verdad del proyecto: respeta su arquitectura, sus nombres de archivos y sus decisiones.
+### README del proyecto
+${clip(d.readme, 9000)}
+### Documentación
+${clip(d.docs, 1500)}
+### Pendientes actuales
+${clip(d.pend, 3000)}
+### Archivos del proyecto
+${d.archivos.slice(0, 120).join(', ')}
+Los cambios de código se aplican en una sesión de Claude Code aparte: indica siempre en qué archivo va cada cambio.\n`;
+}
 const ruletaTex = canvasTex(1024, 600, () => {});
 const ruletaScreen = new THREE.Group(); ruletaScreen.position.set(-8.3, 1.62, -7.96); scene.add(ruletaScreen);
 box(1.72, 1.04, 0.05, blackMetal, 0, 0, -0.02, ruletaScreen, false);
@@ -1012,6 +1042,7 @@ function drawRuleta() {
   if (ruleta.at) g.fillText('Comprobado a las ' + new Date(ruleta.at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), 50, 394);
   const enCurso = jobs.filter(j => j.type === 'proyecto' && j.status === 'en curso').length, listos = jobs.filter(j => j.type === 'proyecto' && j.status === 'esperando').length;
   g.fillText(`Encargos en curso: ${enCurso} · Por aprobar: ${listos}`, 50, 444);
+  if (ruleta.docs) { g.fillStyle = '#ffd166'; g.font = '700 30px Figtree, sans-serif'; g.fillText(`Pendientes: ${ruleta.pendientes.length}`, 50, 500); g.fillStyle = '#c9b3bf'; g.font = '500 22px Figtree, sans-serif'; let t0 = ruleta.pendientes[0] || ''; while (g.measureText(t0).width > 640 && t0.length > 4) t0 = t0.slice(0, -2); if (t0) g.fillText('• ' + t0 + (t0 !== ruleta.pendientes[0] ? '…' : ''), 50, 540); }
   ruletaTex.needsUpdate = true;
 }
 async function checkRuleta() {
@@ -1022,7 +1053,7 @@ async function checkRuleta() {
 }
 function renderRuletaCard() {
   const el = $('#ruletaState'); if (!el) return;
-  el.textContent = ruleta.estado === 'ok' ? `En línea · ${ruleta.ms} ms` : ruleta.estado === 'mal' ? 'La web no responde ahora mismo' : (serverReady() ? 'Comprobando…' : 'Conecta el servidor para vigilar la web');
+  el.textContent = (ruleta.docs ? `${ruleta.pendientes.length} pendientes · ` : '') + (ruleta.estado === 'ok' ? `En línea · ${ruleta.ms} ms` : ruleta.estado === 'mal' ? 'La web no responde ahora mismo' : (serverReady() ? 'Comprobando…' : 'Conecta el servidor para vigilar la web'));
   el.className = 'conn-state' + (ruleta.estado === 'ok' ? ' ok' : ruleta.estado === 'mal' ? ' err' : '');
 }
 setTimeout(checkRuleta, 3000); setInterval(checkRuleta, 5 * 60000); setInterval(drawRuleta, 120);
@@ -2382,12 +2413,12 @@ En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION
   },
   requisitos: {
     prompt: j => `${FORMACION.max}
-Idea del jefe: «${j.topic}».
+Idea del jefe: «${j.topic}».${ruletaCtx(j.topic)}
 Escribe en español y texto plano: OBJETIVO (una frase), HISTORIAS DE USUARIO (3-6), CRITERIOS DE ACEPTACIÓN numerados y comprobables, DETALLES TÉCNICOS (qué hay que tocar, datos, móvil, accesibilidad) y FUERA DE ALCANCE. Máximo 300 palabras.`,
   },
   codigo: {
     prompt: j => `${FORMACION.leo}
-Tarea: «${j.topic}».
+Tarea: «${j.topic}».${ruletaCtx(j.topic)}
 Requisitos de Max:
 ${j.step('requisitos').output?.text || ''}
 ${j.round > 0 ? '\nVera pidió estos cambios en la revisión; corrígelos todos:\n' + (j.reviewNotes || '') : ''}
@@ -2401,6 +2432,7 @@ ${j.step('codigo').output?.text || ''}
 
 Requisitos que debe cumplir:
 ${j.step('requisitos').output?.text || ''}
+${ruletaCtx(j.topic) ? 'Comprueba que encaja con la arquitectura del proyecto La Ruleta Caliente (archivos y decisiones de su README).' : ''}
 
 ${j.round > 0 ? 'Es la segunda revisión, tras correcciones. Si no queda nada grave, apruébalo.' : ''}
 La primera línea debe ser exactamente «APROBADO» o «CAMBIOS». Después, en español y texto plano, de 3 a 8 puntos con el problema, dónde está y cómo arreglarlo (o qué está bien si apruebas). Máximo 220 palabras.`,
@@ -3108,6 +3140,10 @@ try { const t0 = localStorage.getItem('oficina-pestana'); if (t0) setPanelTab(t0
 setInterval(() => { const n = jobs.filter(j => ['esperando', 'elige'].includes(j.status)).length; const b = $('#badgeTrabajo'); b.hidden = !n; b.textContent = n; }, 1000);
 $('#estudioVer').onclick = showEstudio;
 $('#ruletaEncargo').onclick = () => { const t = $('#orderText'); t.value = 'Proyecto Ruleta Caliente: '; t.focus(); t.setSelectionRange(t.value.length, t.value.length); };
+$('#ruletaPend').onclick = () => {
+  const body = openModal('Pendientes · La Ruleta Caliente', ruleta.docs ? 'videochat/docs/pendientes.md · leído de GitHub' : 'No he podido leer el repositorio', true);
+  body.innerHTML = ruleta.docs ? `<p><a href="${RULETA_REPO.web}/docs/pendientes.md" target="_blank" rel="noopener">Abrir en GitHub</a></p><pre class="estudio-doc">${esc(ruleta.docs.pend)}</pre>` : '<p>La versión de claude.ai no puede leer GitHub; ábrelo desde la oficina de GitHub Pages.</p>';
+};
 $('#ruletaVer').onclick = () => { if (isNarrow() && !stage.classList.contains('big')) setBig(true); focusTo({ kind: 'ruleta' }); };
 $('#pedidoBtn').onclick = openPedido;
 $('#ytTest').onclick = ytEstadoLoad;
