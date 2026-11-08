@@ -158,6 +158,7 @@ button.step { font: inherit; font-size: 11.5px; }
 .room-label.proy { color: var(--proy); }
 .room-label.yt { color: var(--yt); }
 .room-label.lab { color: var(--lab); }
+.room-label.cripto { color: #f7b955; }
 .room-label.hall { color: var(--holo); margin-top: 0; }
 .member { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; background: transparent; text-align: left; width: 100%; }
 .member:hover { background: var(--panel-2); border-color: var(--line); }
@@ -241,6 +242,28 @@ button.step { font: inherit; font-size: 11.5px; }
 .ped-row select { max-width: 42%; } .ped-row input { flex: 1; min-width: 0; }
 .meritos { display: grid; gap: 6px; } .merit-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; } .merit-row small { color: var(--muted); } .merit-row.top { border-color: #d8b46a; background: color-mix(in srgb, #d8b46a 12%, transparent); } .merit-pts { font-family: var(--f-display); font-size: 16px; color: #d8b46a; }
 .ruleta-card { border-color: color-mix(in srgb, #ff4d6d 45%, var(--line)); }
+.cripto-card { border-color: color-mix(in srgb, #f7b955 45%, var(--line)); }
+.eco-card { border-color: color-mix(in srgb, #34d399 45%, var(--line)); }
+.cripto-mini { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
+.cripto-mini .cm { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.cripto-mini .cm.held { border-color: #f7b955; background: color-mix(in srgb, #f7b955 10%, transparent); }
+.cripto-mini .cm b { font-family: var(--f-display); font-size: 12px; }
+.cripto-mini .cm i { font-style: normal; font-size: 11px; color: var(--muted, #9aa6c4); }
+.cripto-mini .cm i.up { color: #4ade80; } .cripto-mini .cm i.dn { color: #f87171; }
+.eco-card input { flex: 1 1 160px; min-width: 0; }
+body[data-nivel="p1"] [data-vn="p2"], body[data-nivel="p2"] [data-vn="p1"], body[data-nivel="edificio"] .vistas-seg { display: none; }
+.pisos { top: 64px; left: 12px; display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 10px; width: 250px; background: color-mix(in srgb, var(--panel) 90%, transparent); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(6px); }
+.pisos[hidden] { display: none; }
+.pisos-t { font-family: var(--f-display); letter-spacing: .14em; font-size: 12px; color: #e6c072; }
+.piso-row { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; cursor: pointer; font: inherit; }
+.piso-row:hover, .piso-row:focus-visible { border-color: #e6c072; }
+.piso-row > span { font-weight: 700; font-size: 13px; }
+.piso-row small { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--muted, #9aa6c4); }
+.pd { display: inline-flex; align-items: center; gap: 5px; }
+.pd::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #3a4258; }
+.pd.on { color: var(--c); } .pd.on::before { background: var(--c); box-shadow: 0 0 8px var(--c); }
+.pisos-hint { font-size: 11px; color: var(--muted, #9aa6c4); }
+@media (max-width: 900px) { .pisos { display: none !important; } }
 .yt-list { display: grid; gap: 6px; margin-top: 8px; } .yt-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; } .yt-row small { display: block; color: var(--muted); }
 #ytInfo { color: var(--fg); }
 .estudio-row { margin-top: 8px; display: grid; gap: 6px; }
@@ -298,14 +321,22 @@ button.step { font: inherit; font-size: 11.5px; }
       </div>
     </div>
     <div class="hud say quiet" id="say" aria-live="polite"><b id="sayWho">Nyx</b><span id="sayText">Aquí estoy, jefe. Dime qué quieres y yo me encargo del resto.</span></div>
+    <div class="hud pisos" id="pisos" hidden></div>
     <div class="focus-card" id="focusCard" hidden><div class="fc-head"><b id="fcTitle"></b><button type="button" class="btn small" id="fcBack">Volver</button></div><div class="fc-body" id="fcBody"></div><div class="order-row" id="fcActs"></div></div>
     <div class="hud hud-tools">
-      <div class="seg" role="group" aria-label="Vista">
-        <button type="button" data-view="general" aria-pressed="true">General</button>
-        <button type="button" data-view="proy">Proyectos</button>
-        <button type="button" data-view="yt">YouTube</button>
-        <button type="button" data-view="lab">Análisis</button>
-        <button type="button" data-view="dir">Nyx</button>
+      <div class="seg pisos-seg" role="group" aria-label="Planta">
+        <button type="button" data-view="edificio" data-piso="edificio">Edificio</button>
+        <button type="button" data-view="general" data-piso="general">Planta 1</button>
+        <button type="button" data-view="planta2" data-piso="planta2">Planta 2</button>
+        <button type="button" data-view="terraza" data-piso="terraza">Terraza</button>
+      </div>
+      <div class="seg vistas-seg" role="group" aria-label="Sala">
+        <button type="button" data-view="proy" data-vn="p1">Proyectos</button>
+        <button type="button" data-view="yt" data-vn="p1">YouTube</button>
+        <button type="button" data-view="lab" data-vn="p1">Análisis</button>
+        <button type="button" data-view="dir" data-vn="p1">Nyx</button>
+        <button type="button" data-view="cripto" data-vn="p2">Cripto</button>
+        <button type="button" data-view="eco" data-vn="p2">Ecommerce</button>
       </div>
       <div class="seg" role="group" aria-label="Velocidad">
         <button type="button" data-speed="1" aria-pressed="true">x1</button>
@@ -343,6 +374,18 @@ button.step { font: inherit; font-size: 11.5px; }
       <div class="conn-head"><b>La Ruleta Caliente</b><a class="btn small" href="https://laruletacaliente.com" target="_blank" rel="noopener">Abrir la web</a></div>
       <div class="conn-state" id="ruletaState">Estado sin comprobar</div>
       <div class="order-row"><button type="button" class="btn small primary" id="ruletaEncargo">Encargo para la Ruleta</button><button type="button" class="btn small" id="ruletaVer">Ver en la oficina</button><button type="button" class="btn small" id="ruletaPend">Pendientes</button></div>
+    </section>
+
+    <section class="conn cripto-card" data-tabs="trabajo" aria-label="Sala Cripto">
+      <div class="conn-head"><b>Sala Cripto · BOTRADE</b><a class="btn small" href="https://github.com/christian69mp-ctrl/botrade" target="_blank" rel="noopener">Repositorio</a></div>
+      <div class="conn-state" id="criptoState">Sin datos del bot</div>
+      <div class="cripto-mini" id="criptoMini"></div>
+      <div class="order-row"><button type="button" class="btn small primary" id="criptoEncargo">Pedir informe a Ciro</button><button type="button" class="btn small" id="criptoVer">Ver en la oficina</button></div>
+    </section>
+    <section class="conn eco-card" data-tabs="trabajo" aria-label="Sala Ecommerce">
+      <div class="conn-head"><b>Sala Ecommerce</b></div>
+      <div class="conn-state" id="ecoState">Aún sin tienda online</div>
+      <div class="order-row"><input id="ecoUrl" type="url" inputmode="url" autocapitalize="off" placeholder="https://tu-tienda.com" aria-label="Dirección de la tienda online"><button type="button" class="btn small" id="ecoGuardar">Guardar</button><button type="button" class="btn small" id="ecoVer">Ver</button></div>
     </section>
 
     <section class="chan-bar" aria-label="Canal de YouTube" data-tabs="trabajo canal">
@@ -507,7 +550,11 @@ const AI = {
 };
 
 // look: top (hoodie|blazer|sweater|shirt), hair (short|long|bun|curly|ponytail) y complementos
+// Alturas del edificio: suelo de la planta 2 y de la terraza
+const L2 = 4.6, TERR = 8.2;
 const WORKERS = [
+  { id: 'ciro', name: 'Ciro', role: 'Analista cripto · BOTRADE', ai: 'claude', room: 'cripto', y: L2, desk: [-11.25, -4.3], rot: Math.PI, screen: 'cripto', dual: true,
+    look: { skin: '#c99a72', hair: 'short', hairC: '#151515', top: 'blazer', topC: '#1f2a24', pants: '#15171c', shoes: '#3a2a1a', beard: true } },
   { id: 'leo',  name: 'Leo',  role: 'Programador',             ai: 'claude',  room: 'proy', desk: [-14.2, -4.6], rot: Math.PI + 0.22, screen: 'code',
     look: { skin: '#efc39f', hair: 'short', hairC: '#2b1d14', top: 'hoodie', topC: '#2b3550', pants: '#1b1f2c', shoes: '#f2f2f2', glasses: true } },
   { id: 'vera', name: 'Vera', role: 'Revisora de código',      ai: 'claude',  room: 'proy', desk: [-9.6, -4.6], rot: Math.PI - 0.22, screen: 'review',
@@ -556,6 +603,13 @@ const FLOWS = {
       { id: 'ok',         label: 'Tu aprobación', worker: 'director', deps: ['review'] },
     ],
   },
+  cripto: {
+    label: 'Cripto',
+    steps: [
+      { id: 'cripto', label: 'Informe cripto', worker: 'ciro', deps: [], verb: 'Analizando BOTRADE y el mercado', secs: 10 },
+      { id: 'ok',     label: 'Tu lectura',     worker: 'director', deps: ['cripto'] },
+    ],
+  },
   radar: {
     label: 'Temas virales',
     steps: [
@@ -585,6 +639,8 @@ const DIRECTOR_SPOT = V(0, 0, -2.4);
 const PIXELIDO_SPOT = V(OW - 1.7, 0, AISLE_Z);
 const COFFEE_SPOT = V(-4.45, 0, -5.4);
 const COFFEE_FACE = V(-5.6, 0, -5.4);
+// Ascensor (mismo hueco en las tres alturas) junto a la pared del fondo del vestíbulo
+const ELEV = { x: 3.0, z: -7.95 };
 // Mesa de debate de la Sala de Análisis: cada analista llega por su pasillo hasta su sitio
 const TABLE_POS = V(0, 0, 6.8);
 const MEMBERS = ['lia', 'rui', 'sam'];
@@ -659,6 +715,7 @@ function applyDaylight() {
   renderer.toneMappingExposure = 0.74 + day * 0.24;
   const kind = dusk > 0.4 ? 'tarde' : day > 0.5 ? 'dia' : 'noche';
   for (const m of cityMats) if (m.map !== cityTexs[kind]) { m.map = cityTexs[kind]; m.color.set(kind === 'dia' ? 0xffffff : 0xcccccc); m.needsUpdate = true; }
+  edificioDaylight(kind, day);
 }
 setTimeout(applyDaylight, 0); setInterval(applyDaylight, 60000);
 
@@ -844,8 +901,8 @@ function cityCanvas(kind) {
 const cityTexs = { noche: cityCanvas('noche'), tarde: cityCanvas('tarde'), dia: cityCanvas('dia') };
 const cityTex = cityTexs.noche;
 const cityMats = [];
-function windowAt(x, z, ry, w = 3.6) {
-  const g = new THREE.Group(); g.position.set(x, 1.8, z); g.rotation.y = ry; scene.add(g);
+function windowAt(x, z, ry, w = 3.6, y = 1.8, parent = scene) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; parent.add(g);
   const cm = new THREE.MeshBasicMaterial({ map: cityTex, color: 0xcccccc }); cityMats.push(cm);
   g.add(new THREE.Mesh(new THREE.PlaneGeometry(w, 1.8), cm));
   box(w + 0.16, 0.08, 0.08, blackMetal, 0, 0.94, 0.02, g, false); box(w + 0.16, 0.1, 0.18, brass, 0, -0.94, 0.06, g, false);
@@ -860,13 +917,13 @@ const signs = [
   signPlane('SALA YOUTUBE', 'preparación para Pixelido', '#ff6b7a', 5.2, 1.12, 12, 2.35, -7.97),
   signPlane('SALA DE ANÁLISIS', 'tendencias · CTR · retención', '#b38cff', 4.6, 1.0, 0, 3.4, 1.9),
 ];
-for (const sx of [-2, 2]) box(0.015, 1.2, 0.015, blackMetal, sx, 4.5, 1.9, scene, false);
+for (const sx of [-2, 2]) box(0.015, 0.34, 0.015, blackMetal, sx, 4.07, 1.9, scene, false);
 const drawLogo = (g, W, H) => {
   g.clearRect(0, 0, W, H);
   const gold = g.createLinearGradient(0, 40, 0, 220); gold.addColorStop(0, '#fff1c9'); gold.addColorStop(0.45, '#d8b46a'); gold.addColorStop(1, '#8a6a2e');
-  g.fillStyle = gold; g.font = '700 150px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('JAGER', W / 2, 120);
-  g.font = '500 40px Figtree, sans-serif'; g.fillStyle = '#d9c8a0'; g.fillText('D I R E C C I Ó N', W / 2, 245);
+  g.fillStyle = gold; g.font = '700 118px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.letterSpacing = '14px'; g.fillText('DIRECCIÓN', W / 2, 150); g.letterSpacing = '0px';
+  g.fillStyle = '#d8b46a'; g.fillRect(W / 2 - 300, 238, 600, 4);
 };
 const logoTex = canvasTex(1024, 300, drawLogo);
 const logo = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.23), new THREE.MeshStandardMaterial({ map: logoTex, transparent: true, metalness: 0.8, roughness: 0.3, emissive: 0x6b5220, emissiveIntensity: 0.25 }));
@@ -906,6 +963,7 @@ function bigPlant(x, z, s = 1) {
     const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 8), i % 2 ? leafMat : leafMat2);
     leaf.scale.set(1, 0.12, 0.65); leaf.position.set(Math.cos(a) * (0.12 + h * 0.3), 0.55 + h, Math.sin(a) * (0.12 + h * 0.3)); leaf.rotation.y = -a; leaf.rotation.z = 0.5; leaf.castShadow = true; g.add(leaf);
   }
+  return g;
 }
 [[-OW + 0.8, -7.3], [-HW - 0.7, 7.3], [OW - 0.8, -7.3], [HW + 0.7, 7.3], [-OW + 0.8, 7.3], [OW - 0.8, 7.3], [-5.3, 7.3], [5.3, 7.3]].forEach(p => bigPlant(p[0], p[1], 0.9));
 function tree(x, z) {
@@ -1227,7 +1285,9 @@ function makeCharacter(L, accent) {
   const doc = add(new THREE.BoxGeometry(0.3, 0.025, 0.4), m(0xf4f1e8), 0, 0.98, 0.42); doc.visible = false;
   const docMark = add(new THREE.BoxGeometry(0.18, 0.03, 0.05), m(accent), 0, 0.995, 0.34); docMark.visible = false;
   const cup = add(new THREE.CylinderGeometry(0.05, 0.042, 0.11, 12), m(0xf4f1e8), 0, -0.5, 0.06, armR); cup.visible = false;
-  return { g, body, head, eyes, legL, legR, armL, armR, mouth, doc, docMark, cup, torso };
+  const cig = add(new THREE.CylinderGeometry(0.007, 0.007, 0.085, 6), m(0xf4f1e8), 0.025, -0.47, 0.07, armR); cig.rotation.x = Math.PI / 2; cig.visible = false;
+  add(new THREE.SphereGeometry(0.009, 6, 5), new THREE.MeshStandardMaterial({ color: 0xff5a1f, emissive: 0xff5a1f, emissiveIntensity: 2.5 }), 0, 0.045, 0, cig);
+  return { g, body, head, eyes, legL, legR, armL, armR, mouth, doc, docMark, cup, cig, torso };
 }
 
 function poseCharacter(c, mode, t, phase, extra = {}) {
@@ -1241,7 +1301,7 @@ function poseCharacter(c, mode, t, phase, extra = {}) {
   const blink = ((t + phase * 3) % 4.2) < 0.12;
   c.eyes.scale.y = blink ? 0.1 : 1; c.eyes.position.y = blink ? 0.027 : 0;
   const carry = !!extra.carry;
-  c.doc.visible = carry; c.docMark.visible = carry; c.cup.visible = mode === 'drink';
+  c.doc.visible = carry; c.docMark.visible = carry; c.cup.visible = mode === 'drink'; c.cig.visible = mode === 'smoke';
   if (extra.sitting) { c.legL.rotation.x = c.legR.rotation.x = -1.45; c.body.position.y = -0.06; }
   switch (mode) {
     case 'walk':
@@ -1271,6 +1331,19 @@ function poseCharacter(c, mode, t, phase, extra = {}) {
       c.armL.rotation.x = -0.2; c.head.rotation.x = -sip * 0.25; c.head.rotation.y = s(t * 0.6) * 0.3;
       break;
     }
+    case 'smoke': {
+      const k = (t * 0.55 + phase) % 1, up = k < 0.24 ? Math.sin(k / 0.24 * Math.PI) : 0;
+      c.armR.rotation.x = -0.6 - up * 1.55; c.armR.rotation.z = 0.22 + up * 0.32;
+      c.armL.rotation.x = -0.12; c.armL.rotation.z = 0.12;
+      c.head.rotation.x = 0.04 - up * 0.12; c.head.rotation.y = s(t * 0.4 + phase) * 0.35;
+      if (k > 0.28 && k < 0.42) { c.head.rotation.x = -0.22; c.mouth.scale.set(0.8, 1.8, 0.6); }
+      break;
+    }
+    case 'air':
+      c.armL.rotation.x = c.armR.rotation.x = -0.45; c.armL.rotation.z = 0.12; c.armR.rotation.z = -0.12;
+      c.head.rotation.x = -0.18 + s(t * 0.35 + phase) * 0.08; c.head.rotation.y = s(t * 0.3 + phase) * 0.55;
+      c.torso.scale.y = 1 + s(t * 0.9 + phase) * 0.04;
+      break;
     case 'talk':
       c.mouth.scale.y = 1 + Math.abs(s(t * 15 + phase)) * 3;
       c.armR.rotation.x = -1.0 + s(t * 3 + phase) * 0.35; c.armR.rotation.z = 0.2;
@@ -1371,6 +1444,7 @@ function drawScreenBase(g, kind, t, working, accent) {
   const rows = (x0, colors, wmax) => { for (let i = 0; i < 11; i++) { const k = (i + sc) % 17; g.fillStyle = colors[k % colors.length]; g.fillRect(x0 + (k % 3) * 10, 24 + i * 14, 20 + ((k * 37) % wmax), 6); } };
   switch (kind) {
     case 'code': rows(10, ['#7aa2f7', '#9ece6a', '#bb9af7', '#e0af68', '#7dcfff'], 180); break;
+    case 'cripto': { let v = 100; for (let i = 0; i < 26; i++) { const o = v; v += Math.sin(i * 1.7 + sc * 0.4) * 9 + Math.cos(i * 0.6) * 4; const x = 12 + i * 11.5, hi = Math.min(o, v) - 6 - (i % 3) * 3, lo = Math.max(o, v) + 6; g.fillStyle = v < o ? '#4ade80' : '#f87171'; g.fillRect(x + 4, hi, 1.5, lo - hi); g.fillRect(x, Math.min(o, v), 9, Math.max(2, Math.abs(v - o))); } g.fillStyle = '#f7b955'; g.font = '700 16px "Chakra Petch", sans-serif'; g.fillText('BTC/EUR', 12, 34); break; }
     case 'review': rows(10, ['#7aa2f7', '#9ece6a', '#bb9af7'], 110); g.fillStyle = 'rgba(251,191,36,.85)'; for (let i = 0; i < 3; i++) g.fillRect(200, 30 + ((i * 50 + sc * 4) % 120), 100, 30); break;
     case 'notes': for (let i = 0; i < 6; i++) { g.fillStyle = ['#ffd166', '#9be7c4', '#a8c5ff'][i % 3]; g.fillRect(14 + (i % 3) * 100, 26 + Math.floor(i / 3) * 70 + ((i === sc % 6) ? -4 : 0), 86, 58); } break;
     case 'doc': g.fillStyle = '#f4f1ea'; g.fillRect(40, 22, W - 80, H - 28); g.fillStyle = '#9aa0ab'; for (let i = 0; i < 10; i++) g.fillRect(56, 36 + i * 13, (i * 53 + 90) % 170 + 40, 5); g.fillStyle = '#222'; g.fillRect(56 + ((sc * 7) % 180), 36 + (sc % 10) * 13, 2, 9); break;
@@ -1397,10 +1471,10 @@ function drawScreenBase(g, kind, t, working, accent) {
 /* ============================================================
    5. ESCRITORIOS Y AGENTES
    ============================================================ */
-const roomLed = { proy: 0x6f8fff, yt: 0xff6b7a, lab: 0xb38cff };
+const roomLed = { proy: 0x6f8fff, yt: 0xff6b7a, lab: 0xb38cff, cripto: 0xf7b955, eco: 0x34d399 };
 const oak = std(0x9a7452, { roughness: 0.45, envMapIntensity: 0.3 }), whiteTop = std(0x22252e, { roughness: 0.25, metalness: 0.3, envMapIntensity: 0.4 });
 function buildDesk(def) {
-  const g = new THREE.Group(); g.position.set(def.desk[0], 0, def.desk[1]); g.rotation.y = def.rot; scene.add(g);
+  const g = new THREE.Group(); g.position.set(def.desk[0], def.y || 0, def.desk[1]); g.rotation.y = def.rot; scene.add(g);
   box(1.7, 0.045, 0.85, def.room === 'lab' ? whiteTop : oak, 0, 0.78, 0, g);
   for (const sx of [-0.8, 0.8]) { box(0.05, 0.74, 0.05, blackMetal, sx, 0.38, -0.36, g); box(0.05, 0.74, 0.05, blackMetal, sx, 0.38, 0.36, g); box(0.05, 0.05, 0.74, blackMetal, sx, 0.06, 0, g, false); }
   box(1.6, 0.02, 0.02, glow(roomLed[def.room], 1.1), 0, 0.74, 0.4, g, false);
@@ -1439,9 +1513,10 @@ function buildDesk(def) {
   // lámpara colgante de anillo LED
   g.updateMatrixWorld(true);
   const top = g.localToWorld(V(0, 0, 0.1));
-  box(0.012, 0.5, 0.012, blackMetal, top.x, 3.85, top.z, scene, false);
+  const ly = def.y ? def.y + 2.95 : 3.6;
+  box(0.012, def.y ? 0.35 : 0.5, 0.012, blackMetal, top.x, ly + (def.y ? 0.17 : 0.25), top.z, scene, false);
   const ringL = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.022, 8, 40), new THREE.MeshStandardMaterial({ color: 0xc9a45c, metalness: 1, roughness: 0.3, emissive: 0xffe2b0, emissiveIntensity: 0.55 }));
-  ringL.rotation.x = Math.PI / 2; ringL.position.set(top.x, 3.6, top.z); scene.add(ringL);
+  ringL.rotation.x = Math.PI / 2; ringL.position.set(top.x, ly, top.z); scene.add(ringL);
   return { g, screenMat, screenTex, sc };
 }
 
@@ -1453,7 +1528,7 @@ class Agent {
   constructor(def) {
     Object.assign(this, { def, id: def.id });
     this.desk = buildDesk(def); this.desk.g.updateMatrixWorld(true);
-    this.seat = this.desk.g.localToWorld(V(0, 0, 0.82)); this.seat.y = 0;
+    this.seat = this.desk.g.localToWorld(V(0, 0, 0.82)); this.seat.y = def.y || 0;
     this.stand = this.seat.clone().add(V(1.2, 0, 0.3));
     this.seatYaw = def.rot + Math.PI;
     this.c = makeCharacter(def.look, AI[def.ai].color);
@@ -1461,7 +1536,7 @@ class Agent {
     this.pos = this.seat.clone(); this.yaw = this.seatYaw; this.targetYaw = this.seatYaw;
     this.sitting = true; this.mode = 'idle'; this.carry = false;
     this.agenda = []; this.inbox = []; this.action = null;
-    this.phase = Math.random() * 6; this.stretch = 0; this.nextStretch = rand(6, 20); this.nextCoffee = rand(25, 80); this.nextChat = rand(35, 110); this.celebrate = 0;
+    this.phase = Math.random() * 6; this.stretch = 0; this.nextStretch = rand(6, 20); this.nextCoffee = rand(25, 80); this.nextChat = rand(35, 110); this.nextTerraza = rand(70, 260); this.hidden = false; this.celebrate = 0;
     this.status = 'Libre'; this.statusColor = '#8d9abb'; this.progress = -1; this.screenT = 0;
     this.tag = makeSprite(512, 96, 0.52); this.bubble = makeSprite(640, 110, 0.62);
     scene.add(this.tag.s, this.bubble.s);
@@ -1485,6 +1560,7 @@ class Agent {
     const pts = [];
     if (this.sitting || this.pos.distanceTo(this.seat) < 0.2) pts.push(this.stand.clone());
     const start = pts.length ? pts[0] : this.pos.clone();
+    if (this.def.y) { const Y = this.def.y; pts.push(V(start.x, Y, AISLE_Z), V(dest.x, Y, AISLE_Z), dest.clone()); return pts; }
     const ra = roomAt(start.x), rb = roomAt(dest.x);
     pts.push(V(start.x, 0, AISLE_Z));
     if (ra !== rb) { if (ra !== 'hall') pts.push(DOORS[ra].clone()); if (rb !== 'hall') pts.push(DOORS[rb].clone()); }
@@ -1510,7 +1586,7 @@ class Agent {
       a.pts = [...this.pathTo(mp[0]), ...mp.slice(1).map(p => p.clone())]; a.i = 0; a.phase = 'walk';
       this.sitting = false; this.mode = 'walk'; this.carry = false; this.setStatus('Va a la mesa de debate', '#b38cff');
     } else if (a.type === 'do') {
-      this.mode = a.pose || 'give'; this.setStatus(a.status, a.color || '#5ce8ff');
+      this.mode = a.pose || 'give'; this.setStatus(a.status, a.color || '#5ce8ff'); this.hidden = !!a.hide;
       if (a.face) this.targetYaw = Math.atan2(a.face.x - this.pos.x, a.face.z - this.pos.z);
     }
   }
@@ -1549,12 +1625,14 @@ class Agent {
       step.progress = this.progress;
       if (a.t >= a.dur && !step.realPending) { this.action = null; this.progress = -1; this.mode = 'idle'; finishStep(this, a.task); }
     } else if (a?.type === 'do') {
-      a.t += dt; if (a.t >= (a.dur || 1.2)) { this.action = null; this.mode = 'idle'; a.fn?.(); }
+      a.t += dt; if (a.breakable && this.inbox.length) a.t = a.dur;
+      if (a.t >= (a.dur || 1.2)) { this.action = null; this.mode = 'idle'; this.hidden = false; a.fn?.(); }
     } else if (!a) {
-      this.nextStretch -= dt; this.nextCoffee -= dt; this.nextChat -= dt;
+      this.nextStretch -= dt; this.nextCoffee -= dt; this.nextChat -= dt; this.nextTerraza -= dt;
+      if (this.nextTerraza < 0 && this.sitting) { this.nextTerraza = goTerraza(this) ? rand(260, 520) : rand(30, 80); }
       if (this.nextChat < 0 && this.sitting) { this.nextChat = rand(70, 160); this.startChat(); }
       if (this.nextStretch < 0 && this.sitting) { this.stretch = 1.4; this.nextStretch = rand(10, 28); }
-      if (this.nextCoffee < 0 && this.sitting) {
+      if (this.nextCoffee < 0 && this.sitting && !this.def.y) {
         if (!coffeeTaken) {
           coffeeTaken = true;
           this.agenda.push({ type: 'goto', dest: COFFEE_SPOT, status: 'A por un café' });
@@ -1574,8 +1652,13 @@ class Agent {
     let mode = this.mode;
     if (mode === 'idle' && this.celebrate > 0) mode = 'celebrate';
     poseCharacter(this.c, mode, t, this.phase, { sitting: this.sitting && mode !== 'celebrate', carry: this.carry, stretch: this.stretch, chat: !!this.action?.chat });
-    this.tag.s.position.set(this.pos.x, 2.15, this.pos.z);
-    this.bubble.s.position.set(this.pos.x, 2.78, this.pos.z);
+    this.tag.s.position.set(this.pos.x, this.pos.y + 2.15, this.pos.z);
+    this.bubble.s.position.set(this.pos.x, this.pos.y + 2.78, this.pos.z);
+    // Cada planta se ve sola: en el edificio solo se ven los nombres de quien está en la terraza
+    const lv = this.pos.y > TERR - 0.5 ? 3 : this.pos.y > 3 ? 2 : 1;
+    const show = !this.hidden && (nivel === 'p1' ? lv === 1 : nivel === 'p2' ? lv <= 2 : true);
+    this.c.g.visible = show;
+    this.tag.s.visible = this.bubble.s.visible = show && (nivel === 'p1' ? lv === 1 : nivel === 'p2' ? lv === 2 : lv === 3);
     this.bubble.s.material.opacity = this.status === 'Libre' ? 0 : 1;
     if (this.mode === 'work') this.drawStatus(false);
     this.screenT -= rdt;
@@ -2237,7 +2320,7 @@ Encargos actuales:
 ${enCurso}
 Conversación reciente:
 ${chatTxt()}
-${estudioCtx('nyx')}
+${estudioCtx('nyx')}${botradeResumen()}
 
 Cómo te habla el jefe: siempre empieza con «¿Qué pasa, Nyx?». Es su forma de llamarte a ti: no es una pregunta sobre qué ocurre ni forma parte del encargo o del tema. Si solo dice eso, te está saludando para hablar contigo: salúdale con tu estilo (cada vez distinto) y pregúntale qué necesita. Si después pide algo, eso es lo que tienes que entender. El mensaje viene de un dictado por voz: si aparece «Nix», «Nick», «Niks» o parecido, se refiere a ti, Nyx.
 
@@ -2245,12 +2328,13 @@ Clasifica el mensaje del jefe (lo que va después del saludo):
 - "video": encargo de un vídeo concreto de YouTube
 - "tendencias": pide buscar temas, ideas o qué puede ser viral
 - "proyecto": programación, app, web, la web Ruleta Caliente u otro proyecto técnico
+- "cripto": criptomonedas, el bot BOTRADE, el mercado cripto o la Sala Cripto (informes, cómo va el bot, qué ha comprado)
 - "charla": cualquier otra cosa: pregunta, saludo o conversación sobre lo que sea (no solo de trabajo); respóndele de verdad, con lo que sabes
 
-Devuelve SOLO JSON: {"tipo":"video|tendencias|proyecto|charla","tema":"tema del encargo, corto y claro; vacío si es charla","respuesta":"lo que dices en voz alta: si es charla, la respuesta de verdad a lo que pregunta (máximo 4 frases); si hay encargo, máximo 2 frases y di a quién se lo repartes"}
+Devuelve SOLO JSON: {"tipo":"video|tendencias|proyecto|cripto|charla","tema":"tema del encargo, corto y claro; vacío si es charla","respuesta":"lo que dices en voz alta: si es charla, la respuesta de verdad a lo que pregunta (máximo 4 frases); si hay encargo, máximo 2 frases y di a quién se lo repartes"}
 
 Mensaje del jefe: «${text}»`, { json: true, tier: 'quick' });
-  if (r && ['video', 'proyecto', 'charla', 'tendencias'].includes(r.tipo)) return { tipo: r.tipo, tema: (r.tema || '').trim() || cleanTopic(plain), respuesta: r.respuesta };
+  if (r && ['video', 'proyecto', 'charla', 'tendencias', 'cripto'].includes(r.tipo)) return { tipo: r.tipo, tema: (r.tema || '').trim() || cleanTopic(plain), respuesta: r.respuesta };
   if (g.saludo && !g.resto) return { tipo: 'charla', tema: '', respuesta: 'Aquí estoy, jefe. ¿Qué necesitas?' };
   return { tipo: classify(plain), tema: cleanTopic(plain), respuesta: null };
 }
@@ -2271,6 +2355,7 @@ const NORMAS_CANAL = `Normas del estudio de Jager (resumen de CLAUDE.md del repo
 const webTxt = () => (serverReady() && srv.caps.web) ? `INVESTIGACIÓN EN INTERNET (tienes la herramienta de búsqueda web): antes de escribir, investiga el caso con fuentes fiables (informes oficiales de investigación, sentencias, archivos de prensa de referencia, libros y artículos académicos). Contrasta fechas, cifras, nombres y la secuencia de hechos con al menos dos fuentes cuando puedas. Usa [HECHO] con la fuente para lo comprobado y marca [VERIFICAR] solo lo que no hayas podido confirmar. En FUENTES pon el título y el enlace de cada fuente que hayas usado.` : '';
 const canalTxt = () => `Canal: ${store.ch.name}\nResumen del canal: ${store.nicho}`;
 const FORMACION = {
+  ciro: `Eres Ciro, analista cripto del estudio y responsable de la Sala Cripto. Sigues BOTRADE, el bot de trading del jefe, que hoy funciona SOLO en simulación con dinero ficticio y precios públicos de Kraken. Lees su estado, su diario de decisiones y su motor de riesgo y lo explicas claro: capital, posiciones, por qué compró o vendió, cómo va frente a comprar y mantener BTC y qué riesgos ves. Investigas el mercado con fuentes fiables (exchanges, datos on-chain, prensa financiera de referencia) y separas los hechos de las opiniones. Eres prudente: nunca prometes rentabilidades, recuerdas que el bot no está validado para dinero real y no das consejos de inversión personalizados; propones mejoras de investigación (pruebas, métricas, control del riesgo) para el repositorio.`,
   lia: `Eres Lía, estratega de contenidos y tendencias de YouTube del estudio. Sigues el protocolo de selección de temas: evalúas cada candidato con los criterios del canal (encaje con la audiencia, promesa concreta, curiosidad y conflicto, diferenciación frente a lo publicado, fuentes disponibles, viabilidad visual, esfuerzo de producción, relación con otros vídeos y riesgo de repetición). Pocas opciones bien razonadas y una recomendada. Tus puntuaciones son valoración editorial, no predicción de visitas, y lo dices. Compruebas TEMAS CUBIERTOS para no repetir. Lo que dependa de datos en tiempo real: «comprobar en vidIQ o Google Trends».`,
   nora: `Eres Nora, guionista de documentales del estudio. Aplicas la plantilla de guion largo de alta retención: super hook de 0:00 a 0:30 (70-90 palabras) entrando en el momento de máxima tensión o el dato más fuerte verificado, sin saludo; bienvenida breve (máximo 2 frases); cuerpo en actos de 2-3 minutos que abren un bucle y cierran otro, con un micro gancho cada 45-90 segundos; cliffhangers antes del 25 %, 50 % y 75 %; suscripción breve tras el primer gran pago de información; una pregunta concreta para comentarios hacia la mitad; cierre que responde al super hook, deja una última idea de valor y hace puente al siguiente vídeo, sin despedida larga. Usas el tono propio del canal (ESTILO y D-TONO) y escribes para voz sintética: frases para el oído, cifras fáciles de seguir.`,
   gema: `Eres Gema, directora de arte de miniaturas del estudio. Reglas: 16:9 a 1280×720; un foco dominante; 0-4 palabras enormes con contorno (o sin texto, si no aporta); contraste alto; legible a 160 px; identidad visual del canal (ESTILO); nada de logotipos reales ni rostros reconocibles de víctimas o implicados; estilo render cinematográfico o ilustración, nunca algo que parezca una foto real del suceso. La miniatura complementa al título con una sola promesa; nunca repite su texto.`,
@@ -2285,6 +2370,13 @@ const FORMACION = {
 };
 
 const SPECS = {
+  cripto: {
+    buscar: true,
+    prompt: j => `${FORMACION.ciro}
+${botradeCtx()}
+Petición del jefe: «${j.topic}».
+Responde en español y en texto plano, sin markdown: RESUMEN (2-3 frases), ESTADO DEL BOT (capital, posiciones, último ciclo, riesgo), MERCADO (lo relevante hoy de BTC, ETH, BNB, XRP, ADA y LTC, con fuentes si buscas), RESPUESTA A LO QUE PIDE, RIESGOS Y PRÓXIMOS PASOS (incluye mejoras concretas para el repositorio si las ves). Recuerda que BOTRADE está en simulación con dinero ficticio: no des órdenes de compra o venta reales.`,
+  },
   // Datos reales de vidIQ (no es una IA): palabras clave en España y vídeos outlier en español
   vidiq: { optional: true, fallback: () => ({ kind: 'text', via: 'reglas', text: 'Sin datos de vidIQ: el servidor no tiene VIDIQ_API_KEY o vidIQ no respondió. El equipo sigue sin ellos.' }) },
   radar: {
@@ -2474,7 +2566,7 @@ function videoVerdict(v) {
   return { bueno, ratio, txt: `Comparado con ${ref}: CTR ${m.ctr}% frente a ${base.ctr.toFixed(1)}% · 30 s ${m.r30}% frente a ${base.r30.toFixed(0)}% · visto medio ${m.pct}% frente a ${base.pct.toFixed(0)}% → ${bueno ? 'BUEN RESULTADO (claramente mejor)' : 'resultado normal'}` };
 }
 // Qué aporta cada puesto a un vídeo (para repartir el mérito)
-const APORTA = { iris: 'verificación de datos y fuentes', lia: 'elección del tema y del ángulo (vidIQ, tendencias)', nora: 'guion: gancho, ritmo y retención', gema: 'concepto de la miniatura', tito: 'título, descripción y SEO', rui: 'combinación final de título y miniatura', paco: 'pedido a Pixelido: montaje y ritmo visual', sam: 'retención y rentabilidad en la mesa' };
+const APORTA = { ciro: 'análisis cripto y seguimiento de BOTRADE', iris: 'verificación de datos y fuentes', lia: 'elección del tema y del ángulo (vidIQ, tendencias)', nora: 'guion: gancho, ritmo y retención', gema: 'concepto de la miniatura', tito: 'título, descripción y SEO', rui: 'combinación final de título y miniatura', paco: 'pedido a Pixelido: montaje y ritmo visual', sam: 'retención y rentabilidad en la mesa' };
 // Análisis por reglas (cuando no hay IA): con tus números reales y criterios orientativos
 function ruleCtr(v) {
   const m = v.metrics, st = channelStats(), out = [];
@@ -3046,12 +3138,12 @@ async function ytMetricas(id) {
 async function testServer() {
   if (!srv.url) { srv.ok = false; srv.msg = 'Escribe la dirección del servidor.'; return renderConn(); }
   srv.msg = 'Probando…'; renderConn();
-  try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz || d.claude); if (d.claude && !hasRuntime) { brainState = 'lista'; updateBadge(); } updateVoiceNote(); srv.msg = `Conectado · Claude ${d.claude ? 'sí' + (d.web ? ' (con búsqueda web)' : '') : 'sin clave'} · vidIQ ${d.vidiq ? 'sí' : 'no'} · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'}`; }
+  try { const d = await srvFetch('/salud'); srv.caps = d; srv.ok = !!(d.gemini || d.openai || d.voz || d.claude); if (d.claude && !hasRuntime) { brainState = 'lista'; updateBadge(); } updateVoiceNote(); srv.msg = `Conectado · Claude ${d.claude ? 'sí' + (d.web ? ' (con búsqueda web)' : '') : 'sin clave'} · vidIQ ${d.vidiq ? 'sí' : 'no'} · Voz ${d.voz === 'elevenlabs' ? 'ElevenLabs' : d.voz === 'openai' ? 'OpenAI' : 'sin clave'} · Gemini ${d.gemini ? 'sí' : 'sin clave'} · ChatGPT ${d.openai ? 'sí' : 'sin clave'} · BOTRADE ${d.botrade ? 'sí' : 'sin GITHUB_TOKEN'}`; }
   catch (e) { srv.ok = false; srv.msg = /Clave de la oficina incorrecta/.test(e.message) ? 'Clave de la oficina incorrecta: escríbela exactamente igual que en OFICINA_TOKEN (mayúsculas y minúsculas cuentan). Pulsa «Ver» para comprobarla.' : 'No responde: ' + e.message; }
   if (srv.ok && !srv.caps.datos) srv.msg += srv.caps.datos === undefined ? ' · Sin sincronizar: falta actualizar worker.js en el servidor' : ' · Sin sincronizar: falta el almacén DATOS en wrangler.toml';
   renderConn();
   if (srv.ok && srv.caps.datos) { sync.ok = null; syncPull(); }
-  ytEstadoLoad(); pedidoPoll(); checkRuleta();
+  ytEstadoLoad(); pedidoPoll(); checkRuleta(); loadBotrade(); checkEco();
 }
 
 function renderConn() {
@@ -3166,6 +3258,7 @@ const STATUS_TXT = { 'en curso': 'En marcha', esperando: 'Esperando tu aprobaci�
 function classify(text) {
   const l = text.toLowerCase();
   if (/(viral|tendencia|temas|ideas de v[ií]deo|de moda|qu[eé] subir)/.test(l)) return 'tendencias';
+  if (/(cripto|bitcoin|\bbtc\b|ethereum|botrade|trading)/.test(l)) return 'cripto';
   const vw = ['vídeo', 'video', 'youtube', 'guion', 'guión', 'miniatura', 'título', 'titulo', 'short', 'pixelido', 'canal', 'reseña', 'tutorial'];
   const pw = ['proyecto', 'app', 'web', 'código', 'codigo', 'programa', 'ruleta', 'bot', 'función', 'funcion', 'arregla', 'bug', 'página', 'pagina', 'script', 'api'];
   const sv = vw.filter(w => l.includes(w)).length, sp = pw.filter(w => l.includes(w)).length;
@@ -3202,6 +3295,7 @@ const REPLIES = {
   proyecto: 'Hecho. Max lo ordena, Leo lo programa y Vera lo revisa.',
   radar: 'Voy a por lo viral. Lía rastrea las tendencias y la mesa decide.',
   analisis: 'Números recibidos. Rui mira el CTR, Sam la retención y te traemos el plan.',
+  cripto: 'Hecho. Ciro lo mira en la Sala Cripto con los datos de BOTRADE y del mercado.',
 };
 function newOrder(type, topic, o = {}) {
   if (brainState !== 'lista') { directorSay('No puedo poner al equipo a trabajar sin IA conectada, jefe. Conecta el servidor en «Conexiones» y empezamos.', 'aviso'); return null; }
@@ -3291,6 +3385,7 @@ function finishStep(agent, task) {
   for (const tg of targets) {
     if (tg.worker === agent.id) { tg.onArrive(); continue; }
     const isDir = tg.worker === 'director';
+    if (agent.def.y && isDir) { agent.agenda.push({ type: 'do', pose: 'work', dur: 1.6, status: `Enviando ${tg.what} a Nyx`, fn: () => { tg.onArrive(); markDirty(); } }); continue; }
     const dest = isDir ? DIRECTOR_SPOT : agents[tg.worker].stand;
     const face = isDir ? FAN_POS : agents[tg.worker].seat;
     const who = isDir ? 'Nyx' : agents[tg.worker].def.name;
@@ -3309,6 +3404,11 @@ function arriveDirector(job) {
     const fb = top ? `Jefe, Lía ha encontrado ${job.picks.length} temas. El más fuerte es «${top.tema}», con ${top.puntuacion} sobre 100. Elige cuál producimos.` : 'Jefe, Lía tiene la lista de temas. Elige cuál producimos.';
     nyxSay(top ? `Lía ha encontrado ${job.picks.length} temas virales. El más fuerte es «${top.tema}» con ${top.puntuacion}/100 (${top.por_que || ''}). Pide al jefe que elija cuál producís.` : 'Lía tiene la lista de temas virales. Pide al jefe que elija uno.', fb);
     setTimeout(() => setFan('listo', true), 6000);
+  } else if (job.type === 'cripto') {
+    ok.state = 'hecho'; job.status = 'aprobado';
+    const txt = job.step('cripto').output?.text || '';
+    nyxSay(`Ciro ha terminado el informe cripto «${job.short}». Resúmeselo al jefe en 2-3 frases claras (estado del bot y lo más importante). Informe: ${txt.slice(0, 1800)}`, `Jefe, Ciro ya tiene el informe cripto de «${job.short}». Lo tienes en el panel.`);
+    log(`Informe cripto <b>#${job.id}</b> listo`);
   } else if (job.type === 'analisis') {
     ok.state = 'hecho'; job.status = 'aprobado';
     const v = videoOf(job); const p = job.plan || {};
@@ -3514,10 +3614,10 @@ function drawWalls() {
 function renderTeam() {
   const rows = [`<div class="room-label hall">Dirección</div>
     <button type="button" class="member" data-focus="director"><span class="dot ${director.mode !== 'espera' ? 'work' : ''}"></span><span><span class="m-name">Nyx · Directora</span><span class="m-status">${esc(director.say)}</span></span><span class="ai claude">Claude</span></button>`];
-  for (const [room, label] of [['lab', 'Sala de Análisis'], ['yt', 'Sala YouTube'], ['proy', 'Sala Proyectos']]) {
+  for (const [room, label] of [['cripto', 'Sala Cripto · planta 2'], ['lab', 'Sala de Análisis'], ['yt', 'Sala YouTube'], ['proy', 'Sala Proyectos']]) {
     rows.push(`<div class="room-label ${room}">${label}</div>`);
     WORKERS.filter(w => w.room === room).forEach(w => {
-      const a = agents[w.id]; const st = a.mode === 'work' ? 'work' : ['walk', 'give', 'drink'].includes(a.mode) ? 'walk' : '';
+      const a = agents[w.id]; const st = a.mode === 'work' ? 'work' : ['walk', 'give', 'drink', 'smoke', 'air'].includes(a.mode) ? 'walk' : '';
       const extra = a.inbox.length ? ` · ${a.inbox.length} en cola` : '';
       rows.push(`<button type="button" class="member" data-focus="${w.id}"><span class="dot ${st}"></span><span><span class="m-name">${w.name} · ${w.role}</span><span class="m-status">${esc(a.status)}${a.progress >= 0 ? ' ' + Math.round(a.progress * 100) + '%' : ''}${extra}</span></span><span class="ai ${w.ai}">${AI[w.ai].name}</span></button>`);
     });
@@ -3731,14 +3831,14 @@ const VIEWS_TALL = {
 const isTall = () => host.clientWidth / Math.max(1, host.clientHeight) < 0.8;
 let camAnim = null, currentView = 'general';
 // Aleja la cámara lo justo para que quepa toda la oficina entre los menús de arriba y abajo
-function fitGeneral(view) {
+function fitGeneral(view, y0 = 0, cs = null) {
   const w = host.clientWidth, h = Math.max(1, host.clientHeight);
   const topPx = ($('.hud-top')?.offsetHeight || 40) + 16, botPx = ($('.hud-tools')?.offsetHeight || 40) + 16;
   const yMax = 1 - 2 * topPx / h, yMin = -1 + 2 * botPx / h;
   const dir = view.pos.clone().sub(view.target).normalize();
   const cam = camera.clone(); cam.aspect = w / h; cam.fov = w / h < 1 ? 58 : 42; cam.updateProjectionMatrix();
-  const corners = []; for (const x of [-OW - 0.4, OW + 0.4]) for (const z of [-8.4, 8.6]) for (const y of [0, 3.3]) corners.push(V(x, y, z));
-  for (let d = 12; d < 90; d += 0.5) {
+  const corners = cs || []; if (!cs) for (const x of [-OW - 0.4, OW + 0.4]) for (const z of [-8.4, 8.6]) for (const y of [y0, y0 + 3.3]) corners.push(V(x, y, z));
+  for (let d = 12; d < 130; d += 0.5) {
     let best = null;
     for (let shift = -16; shift <= 16; shift += 0.4) {
       const tg = view.target.clone(); if (Math.abs(dir.z) > 0.3) tg.z += shift; else tg.x += shift;
@@ -3754,16 +3854,21 @@ function fitGeneral(view) {
   return view;
 }
 function setView(v) {
-  currentView = v; userMovedCam = false; if (typeof focusTarget !== 'undefined' && focusTarget) { focusTarget = null; renderFocus(); }
+  currentView = v; userMovedCam = false;
+  if (['edificio', 'general', 'planta2'].includes(v)) try { localStorage.setItem('oficina.vista', v); } catch (e) {} if (typeof focusTarget !== 'undefined' && focusTarget) { focusTarget = null; renderFocus(); }
   $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v));
+  setNivel(VIEW_NIVEL[v] || 'p1');
   let view = (isTall() && VIEWS_TALL[v]) || VIEWS[v];
   if (v === 'general') view = fitGeneral(view);
+  else if (v === 'planta2') view = fitGeneral(view, L2);
+  else if (v === 'edificio') { const cs = []; for (const x of [-19, 19]) for (const z of [-8.8, 10.6]) for (const y of [0, TERR + 1.5]) cs.push(V(x, y, z)); view = fitGeneral(view, 0, cs); }
   camAnim = { pos: view.pos.clone(), target: view.target.clone() };
 }
 function focusOn(id) {
   if (id === 'director') return setView('dir');
   const a = agents[id]; $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', false));
-  camAnim = { pos: V(a.pos.x + 0.5, 3.6, a.pos.z + 4.2), target: V(a.pos.x, 1.1, a.pos.z - 0.4) };
+  setNivel(a.pos.y > TERR - 0.5 ? 'edificio' : a.pos.y > 3 ? 'p2' : 'p1');
+  camAnim = { pos: V(a.pos.x + 0.5, a.pos.y + 3.6, a.pos.z + 4.2), target: V(a.pos.x, a.pos.y + 1.1, a.pos.z - 0.4) };
 }
 let userMovedCam = false;
 controls.addEventListener('start', () => { camAnim = null; userMovedCam = true; });
@@ -3772,7 +3877,7 @@ function resize() {
   renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 1 ? 58 : 42; camera.updateProjectionMatrix();
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
   // al abrir o cambiar el tamaño, la vista general vuelve a encuadrar toda la oficina
-  if (!userMovedCam && currentView === 'general') { clearTimeout(resize._t); resize._t = setTimeout(() => setView('general'), 120); }
+  if (!userMovedCam && ['general', 'planta2', 'edificio'].includes(currentView)) { clearTimeout(resize._t); resize._t = setTimeout(() => setView(currentView), 120); }
 }
 new ResizeObserver(resize).observe(host);
 
@@ -3788,8 +3893,10 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('#modal'
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 let focusTarget = null;
 function zoomTargets() {
+  if (nivel === 'edificio') return [[B.shell, { kind: 'piso' }], [B.roof, { kind: 'piso' }]];
   const list = [];
-  for (const id in agents) { const a = agents[id]; list.push([a.desk.g, { kind: 'worker', id }], [a.c.g, { kind: 'worker', id }]); }
+  for (const id in agents) { const a = agents[id]; if ((a.def.y ? 'p2' : 'p1') !== nivel) continue; list.push([a.desk.g, { kind: 'worker', id }], [a.c.g, { kind: 'worker', id }]); }
+  if (nivel === 'p2') { list.push([criptoWall, { kind: 'cripto' }], [rackG, { kind: 'cripto' }], [ecoScreen, { kind: 'eco' }]); return list; }
   list.push([board, { kind: 'board' }], [wallL, { kind: 'wall', side: -1 }], [wallR, { kind: 'wall', side: 1 }], [debateTable, { kind: 'table' }], [fanGroup, { kind: 'fan' }], [bust, { kind: 'fan' }], [empFrame, { kind: 'emp' }], [ruletaScreen, { kind: 'ruleta' }]);
   return list;
 }
@@ -3797,17 +3904,22 @@ function pickAt(cx, cy) {
   const r = renderer.domElement.getBoundingClientRect(); ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
   let best = null;
-  for (const [obj, info] of zoomTargets()) { const h = ray.intersectObject(obj, true)[0]; if (h && (!best || h.distance < best.d)) best = { d: h.distance, info }; }
+  for (const [obj, info] of zoomTargets()) { const h = ray.intersectObject(obj, true)[0]; if (h && (!best || h.distance < best.d)) best = { d: h.distance, info: { ...info, y: h.point.y } }; }
   return best?.info || null;
 }
 function focusTo(info) {
+  if (info.kind === 'piso') return setView(info.y > TERR - 0.2 ? 'terraza' : info.y > 4.1 ? 'planta2' : 'general');
   focusTarget = info; $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', false));
+  if (info.kind === 'worker') setNivel(agents[info.id].def.y ? 'p2' : 'p1');
+  if (info.kind === 'cripto' || info.kind === 'eco') setNivel('p2');
   if (info.kind === 'worker') {
     const a = agents[info.id], g = a.desk.g; g.updateMatrixWorld(true);
     camAnim = { pos: g.localToWorld(V(0.95, 1.72, 1.15)), target: g.localToWorld(V(-0.05, 1.12, -0.22)) };
   } else if (info.kind === 'board') camAnim = { pos: V(-15.5, 2.15, -4.1), target: V(-16.1, 1.55, -7.97) };
   else if (info.kind === 'wall') camAnim = { pos: V(info.side * 2.6, 1.95, 4.8), target: V(info.side * 5.88, 1.75, 4.8) };
   else if (info.kind === 'table') camAnim = { pos: V(0, 3.4, 10.4), target: V(0, 1.2, 6.8) };
+  else if (info.kind === 'cripto') camAnim = { pos: V(-11.25, L2 + 1.8, -2.6), target: V(-11.25, L2 + 1.5, -7.95) };
+  else if (info.kind === 'eco') camAnim = { pos: V(11.25, L2 + 1.75, -3.2), target: V(11.25, L2 + 1.5, -7.95) };
   else if (info.kind === 'ruleta') camAnim = { pos: V(-8.6, 1.85, -5.4), target: V(-8.3, 1.62, -7.96) };
   else if (info.kind === 'emp') camAnim = { pos: V(-5.15, 2.1, -5.3), target: V(-5.15, 2.15, -7.95) };
   else { focusTarget = null; return setView('dir'); }
@@ -3823,8 +3935,8 @@ function renderFocus() {
     $('#fcBody').innerHTML = `<small>Trabaja con ${esc(AI[a.def.ai].name)}${empleadoMes.id === a.id ? ' · ★ empleado del mes' : ''}</small><div>${esc(a.status)}</div>${info.progress >= 0 ? `<div class="fc-bar"><i style="width:${Math.round(info.progress * 100)}%;background:${AI[a.def.ai].color}"></i></div><small>${esc(info.title)}</small>` : a.lastOut ? `<small>Último trabajo: ${esc(a.lastOut.label)} · ${esc(a.lastOut.topic)}</small>` : ''}`;
     $('#fcActs').innerHTML = a.lastOut && jobs.some(j => j.id === a.lastOut.jobId) ? `<button type="button" class="btn small primary" data-step="${a.lastOut.stepId}" data-job="${a.lastOut.jobId}">Ver su último trabajo</button>` : '';
   } else {
-    const t = { board: ['Pizarra de encargos', 'Los encargos reales: los que esperan tu aprobación, los que están en marcha y los terminados.'], wall: [f.side < 0 ? 'Manual del canal' : 'Métricas del canal', f.side < 0 ? 'Las lecciones que el equipo aplica en cada vídeo.' : 'Cómo van los vídeos del canal activo.'], table: ['Mesa de debate', D ? 'Debate en curso: ' + (D.job.topicFinal || D.job.topic) : 'Aquí Lía, Rui y Sam debaten el enfoque de cada vídeo.'], emp: ['Empleado del mes', empleadoMes.id ? `${NAME(empleadoMes.id)} con ${empleadoMes.puntos} puntos.` : 'Todavía sin ganador este mes.'], ruleta: ['La Ruleta Caliente', (ruleta.estado === 'ok' ? `La web está en línea (${ruleta.ms} ms).` : ruleta.estado === 'mal' ? 'La web no responde ahora mismo.' : 'Estado sin comprobar.') + ' Max, Leo y Vera se encargan de sus mejoras.'] }[f.kind];
-    $('#fcTitle').textContent = t[0]; $('#fcBody').innerHTML = `<div>${esc(t[1])}</div>`; $('#fcActs').innerHTML = f.kind === 'ruleta' ? `<a class="btn small primary" href="${RULETA_URL}" target="_blank" rel="noopener">Abrir la web</a>` : '';
+    const t = { board: ['Pizarra de encargos', 'Los encargos reales: los que esperan tu aprobación, los que están en marcha y los terminados.'], wall: [f.side < 0 ? 'Manual del canal' : 'Métricas del canal', f.side < 0 ? 'Las lecciones que el equipo aplica en cada vídeo.' : 'Cómo van los vídeos del canal activo.'], table: ['Mesa de debate', D ? 'Debate en curso: ' + (D.job.topicFinal || D.job.topic) : 'Aquí Lía, Rui y Sam debaten el enfoque de cada vídeo.'], cripto: ['Sala Cripto · BOTRADE', (() => { const c = botradeCalc(); return c ? `${c.halted ? 'El bot está parado' : c.activo ? 'El bot está en marcha' : 'Sin ciclo reciente'} (simulación). Capital ${eurF(c.eq)}, ${pctF(c.ret)}. ${c.pos.length ? 'En cartera: ' + c.pos.map(p => p.a).join(', ') + '.' : 'Todo en efectivo.'} Ciro lo vigila.` : 'Todavía sin datos del bot: el servidor necesita GITHUB_TOKEN.'; })()], eco: ['Sala Ecommerce', eco.url ? `Tienda ${eco.url}: ${eco.estado === 'ok' ? 'en línea' : 'sin respuesta'}.` : 'Aquí irá tu tienda online cuando la tengas.'], emp: ['Empleado del mes', empleadoMes.id ? `${NAME(empleadoMes.id)} con ${empleadoMes.puntos} puntos.` : 'Todavía sin ganador este mes.'], ruleta: ['La Ruleta Caliente', (ruleta.estado === 'ok' ? `La web está en línea (${ruleta.ms} ms).` : ruleta.estado === 'mal' ? 'La web no responde ahora mismo.' : 'Estado sin comprobar.') + ' Max, Leo y Vera se encargan de sus mejoras.'] }[f.kind];
+    $('#fcTitle').textContent = t[0]; $('#fcBody').innerHTML = `<div>${esc(t[1])}</div>`; $('#fcActs').innerHTML = f.kind === 'cripto' ? `<a class="btn small" href="${BOTRADE_REPO}" target="_blank" rel="noopener">Abrir el repositorio</a><button type="button" class="btn small primary" onclick="document.getElementById('criptoEncargo').click()">Pedir informe a Ciro</button>` : f.kind === 'eco' ? (eco.url ? `<a class="btn small primary" href="${esc(eco.url)}" target="_blank" rel="noopener">Abrir la tienda</a>` : '') : f.kind === 'ruleta' ? `<a class="btn small primary" href="${RULETA_URL}" target="_blank" rel="noopener">Abrir la web</a>` : '';
   }
 }
 setInterval(() => { if (focusTarget) renderFocus(); }, 700);
@@ -3947,13 +4059,670 @@ $('#recBtn').onclick = () => {
    13. BUCLE PRINCIPAL
    ============================================================ */
 const clock = new THREE.Clock(); let t = 0, uiT = 0, ledT = 0, bustPaintT = 0;
+/* ============================================================
+   11b. EDIFICIO: planta 2 (Sala Cripto y Sala Ecommerce), terraza, fachada y calle
+   ============================================================ */
+const B = { g2: new THREE.Group(), roof: new THREE.Group(), shell: new THREE.Group(), street: new THREE.Group() };
+Object.values(B).forEach(g => scene.add(g));
+const ROOM_COL = { proy: '#6f8fff', yt: '#ff6b7a', lab: '#b38cff', dir: '#5ce8ff', cripto: '#f7b955', eco: '#34d399', core: '#ffd9a8' };
+const plane = (w, h, mat, x, y, z, parent, rx = 0, ry = 0) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, 0); m.receiveShadow = true; parent.add(m); return m; };
+function tileTex(base, seam, n = 8) {
+  const t = canvasTex(512, 512, (g, W, H) => {
+    g.fillStyle = base; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.035})`; g.fillRect(i * W / n, j * H / n, W / n, H / n); }
+    g.strokeStyle = seam; g.lineWidth = 2; for (let i = 0; i <= n; i++) { g.beginPath(); g.moveTo(i * W / n, 0); g.lineTo(i * W / n, H); g.moveTo(0, i * H / n); g.lineTo(W, i * H / n); g.stroke(); }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+function plankTex(c1, c2) {
+  const t = canvasTex(512, 512, (g, W, H) => {
+    for (let r = 0; r < 16; r++) {
+      let x = -Math.random() * 200;
+      while (x < W) { const l = 140 + Math.random() * 160; g.fillStyle = Math.random() < 0.5 ? c1 : c2; g.fillRect(x, r * 32, l, 32); g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x, r * 32, 2, 32);
+        g.strokeStyle = 'rgba(0,0,0,.08)'; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(x, r * 32 + 6 + k * 9 + Math.random() * 3); g.lineTo(x + l, r * 32 + 6 + k * 9 + Math.random() * 3); g.stroke(); } x += l; }
+      g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(0, r * 32 + 30, W, 2);
+    }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const graniteTex = canvasTex(512, 512, (g, W, H) => { g.fillStyle = '#2a2c32'; g.fillRect(0, 0, W, H); for (let i = 0; i < 9000; i++) { const v = 30 + Math.random() * 60; g.fillStyle = `rgba(${v},${v},${v + 6},.5)`; g.fillRect(Math.random() * W, Math.random() * H, 2, 2); } });
+graniteTex.wrapS = graniteTex.wrapT = THREE.RepeatWrapping; graniteTex.repeat.set(6, 2);
+const granite = std(0xffffff, { map: graniteTex, roughness: 0.45, metalness: 0.1, envMapIntensity: 0.5 });
+const champagne = std(0x9c8256, { metalness: 0.9, roughness: 0.32, envMapIntensity: 0.7 });
+const teak = std(0x8a5a36, { roughness: 0.6 });
+const cushion = std(0xd9d4c8, { roughness: 0.95 });
+
+// ---------- PLANTA 2 ----------
+const slabMat = std(0x26282e, { roughness: 0.8 });
+box(36.4, 0.35, 16.4, slabMat, 0, L2 - 0.175, 0, B.g2);
+box(36.4, 0.05, 0.05, brass, 0, L2 - 0.03, 8.21, B.g2, false);
+const fl2 = (w, d, x, z, mat) => plane(w, d, mat, x, L2 + 0.002, z, B.g2, -Math.PI / 2);
+const tc = tileTex('#22252e', 'rgba(216,180,106,.38)'); tc.repeat.set(3, 4);
+fl2(13.5, 16, -11.25, 0, std(0xffffff, { map: tc, roughness: 0.32, metalness: 0.25, envMapIntensity: 0.4 }));
+fl2(9, 16, 0, 0, std(0xffffff, { map: mt, roughness: 0.22, metalness: 0.05, envMapIntensity: 0.3 }));
+const te = herringboneTex('#b38d66', '#a8845f'); te.repeat.set(4, 5);
+fl2(13.5, 16, 11.25, 0, std(0xffffff, { map: te, roughness: 0.45, envMapIntensity: 0.35 }));
+const wc = slatTex('#3a2e16', '#120d05'); wc.repeat.set(4, 1);
+const we = slatTex('#1f3d34', '#0b1813'); we.repeat.set(4, 1);
+const W2 = 3.3;
+box(13.5, W2, 0.2, std(0xffffff, { map: wc, roughness: 0.7 }), -11.25, L2 + W2 / 2, -8.1, B.g2);
+box(9, W2, 0.2, std(0xffffff, { map: walnut, roughness: 0.6 }), 0, L2 + W2 / 2, -8.1, B.g2);
+box(13.5, W2, 0.2, std(0xffffff, { map: we, roughness: 0.7 }), 11.25, L2 + W2 / 2, -8.1, B.g2);
+box(0.2, W2, 16, std(0x241d12), -OW - 0.1, L2 + W2 / 2, 0, B.g2);
+box(0.2, W2, 16, std(0x12241e), OW + 0.1, L2 + W2 / 2, 0, B.g2);
+box(OW * 2, 0.12, 0.05, brass, 0, L2 + 0.06, -7.98, B.g2, false);
+for (const s of [-1, 1]) box(0.05, 0.12, 16, brass, s * (OW - 0.02), L2 + 0.06, 0, B.g2, false);
+box(13.5, 0.04, 0.06, glow(0xf7b955, 1.2), -11.25, L2 + W2 - 0.02, -7.98, B.g2, false);
+box(9, 0.04, 0.06, glow(0xffc979, 1.2), 0, L2 + W2 - 0.02, -7.98, B.g2, false);
+box(13.5, 0.04, 0.06, glow(0x34d399, 1.2), 11.25, L2 + W2 - 0.02, -7.98, B.g2, false);
+box(OW * 2, 0.1, 0.2, blackMetal, 0, L2 + 0.05, 8.05, B.g2, false);
+for (const x of [-4.5, 4.5]) {
+  for (const z of [-4.7, 4.7]) {
+    box(0.14, 0.9, 6.6, blackMetal, x, L2 + 0.45, z, B.g2); box(0.05, 1.55, 6.6, glass, x, L2 + 1.68, z, B.g2, false);
+    box(0.09, 0.05, 6.6, brass, x, L2 + 2.48, z, B.g2, false); box(0.09, 0.05, 6.6, brass, x, L2 + 0.92, z, B.g2, false);
+  }
+  box(0.12, 2.6, 0.12, brass, x, L2 + 1.3, -1.4, B.g2); box(0.12, 2.6, 0.12, brass, x, L2 + 1.3, 1.4, B.g2); box(0.12, 0.12, 2.92, brass, x, L2 + 2.6, 0, B.g2, false);
+}
+windowAt(-OW + 0.02, -3.6, Math.PI / 2, 3.6, L2 + 1.8, B.g2); windowAt(-OW + 0.02, 4.6, Math.PI / 2, 3.6, L2 + 1.8, B.g2);
+windowAt(OW - 0.02, -3.6, -Math.PI / 2, 3.6, L2 + 1.8, B.g2); windowAt(OW - 0.02, 4.6, -Math.PI / 2, 3.6, L2 + 1.8, B.g2);
+const sign2 = (...a) => { const s = signPlane(...a); B.g2.add(s); signs.push(s); return s; };
+sign2('SALA CRIPTO', 'BOTRADE · mercado en directo', '#f7b955', 3.4, 0.73, -11.25, L2 + 2.86, -7.97);
+sign2('SALA ECOMMERCE', 'tienda online', '#34d399', 3.4, 0.73, 11.25, L2 + 2.86, -7.97);
+sign2('PLANTA 2', 'cripto · ecommerce', '#ffd9a8', 1.9, 0.41, -1.4, L2 + 2.35, -7.97);
+const p2a = addPoint(0xffc46b, 10, -11, L2 + 3.0, 0, 18); const p2b = addPoint(0xe6fff4, 9, 11, L2 + 3.0, 0, 18); const p2c = addPoint(0xffd9a8, 5, 0, L2 + 3.0, -3, 12);
+[p2a, p2b, p2c].forEach(l => B.g2.add(l));
+const moveTo2 = (g, y = L2, parent = B.g2) => { if (!g) return g; g.position.y += y; parent.add(g); return g; };
+[[-OW + 0.8, -7.3], [-5.3, 7.3], [OW - 0.8, -7.3], [5.3, 7.3], [-OW + 0.8, 7.2], [OW - 0.8, 7.2]].forEach(p => moveTo2(bigPlant(p[0], p[1], 0.9)));
+
+// --- Sala Cripto: videowall de BOTRADE, ticker, rack del bot, moneda dorada y zona de lectura
+const cwTex = canvasTex(2048, 640, () => {});
+const criptoWall = new THREE.Group(); criptoWall.position.set(-11.25, L2 + 1.5, -7.95); B.g2.add(criptoWall);
+box(6.3, 2.05, 0.07, std(0x0b0c10, { metalness: 0.6, roughness: 0.3 }), 0, 0, -0.03, criptoWall, false);
+{ const scr = new THREE.Mesh(new THREE.PlaneGeometry(6.16, 1.925), new THREE.MeshBasicMaterial({ map: cwTex, color: 0xe8e8e8 })); scr.position.z = 0.012; criptoWall.add(scr); }
+box(6.3, 0.03, 0.07, glow(0xf7b955, 1.3), 0, -1.04, 0, criptoWall, false);
+const tkTex = canvasTex(4096, 64, () => {}); tkTex.wrapS = THREE.RepeatWrapping; tkTex.repeat.set(0.5, 1);
+const ticker = plane(11, 0.3, new THREE.MeshBasicMaterial({ map: tkTex, color: 0xe0e0e0 }), -OW + 0.03, L2 + 3.0, 0.5, B.g2, 0, Math.PI / 2);
+box(0.06, 0.36, 11.1, blackMetal, -OW + 0.0, L2 + 3.0, 0.5, B.g2, false);
+const rackG = new THREE.Group(); rackG.position.set(-16.7, L2, -6.9); B.g2.add(rackG);
+box(0.75, 2.1, 0.9, std(0x101218, { metalness: 0.6, roughness: 0.35 }), 0, 1.05, 0, rackG);
+box(0.66, 1.9, 0.02, std(0x1a1d26, { metalness: 0.4, roughness: 0.5 }), 0, 1.05, 0.46, rackG, false);
+for (let i = 0; i < 9; i++) { box(0.6, 0.012, 0.02, chrome, 0, 0.2 + i * 0.2, 0.475, rackG, false); for (let k = 0; k < 6; k++) { const l = box(0.025, 0.02, 0.01, glow(k % 3 ? 0x4ade80 : 0x5ce8ff, 2), -0.24 + k * 0.05, 0.27 + i * 0.2, 0.48, rackG, false); leds.push(l); } }
+const botLamp = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 10), glow(0x4ade80, 2)); botLamp.position.set(0, 2.2, 0.2); rackG.add(botLamp);
+const rackPlate = canvasTex(512, 128, (g, W, H) => { g.fillStyle = '#0b0f1c'; g.fillRect(0, 0, W, H); g.fillStyle = '#f7b955'; g.fillRect(0, 0, 10, H); g.fillStyle = '#f4f1ea'; g.font = '700 54px "Chakra Petch", sans-serif'; g.fillText('BOTRADE', 30, 58); g.fillStyle = '#c9b48a'; g.font = '600 26px Figtree, sans-serif'; g.fillText('simulación · Kraken · diario', 30, 104); });
+plane(0.62, 0.155, new THREE.MeshBasicMaterial({ map: rackPlate }), 0, 1.95, 0.475, rackG);
+// moneda de bitcoin dorada que gira sobre un pedestal
+const coinTex = canvasTex(256, 256, (g, W, H) => { const gr = g.createRadialGradient(110, 100, 10, 128, 128, 128); gr.addColorStop(0, '#fff1c9'); gr.addColorStop(0.6, '#e2b24d'); gr.addColorStop(1, '#8a6a2e'); g.fillStyle = gr; g.fillRect(0, 0, W, H); g.strokeStyle = 'rgba(90,60,20,.6)'; g.lineWidth = 8; g.beginPath(); g.arc(128, 128, 112, 0, 7); g.stroke(); g.fillStyle = '#7a5418'; g.font = '700 150px Figtree, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('₿', 128, 136); });
+const coinG = new THREE.Group(); coinG.position.set(-6.3, L2, 5.6); B.g2.add(coinG);
+cyl(0.32, 0.38, 1.0, marbleWhite, 0, 0.5, 0, coinG, 32); cyl(0.4, 0.4, 0.04, brass, 0, 1.02, 0, coinG, 32);
+const coinMats = [brass, new THREE.MeshStandardMaterial({ map: coinTex, metalness: 0.9, roughness: 0.28, emissive: 0x3a2808, emissiveIntensity: 0.4 }), new THREE.MeshStandardMaterial({ map: coinTex, metalness: 0.9, roughness: 0.28, emissive: 0x3a2808, emissiveIntensity: 0.4 })];
+const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.07, 48), coinMats); coin.rotation.x = Math.PI / 2; coin.position.y = 1.62; coin.castShadow = true; coinG.add(coin);
+const coinBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 1.2, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xf7b955, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); coinBeam.position.y = 1.65; coinG.add(coinBeam);
+// mesa de mercado con holograma del capital del bot
+const holoMesaTex = canvasTex(512, 256, () => {});
+const mesaC = new THREE.Group(); mesaC.position.set(-11.6, L2, 2.4); B.g2.add(mesaC);
+cyl(0.9, 0.9, 0.05, std(0x111318, { metalness: 0.6, roughness: 0.25 }), 0, 0.98, 0, mesaC, 40); cyl(0.92, 0.92, 0.02, brass, 0, 0.955, 0, mesaC, 40);
+cyl(0.08, 0.12, 0.95, blackMetal, 0, 0.48, 0, mesaC, 12); cyl(0.45, 0.45, 0.03, blackMetal, 0, 0.015, 0, mesaC, 24);
+const holoMesaRing = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.012, 8, 64), glow(0xf7b955, 1.8)); holoMesaRing.rotation.x = Math.PI / 2; holoMesaRing.position.y = 1.02; mesaC.add(holoMesaRing);
+const holoMesaMat = new THREE.MeshBasicMaterial({ map: holoMesaTex, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+const holoMesaP = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.75), holoMesaMat); holoMesaP.position.y = 1.55; mesaC.add(holoMesaP);
+for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4, st = new THREE.Group(); st.position.set(Math.cos(a) * 1.35, 0, Math.sin(a) * 1.35); mesaC.add(st); cyl(0.2, 0.2, 0.06, leather, 0, 0.72, 0, st, 18); cyl(0.025, 0.025, 0.7, chrome, 0, 0.36, 0, st, 8); cyl(0.17, 0.2, 0.02, chrome, 0, 0.01, 0, st, 18); }
+function drawHoloMesa() {
+  const g = holoMesaTex.image.getContext('2d'), W = 512, H = 256, c = botradeCalc(); g.clearRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(247,185,85,.35)'; g.lineWidth = 2; g.strokeRect(4, 4, W - 8, H - 8);
+  g.fillStyle = '#ffd27a'; g.font = '700 30px "Chakra Petch", sans-serif'; g.fillText(c ? eurF(c.eq) : 'BOTRADE', 20, 44);
+  if (c) { g.fillStyle = c.ret >= 0 ? '#7dffb0' : '#ff8a8a'; g.font = '700 22px Figtree, sans-serif'; g.fillText(pctF(c.ret), 20, 74); }
+  const h = c?.hist || []; if (h.length > 1) { const v = h.map(x => x.equity), lo = Math.min(...v) * 0.998, hi = Math.max(...v) * 1.002; g.strokeStyle = '#ffd27a'; g.lineWidth = 4; g.beginPath(); v.forEach((q, i) => { const x = 20 + i * (W - 40) / (v.length - 1), y = H - 24 - (q - lo) / (hi - lo) * (H - 110); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); }
+  holoMesaTex.needsUpdate = true;
+}
+// zona de lectura: dos butacas de cuero y mesa baja
+function armchair(x, z, ry, parent) { const g = new THREE.Group(); g.position.set(x, L2, z); g.rotation.y = ry; parent.add(g); box(0.8, 0.36, 0.78, leather, 0, 0.32, 0, g); box(0.8, 0.55, 0.16, leatherD, 0, 0.7, -0.33, g); for (const s of [-1, 1]) box(0.14, 0.42, 0.78, leatherD, s * 0.4, 0.45, 0, g); for (const lx of [-0.32, 0.32]) for (const lz of [-0.3, 0.3]) cyl(0.02, 0.02, 0.14, brass, lx, 0.07, lz, g); return g; }
+armchair(-15.6, 4.2, Math.PI / 2 + 0.3, B.g2); armchair(-15.6, 6.0, Math.PI / 2 - 0.3, B.g2);
+cyl(0.36, 0.36, 0.04, marbleWhite, -14.6, L2 + 0.45, 5.1, B.g2, 28); cyl(0.03, 0.03, 0.42, brass, -14.6, L2 + 0.22, 5.1, B.g2);
+const rug2 = plane(3.2, 3.2, std(0x2b2316, { roughness: 1 }), -15, L2 + 0.01, 5.1, B.g2, -Math.PI / 2); rug2.material.map = rugTex('#2b2316', '#c9a45c');
+
+// --- Sala Ecommerce: pantalla de la tienda, estanterías de producto y mesa de envíos
+const ecoTex = canvasTex(1600, 500, () => {});
+const ecoScreen = new THREE.Group(); ecoScreen.position.set(11.25, L2 + 1.5, -7.95); B.g2.add(ecoScreen);
+box(5.1, 1.66, 0.07, std(0x0b0c10, { metalness: 0.6, roughness: 0.3 }), 0, 0, -0.03, ecoScreen, false);
+{ const scr = new THREE.Mesh(new THREE.PlaneGeometry(4.96, 1.55), new THREE.MeshBasicMaterial({ map: ecoTex, color: 0xe6e6e6 })); scr.position.z = 0.012; ecoScreen.add(scr); }
+box(5.1, 0.03, 0.07, glow(0x34d399, 1.3), 0, -0.84, 0, ecoScreen, false);
+const prodCols = [0x34d399, 0xf7b955, 0x6c9bff, 0xff6b7a, 0xf4f1ea, 0xb38cff];
+function ecoShelf(x, z, ry) {
+  const g = new THREE.Group(); g.position.set(x, L2, z); g.rotation.y = ry; B.g2.add(g);
+  for (const s of [-1, 1]) box(0.05, 2.3, 0.45, blackMetal, s * 0.9, 1.15, 0, g);
+  for (let i = 0; i < 5; i++) { box(1.85, 0.03, 0.45, oak, 0, 0.25 + i * 0.5, 0, g, false); if (i < 4) for (let k = 0; k < 5; k++) { if (Math.random() < 0.18) continue; const h = 0.18 + Math.random() * 0.2; const pb = box(0.24, h, 0.26, std(prodCols[(i * 5 + k) % prodCols.length], { roughness: 0.5 }), -0.72 + k * 0.36, 0.265 + h / 2 + i * 0.5, 0, g); box(0.245, 0.03, 0.265, white, 0, h * 0.1, 0, pb, false); } }
+  return g;
+}
+ecoShelf(6.4, -7.55, 0); ecoShelf(16.1, -7.55, 0); ecoShelf(17.55, -3.6, -Math.PI / 2);
+const ecoDesk = new THREE.Group(); ecoDesk.position.set(11.25, L2, -4.3); ecoDesk.rotation.y = Math.PI; B.g2.add(ecoDesk);
+box(1.9, 0.05, 0.85, oak, 0, 0.78, 0, ecoDesk); for (const sx of [-0.9, 0.9]) box(0.05, 0.76, 0.8, blackMetal, sx, 0.39, 0, ecoDesk);
+box(0.95, 0.56, 0.03, std(0x0c0e14, { metalness: 0.5, roughness: 0.3 }), 0, 1.2, -0.2, ecoDesk); box(0.04, 0.3, 0.04, chrome, 0, 0.95, -0.24, ecoDesk, false);
+{ const sc2 = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), new THREE.MeshBasicMaterial({ map: ecoTex, color: 0xd0d0d0 })); sc2.position.set(0, 1.2, -0.183); ecoDesk.add(sc2); }
+box(0.46, 0.02, 0.15, std(0x24262e), 0, 0.815, 0.12, ecoDesk); cyl(0.05, 0.04, 0.1, std(0x34d399), 0.6, 0.85, 0.1, ecoDesk);
+{ const ch = new THREE.Group(); ch.position.set(0, 0, 0.75); ecoDesk.add(ch); box(0.54, 0.08, 0.52, std(0x1f3d34), 0, 0.47, 0, ch); box(0.5, 0.66, 0.05, std(0x173029, { roughness: 0.9 }), 0, 0.86, 0.27, ch); box(0.05, 0.36, 0.05, chrome, 0, 0.26, 0, ch); }
+const packT = new THREE.Group(); packT.position.set(11.0, L2, 3.0); B.g2.add(packT);
+box(3.0, 0.06, 1.2, oak, 0, 0.9, 0, packT); for (const sx of [-1.4, 1.4]) for (const sz of [-0.52, 0.52]) box(0.06, 0.9, 0.06, blackMetal, sx, 0.45, sz, packT);
+box(2.8, 0.03, 1.0, blackMetal, 0, 0.3, 0, packT, false);
+const kraft = std(0xb88a5a, { roughness: 0.9 });
+[[-0.9, 0.15, 0.5, 0.32, 0.4], [-0.3, -0.2, 0.4, 0.26, 0.34], [0.5, 0.1, 0.6, 0.36, 0.44]].forEach(([x, z, w, h, d]) => { const b0 = box(w, h, d, kraft, x, 0.93 + h / 2, z, packT); box(w + 0.005, 0.03, 0.06, std(0xd9c39a), 0, h / 2, 0, b0, false); });
+box(0.34, 0.06, 0.3, chrome, 1.15, 0.96, -0.25, packT); box(0.3, 0.012, 0.26, blackMetal, 1.15, 1.0, -0.25, packT, false);
+box(0.26, 0.18, 0.22, std(0xe9e9ee), 1.15, 1.02, 0.3, packT); box(0.2, 0.02, 0.16, glow(0x34d399, 1.2), 1.15, 1.115, 0.3, packT, false);
+const pallet = new THREE.Group(); pallet.position.set(16.2, L2, 5.6); B.g2.add(pallet);
+box(1.2, 0.14, 1.0, std(0xa47b4f), 0, 0.07, 0, pallet);
+for (let lv = 0; lv < 3; lv++) for (let k = 0; k < 4; k++) { if (lv === 2 && k > 1) continue; box(0.55, 0.38, 0.46, kraft, (k % 2 ? 0.29 : -0.29), 0.33 + lv * 0.39, (k > 1 ? 0.24 : -0.24), pallet); }
+const tablet = new THREE.Group(); tablet.position.set(8.0, L2, 3.6); B.g2.add(tablet);
+cyl(0.18, 0.22, 0.03, chrome, 0, 0.015, 0, tablet, 24); cyl(0.025, 0.025, 1.05, chrome, 0, 0.55, 0, tablet);
+const tabScr = box(0.34, 0.5, 0.02, blackMetal, 0, 1.25, 0, tablet); tabScr.rotation.x = -0.3;
+const tabTex = canvasTex(256, 384, (g, W, H) => { g.fillStyle = '#0b1a15'; g.fillRect(0, 0, W, H); g.fillStyle = '#34d399'; g.fillRect(0, 0, W, 44); g.fillStyle = '#0b1a15'; g.font = '700 24px Figtree, sans-serif'; g.fillText('MI TIENDA', 14, 30); for (let i = 0; i < 4; i++) { g.fillStyle = '#16302a'; g.fillRect(14 + (i % 2) * 118, 60 + Math.floor(i / 2) * 150, 108, 136); g.fillStyle = ['#f7b955', '#6c9bff', '#ff6b7a', '#b38cff'][i]; g.fillRect(28 + (i % 2) * 118, 74 + Math.floor(i / 2) * 150, 80, 70); g.fillStyle = '#c9f2e2'; g.fillRect(28 + (i % 2) * 118, 156 + Math.floor(i / 2) * 150, 60, 10); } });
+const tabPl = new THREE.Mesh(new THREE.PlaneGeometry(0.31, 0.46), new THREE.MeshBasicMaterial({ map: tabTex })); tabPl.position.z = 0.011; tabScr.add(tabPl);
+
+// --- Núcleo: ascensores, jardín vertical y banco
+const elevs = [];
+function elevator(x, y, z, parent, label) {
+  const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g);
+  box(1.56, 2.46, 0.08, champagne, 0, 1.23, 0, g, false);
+  box(1.3, 2.25, 0.02, std(0x050608), 0, 1.13, 0.03, g, false);
+  const steel = std(0xaeb4bd, { metalness: 1, roughness: 0.28, envMapIntensity: 0.7 });
+  const L = box(0.64, 2.22, 0.03, steel, -0.325, 1.12, 0.06, g, false), R = box(0.64, 2.22, 0.03, steel, 0.325, 1.12, 0.06, g, false);
+  const indTex = canvasTex(256, 96, (q, W, H) => { q.fillStyle = '#05070c'; q.fillRect(0, 0, W, H); q.fillStyle = '#ffd27a'; q.font = '700 56px "Chakra Petch", sans-serif'; q.textAlign = 'center'; q.textBaseline = 'middle'; q.fillText(label, W / 2, H / 2 + 2); });
+  plane(0.42, 0.16, new THREE.MeshBasicMaterial({ map: indTex }), 0, 2.58, 0.05, g);
+  box(0.06, 0.16, 0.03, glow(0x5ce8ff, 1.4), 0.95, 1.15, 0.05, g, false);
+  const e = { y, L, R, open: 0, until: 0 }; elevs.push(e); return e;
+}
+elevator(ELEV.x, 0, -7.95, scene, 'P1');
+elevator(ELEV.x, L2, -7.95, B.g2, 'P2');
+function openElev(y) { const e = elevs.find(q => Math.abs(q.y - y) < 0.5); if (e) e.until = performance.now() / 1000 + 3.2; }
+const vgTex = canvasTex(512, 512, (g, W, H) => { g.fillStyle = '#123018'; g.fillRect(0, 0, W, H); for (let i = 0; i < 2600; i++) { const c = ['#2f8f5b', '#237447', '#3fa66b', '#1c5e38', '#58b97a'][i % 5]; g.fillStyle = c; g.beginPath(); g.ellipse(Math.random() * W, Math.random() * H, 6 + Math.random() * 10, 3 + Math.random() * 5, Math.random() * 3, 0, 7); g.fill(); } });
+box(3.0, 2.5, 0.1, std(0xffffff, { map: vgTex, roughness: 0.9 }), -1.6, L2 + 1.45, -7.94, B.g2);
+box(3.1, 0.06, 0.16, brass, -1.6, L2 + 0.17, -7.92, B.g2, false); box(3.1, 0.06, 0.16, brass, -1.6, L2 + 2.73, -7.92, B.g2, false);
+const bench = new THREE.Group(); bench.position.set(-1.0, L2, -4.6); B.g2.add(bench);
+box(2.2, 0.08, 0.6, teak, 0, 0.46, 0, bench); for (const s of [-0.95, 0.95]) box(0.08, 0.42, 0.55, blackMetal, s, 0.21, 0, bench);
+const rugC = new THREE.Mesh(new THREE.CircleGeometry(1.8, 48), std(0x2a2a33, { roughness: 1 })); rugC.rotation.x = -Math.PI / 2; rugC.position.set(-0.5, L2 + 0.01, -2.0); B.g2.add(rugC);
+moveTo2(bigPlant(2.3, -4.2, 1.0)); moveTo2(bigPlant(-3.6, -6.8, 1.0));
+
+// ---------- TERRAZA (cubierta) ----------
+box(36.6, 0.3, 16.6, slabMat, 0, TERR - 0.15, 0, B.roof);
+const dk = plankTex('#8a6a4c', '#7a5c40'); dk.repeat.set(6, 3);
+plane(35.8, 15.8, std(0xffffff, { map: dk, roughness: 0.75 }), 0, TERR + 0.004, 0, B.roof, -Math.PI / 2);
+// coronación delantera con el letrero OFICINAS JAGER
+box(36.6, 1.35, 0.4, granite, 0, TERR + 0.675, 8.1, B.roof);
+box(36.6, 0.06, 0.46, champagne, 0, TERR + 1.37, 8.1, B.roof, false);
+box(36.6, 0.05, 0.05, glow(0xd8b46a, 1.4), 0, TERR + 0.04, 8.33, B.roof, false);
+const signTex = canvasTex(2048, 200, (g, W, H) => {
+  g.clearRect(0, 0, W, H);
+  const gold = g.createLinearGradient(0, 20, 0, 180); gold.addColorStop(0, '#fff3d0'); gold.addColorStop(0.5, '#e6c072'); gold.addColorStop(1, '#a37b34');
+  g.fillStyle = gold; g.font = '700 150px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.letterSpacing = '18px'; g.fillText('OFICINAS JAGER', W / 2, H / 2 + 6);
+});
+const signMat = new THREE.MeshStandardMaterial({ map: signTex, transparent: true, metalness: 0.7, roughness: 0.3, emissive: 0xffcf7a, emissiveMap: signTex, emissiveIntensity: 1.2 });
+const bigSign = plane(17, 1.66, signMat, 0, TERR + 0.7, 8.305, B.roof); bigSign.receiveShadow = false;
+const signHalo = plane(18.5, 1.9, new THREE.MeshBasicMaterial({ color: 0xffb94d, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false }), 0, TERR + 0.7, 8.302, B.roof);
+// barandillas de vidrio
+const railGlass = new THREE.MeshStandardMaterial({ color: 0xcfe9ff, transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.3, depthWrite: false });
+for (const s of [-1, 1]) { box(0.04, 1.05, 16.2, railGlass, s * 18.1, TERR + 0.6, 0, B.roof, false); box(0.08, 0.05, 16.3, champagne, s * 18.1, TERR + 1.13, 0, B.roof, false); for (let z = -8; z <= 8; z += 2) box(0.06, 1.1, 0.06, champagne, s * 18.1, TERR + 0.55, z, B.roof, false); }
+box(36.2, 1.05, 0.04, railGlass, 0, TERR + 0.6, -8.1, B.roof, false); box(36.3, 0.05, 0.08, champagne, 0, TERR + 1.13, -8.1, B.roof, false);
+for (let x = -18; x <= 18; x += 3) box(0.06, 1.1, 0.06, champagne, x, TERR + 0.55, -8.1, B.roof, false);
+// caseta del ascensor
+const hut = new THREE.Group(); hut.position.set(ELEV.x, TERR, -7.0); B.roof.add(hut);
+box(3.0, 2.8, 2.2, granite, 0, 1.4, 0, hut); box(3.3, 0.14, 2.6, champagne, 0, 2.87, 0.1, hut);
+const hutTex = canvasTex(512, 96, (g, W, H) => { g.fillStyle = '#0b0f1c'; g.fillRect(0, 0, W, H); g.fillStyle = '#ffd27a'; g.font = '700 58px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('TERRAZA', W / 2, H / 2 + 2); });
+plane(1.1, 0.2, new THREE.MeshBasicMaterial({ map: hutTex }), 0, 2.62, 1.105, hut);
+elevator(0, 0, 1.06, hut, 'T'); elevs[elevs.length - 1].y = TERR;
+for (const s of [-1, 1]) { const sc = box(0.12, 0.3, 0.1, glow(0xffd9a8, 1.6), s * 1.15, 2.0, 1.12, hut, false); sc.userData.night = true; }
+// pérgola con luces de verbena y sofás
+const pergola = new THREE.Group(); pergola.position.set(-8.5, TERR, 0); B.roof.add(pergola);
+const darkWood = std(0x3b2a1e, { roughness: 0.7 });
+for (const px of [-4, 0, 4]) for (const pz of [-3.4, 3.4]) box(0.16, 2.9, 0.16, darkWood, px, 1.45, pz, pergola);
+for (const pz of [-3.4, 3.4]) box(8.4, 0.18, 0.12, darkWood, 0, 2.9, pz, pergola);
+for (let x = -4; x <= 4.01; x += 0.45) box(0.07, 0.12, 7.2, darkWood, x, 3.02, 0, pergola, false);
+const bulbGeo = new THREE.SphereGeometry(0.045, 8, 6), bulbMat = glow(0xffd28a, 2.2);
+const bulbs = new THREE.InstancedMesh(bulbGeo, bulbMat, 3 * 24); let bi = 0; const mtx = new THREE.Matrix4();
+for (const pz of [-2.2, 0, 2.2]) for (let k = 0; k < 24; k++) { const u = k / 23, x = -4 + u * 8, y = 2.82 - Math.sin(u * Math.PI) * 0.35; mtx.makeTranslation(x, y, pz); bulbs.setMatrixAt(bi++, mtx); }
+pergola.add(bulbs);
+const sofaO = (x, z, ry, len) => { const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; pergola.add(g); box(len, 0.32, 0.9, std(0x3a3d44), 0, 0.2, 0, g); box(len, 0.16, 0.82, cushion, 0, 0.44, 0.02, g); box(len, 0.5, 0.2, cushion, 0, 0.7, -0.36, g); return g; };
+sofaO(0, -2.2, 0, 4.2); sofaO(-2.6, -0.2, Math.PI / 2, 3.0);
+box(1.6, 0.06, 0.9, teak, 0.4, 0.42, 0.1, pergola); for (const sx of [-0.7, 0.7]) for (const sz of [-0.35, 0.35]) box(0.06, 0.4, 0.06, teak, 0.4 + sx, 0.2, 0.1 + sz, pergola);
+const rugT = plane(5, 4, std(0x50463c, { roughness: 1 }), 0, 0.01, -0.4, pergola, -Math.PI / 2); rugT.material.map = rugTex('#5a4e42', '#d8c39a');
+for (const lx of [1.9, -1.4]) { cyl(0.12, 0.14, 0.42, blackMetal, lx, 0.21, 1.5, pergola, 12); const fl = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), glow(0xffb45a, 2.5)); fl.position.set(lx, 0.32, 1.5); pergola.add(fl); }
+// barra exterior con taburetes
+const bar = new THREE.Group(); bar.position.set(9.2, TERR, -5.7); B.roof.add(bar);
+box(4.2, 1.05, 0.6, granite, 0, 0.525, 0, bar); box(4.4, 0.06, 0.8, std(0xe9e6df, { roughness: 0.3 }), 0, 1.08, 0.05, bar);
+box(4.2, 0.03, 0.03, glow(0xffc979, 1.4), 0, 0.15, 0.31, bar, false);
+for (const sx of [-1.4, 0, 1.4]) { cyl(0.2, 0.2, 0.05, teak, sx, 0.78, 0.75, bar, 16); cyl(0.03, 0.03, 0.76, blackMetal, sx, 0.38, 0.75, bar); cyl(0.18, 0.2, 0.02, blackMetal, sx, 0.01, 0.75, bar, 16); }
+for (let k = 0; k < 6; k++) cyl(0.035, 0.035, 0.26, std([0x2f6b3a, 0x7a2030, 0xd8b46a][k % 3], { roughness: 0.2, metalness: 0.2 }), -1.8 + k * 0.18, 1.24, -0.12, bar, 10);
+// mesas altas y tumbonas
+for (const [x, z] of [[6.6, 4.6], [10.6, 4.6]]) { const g = new THREE.Group(); g.position.set(x, TERR, z); B.roof.add(g); cyl(0.42, 0.42, 0.04, std(0xe9e6df, { roughness: 0.3 }), 0, 1.06, 0, g, 28); cyl(0.04, 0.04, 1.04, blackMetal, 0, 0.53, 0, g, 8); cyl(0.3, 0.3, 0.03, blackMetal, 0, 0.015, 0, g, 20); for (let k = 0; k < 3; k++) { const a = k * 2.1 + 0.3; cyl(0.17, 0.17, 0.05, teak, Math.cos(a) * 0.75, 0.78, Math.sin(a) * 0.75, g, 16); cyl(0.022, 0.022, 0.76, blackMetal, Math.cos(a) * 0.75, 0.38, Math.sin(a) * 0.75, g, 8); } const cand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), glow(0xffb45a, 2.5)); cand.position.y = 1.12; g.add(cand); }
+for (const z of [3.8, 5.6]) { const g = new THREE.Group(); g.position.set(-15.2, TERR, z); g.rotation.y = -Math.PI / 2; B.roof.add(g); box(0.7, 0.12, 1.9, std(0xd9d4c8, { roughness: 0.95 }), 0, 0.34, 0.1, g); const back = box(0.7, 0.1, 0.7, std(0xd9d4c8, { roughness: 0.95 }), 0, 0.55, -0.95, g); back.rotation.x = 0.7; for (const sx of [-0.3, 0.3]) for (const sz of [-0.8, 0.9]) box(0.05, 0.28, 0.05, teak, sx, 0.14, sz, g); }
+{ const um = new THREE.Group(); um.position.set(-15.2, TERR, 4.7); B.roof.add(um); cyl(0.03, 0.03, 2.4, chrome, 0, 1.2, 0, um, 8); const can = new THREE.Mesh(new THREE.ConeGeometry(1.5, 0.45, 8, 1, true), std(0xe8e2d4, { roughness: 0.9, side: THREE.DoubleSide })); can.position.y = 2.35; can.castShadow = true; um.add(can); cyl(0.3, 0.3, 0.08, granite, 0, 0.04, 0, um, 16); }
+// zona de fumadores: cenicero de pie, banco y cartel
+const smokeZ = new THREE.Group(); smokeZ.position.set(15.8, TERR, 3.3); B.roof.add(smokeZ);
+cyl(0.13, 0.15, 0.85, std(0x2a2d33, { metalness: 0.8, roughness: 0.3 }), 0, 0.425, 0, smokeZ, 18); cyl(0.17, 0.15, 0.06, chrome, 0, 0.88, 0, smokeZ, 18); cyl(0.13, 0.13, 0.01, std(0x8a8a8a, { roughness: 1 }), 0, 0.915, 0, smokeZ, 18);
+const fumTex = canvasTex(256, 128, (g, W, H) => { g.fillStyle = '#0b0f1c'; g.fillRect(0, 0, W, H); g.strokeStyle = '#d8b46a'; g.lineWidth = 4; g.strokeRect(4, 4, W - 8, H - 8); g.fillStyle = '#f4f1ea'; g.font = '700 30px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.fillText('ZONA', W / 2, 52); g.fillText('FUMADORES', W / 2, 92); });
+const fumPost = new THREE.Group(); fumPost.position.set(17.3, TERR, 1.0); B.roof.add(fumPost); cyl(0.025, 0.025, 1.3, blackMetal, 0, 0.65, 0, fumPost);
+const fumSign = plane(0.5, 0.25, new THREE.MeshBasicMaterial({ map: fumTex, side: THREE.DoubleSide }), 0, 1.35, 0, fumPost, 0, -Math.PI / 2);
+const bench2 = new THREE.Group(); bench2.position.set(15.4, TERR, 7.2); bench2.rotation.y = Math.PI; B.roof.add(bench2);
+box(2.4, 0.07, 0.5, teak, 0, 0.45, 0, bench2); box(2.4, 0.4, 0.06, teak, 0, 0.72, 0.24, bench2); for (const s of [-1.05, 1.05]) box(0.07, 0.45, 0.48, blackMetal, s, 0.22, 0, bench2);
+// jardineras, olivos y paneles solares
+function olive(x, z, parent) { const g = new THREE.Group(); g.position.set(x, TERR, z); parent.add(g); box(1.0, 0.7, 1.0, granite, 0, 0.35, 0, g); box(0.9, 0.04, 0.9, std(0x3a2a1c, { roughness: 1 }), 0, 0.69, 0, g, false); cyl(0.06, 0.09, 1.2, std(0x6b5a48), 0, 1.3, 0, g, 8); for (let i = 0; i < 9; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(rand(0.25, 0.4), 12, 8), std(i % 2 ? 0x7d9a6a : 0x67825a, { roughness: 0.8 })); f.position.set(rand(-0.45, 0.45), rand(1.8, 2.5), rand(-0.45, 0.45)); f.scale.y = 0.8; f.castShadow = true; g.add(f); } return g; }
+olive(-16.6, -6.6, B.roof); olive(-16.6, 6.4, B.roof); olive(16.6, -6.6, B.roof); olive(-1.5, -6.9, B.roof);
+for (const x of [-12.5, 6.2, 12.6]) { const pl = box(2.6, 0.5, 0.6, granite, x, TERR + 0.25, -7.5, B.roof); for (let k = 0; k < 7; k++) { const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.5, 6), std(k % 2 ? 0x6f8f4f : 0x8a7ab5)); tuft.position.set(-1.1 + k * 0.37, 0.45, 0); pl.add(tuft); } }
+const solarTex = canvasTex(256, 256, (g, W, H) => { g.fillStyle = '#0d1b3a'; g.fillRect(0, 0, W, H); g.strokeStyle = '#5b78b8'; g.lineWidth = 2; for (let i = 0; i <= 6; i++) { g.beginPath(); g.moveTo(i * W / 6, 0); g.lineTo(i * W / 6, H); g.stroke(); } for (let i = 0; i <= 10; i++) { g.beginPath(); g.moveTo(0, i * H / 10); g.lineTo(W, i * H / 10); g.stroke(); } });
+for (let k = 0; k < 3; k++) { const sp = new THREE.Group(); sp.position.set(-16.0 + k * 0, TERR, -3.2 + k * 1.9); B.roof.add(sp); const pn = box(1.6, 0.04, 1.0, std(0xffffff, { map: solarTex, metalness: 0.6, roughness: 0.25 }), 0, 0.6, 0, sp); pn.rotation.x = -0.5; box(0.05, 0.6, 0.05, blackMetal, -0.7, 0.3, 0.3, sp); box(0.05, 0.6, 0.05, blackMetal, 0.7, 0.3, 0.3, sp); }
+const hvac = new THREE.Group(); hvac.position.set(-10.0, TERR, -6.9); B.roof.add(hvac); box(1.6, 0.9, 0.9, std(0xc9ccd2, { metalness: 0.5, roughness: 0.4 }), 0, 0.45, 0, hvac); const fanTop = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.02, 24), std(0x2a2d33)); fanTop.position.set(-0.35, 0.91, 0); hvac.add(fanTop);
+const fanBlade = box(0.6, 0.01, 0.08, std(0x8a8f99), -0.35, 0.92, 0, hvac, false);
+// focos bajos a lo largo de la barandilla
+for (let x = -16; x <= 16; x += 4) { const up = box(0.12, 0.06, 0.12, glow(0xffd9a8, 1.4), x, TERR + 0.03, -7.75, B.roof, false); up.userData.night = true; }
+
+// ---------- FACHADA ----------
+const GL = {};
+function roomGlass(room) { return GL[room] || (GL[room] = new THREE.MeshStandardMaterial({ color: 0x1d2a3d, transparent: true, opacity: 0.55, roughness: 0.06, metalness: 0.85, envMapIntensity: 1.5, emissive: new THREE.Color(ROOM_COL[room]).lerp(new THREE.Color(0xfff0d8), 0.4), emissiveIntensity: 0, depthWrite: false })); }
+const S = B.shell, FZ = 8.36, FX = 18.36;
+function glassFront(x0, x1, y0, y1, room, z = FZ) { const m = box(x1 - x0, y1 - y0, 0.04, roomGlass(room), (x0 + x1) / 2, (y0 + y1) / 2, z, S, false); m.renderOrder = 2; return m; }
+function glassSide(s, z0, z1, y0, y1, room) { const m = box(0.04, y1 - y0, z1 - z0, roomGlass(room), s * FX, (y0 + y1) / 2, (z0 + z1) / 2, S, false); m.renderOrder = 2; return m; }
+const Y1a = 0.35, Y1b = 4.0, Y2a = L2, Y2b = TERR - 0.3;
+glassFront(-18.2, -6, Y1a, Y1b, 'proy'); glassFront(-6, -1.8, Y1a, Y1b, 'lab'); glassFront(1.8, 6, Y1a, Y1b, 'lab'); glassFront(6, 18.2, Y1a, Y1b, 'yt');
+glassFront(-1.8, 1.8, 2.75, Y1b, 'core');
+glassFront(-18.2, -4.5, Y2a, Y2b, 'cripto'); glassFront(-4.5, 4.5, Y2a, Y2b, 'core'); glassFront(4.5, 18.2, Y2a, Y2b, 'eco');
+glassSide(-1, -8.2, 8.2, Y1a, Y1b, 'proy'); glassSide(1, -8.2, 8.2, Y1a, Y1b, 'yt'); glassSide(-1, -8.2, 8.2, Y2a, Y2b, 'cripto'); glassSide(1, -8.2, 8.2, Y2a, Y2b, 'eco');
+// montantes y travesaños
+for (let x = -18; x <= 18.01; x += 1.5) { if (Math.abs(x) < 1.7) continue; box(0.07, Y1b - Y1a, 0.12, champagne, x, (Y1a + Y1b) / 2, FZ + 0.03, S, false); box(0.07, Y2b - Y2a, 0.12, champagne, x, (Y2a + Y2b) / 2, FZ + 0.03, S, false); }
+for (const s of [-1, 1]) for (let z = -7.5; z <= 7.51; z += 1.5) { box(0.12, Y1b - Y1a, 0.07, champagne, s * (FX + 0.03), (Y1a + Y1b) / 2, z, S, false); box(0.12, Y2b - Y2a, 0.07, champagne, s * (FX + 0.03), (Y2a + Y2b) / 2, z, S, false); }
+for (const y of [Y1a, 2.75, Y1b, Y2a, Y2b]) { box(36.6, 0.06, 0.13, champagne, 0, y, FZ + 0.03, S, false); for (const s of [-1, 1]) box(0.13, 0.06, 16.6, champagne, s * (FX + 0.03), y, 0, S, false); }
+// franja entre plantas, zócalo, pilastras y muro trasero
+box(36.9, 0.6, 0.5, granite, 0, 4.3, FZ, S); box(36.9, 0.035, 0.52, glow(0xd8b46a, 1.3), 0, 4.0, FZ, S, false);
+for (const s of [-1, 1]) { box(0.5, 0.6, 16.9, granite, s * FX, 4.3, 0, S); box(0.52, 0.035, 16.9, glow(0xd8b46a, 1.3), s * FX, 4.0, 0, S, false); }
+box(14.9, 0.35, 0.5, granite, -10.75, 0.175, FZ, S); box(14.9, 0.35, 0.5, granite, 10.75, 0.175, FZ, S);
+for (const s of [-1, 1]) box(0.5, 0.35, 16.9, granite, s * FX, 0.175, 0, S);
+for (const sx of [-1, 1]) { box(0.75, TERR + 1.35, 0.75, granite, sx * (FX + 0.05), (TERR + 1.35) / 2, FZ + 0.02, S); box(0.75, TERR + 0.2, 0.75, granite, sx * (FX + 0.05), (TERR + 0.2) / 2, -FZ, S); }
+box(36.6, TERR - 0.1, 0.3, granite, 0, (TERR - 0.1) / 2, -8.42, S);
+for (let x = -15; x <= 15; x += 5) for (const y of [2.1, 6.3]) { box(1.6, 2.1, 0.05, roomGlass('core'), x, y, -8.6, S, false); box(1.7, 0.06, 0.12, champagne, x, y - 1.08, -8.6, S, false); }
+// entrada principal: puertas de vidrio, marquesina, escalón, jardineras y directorio
+const doorGlass = new THREE.MeshStandardMaterial({ color: 0x2a3950, transparent: true, opacity: 0.45, roughness: 0.05, metalness: 0.8, emissive: 0xffe2b8, emissiveIntensity: 0.25, depthWrite: false });
+for (const s of [-1, 1]) { box(1.7, 2.4, 0.05, doorGlass, s * 0.88, 1.2 + 0.35, FZ, S, false); box(0.04, 1.1, 0.06, brass, s * 0.16, 1.45, FZ + 0.06, S, false); }
+box(3.7, 0.12, 0.16, champagne, 0, 2.75, FZ + 0.02, S, false); for (const s of [-1, 1]) box(0.12, 2.75, 0.16, champagne, s * 1.82, 1.375, FZ + 0.02, S, false);
+box(5.4, 0.12, 1.3, granite, 0, 0.06, FZ + 0.7, S);
+const canopy = new THREE.Group(); canopy.position.set(0, 3.25, FZ); S.add(canopy);
+box(6.0, 0.2, 2.6, std(0x14161b, { metalness: 0.6, roughness: 0.4 }), 0, 0, 1.3, canopy); box(6.04, 0.05, 2.64, champagne, 0, -0.1, 1.3, canopy, false);
+for (const x of [-2, 0, 2]) { const dl = new THREE.Mesh(new THREE.CircleGeometry(0.1, 16), new THREE.MeshBasicMaterial({ color: 0xffe9c4 })); dl.rotation.x = Math.PI / 2; dl.position.set(x, -0.105, 1.6); canopy.add(dl); }
+for (const s of [-1, 1]) { const rod = box(0.025, 0.025, 2.9, chrome, s * 2.6, 0.75, 1.3, canopy, false); rod.rotation.x = 0.55; }
+const canTex = canvasTex(1024, 96, (g, W, H) => { g.clearRect(0, 0, W, H); g.fillStyle = '#e6c072'; g.font = '700 64px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.letterSpacing = '10px'; g.fillText('OFICINAS JAGER', W / 2, H / 2 + 3); });
+plane(5.2, 0.19, new THREE.MeshStandardMaterial({ map: canTex, transparent: true, emissive: 0xffcf7a, emissiveMap: canTex, emissiveIntensity: 1.1 }), 0, 0, 2.611, canopy);
+function topiary(x, z) { const g = new THREE.Group(); g.position.set(x, 0, z); S.add(g); cyl(0.36, 0.3, 0.8, std(0x1a1b20, { metalness: 0.3, roughness: 0.35 }), 0, 0.4, 0, g, 20); cyl(0.37, 0.37, 0.04, brass, 0, 0.8, 0, g, 20); const ball = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 14), std(0x2f6b3a, { roughness: 0.9 })); ball.position.y = 1.28; ball.castShadow = true; g.add(ball); const b2 = ball.clone(); b2.scale.setScalar(0.62); b2.position.y = 1.9; g.add(b2); }
+topiary(-2.6, FZ + 0.75); topiary(2.6, FZ + 0.75);
+const dirTex = canvasTex(512, 640, (g, W, H) => { g.fillStyle = '#121318'; g.fillRect(0, 0, W, H); g.strokeStyle = '#c9a45c'; g.lineWidth = 6; g.strokeRect(10, 10, W - 20, H - 20); g.fillStyle = '#e6c072'; g.font = '700 46px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.fillText('OFICINAS', W / 2, 90); g.fillText('JAGER', W / 2, 142); g.fillStyle = '#c9b48a'; g.font = '600 28px Figtree, sans-serif'; g.textAlign = 'left';
+  [['TERRAZA', 'Descanso'], ['PLANTA 2', 'Cripto · Ecommerce'], ['PLANTA 1', 'Dirección · Proyectos'], ['', 'YouTube · Análisis']].forEach(([a, b], i) => { g.fillStyle = '#f4f1ea'; g.font = '700 30px "Chakra Petch", sans-serif'; g.fillText(a, 40, 230 + i * 96); g.fillStyle = '#c9b48a'; g.font = '500 26px Figtree, sans-serif'; g.fillText(b, 40, 266 + i * 96); }); });
+plane(0.62, 0.78, new THREE.MeshBasicMaterial({ map: dirTex }), 2.45, 1.55, FZ + 0.04, S);
+
+// ---------- CALLE Y CIUDAD ----------
+const T = B.street;
+const paveTex = tileTex('#8f9095', 'rgba(40,40,46,.55)', 8); paveTex.repeat.set(12, 2);
+const pave = std(0xffffff, { map: paveTex, roughness: 0.85 });
+box(64, 0.08, 5.8, pave, 0, 0, 11.5, T); box(64, 0.08, 5.6, pave, 0, 0, -11.5, T);
+for (const s of [-1, 1]) box(13, 0.08, 17.4, pave, s * 25.1, 0, 0, T);
+box(64, 0.16, 0.3, std(0x6c6d72, { roughness: 0.8 }), 0, 0.04, 14.45, T);
+const asph = std(0x1d1e22, { roughness: 0.95 });
+plane(260, 14, asph, 0, 0.0, 21.6, T, -Math.PI / 2);
+plane(260, 260, std(0x121317, { roughness: 1 }), 0, -0.05, 0, T, -Math.PI / 2);
+const lineMat = new THREE.MeshBasicMaterial({ color: 0xd8d8d8 });
+for (let x = -120; x < 120; x += 6) plane(3, 0.14, lineMat, x, 0.006, 21.6, T, -Math.PI / 2);
+for (const z of [15.2, 28.0]) plane(260, 0.12, lineMat, 0, 0.006, z, T, -Math.PI / 2);
+for (let k = 0; k < 8; k++) plane(0.5, 4.2, lineMat, -24 + k * 0.9, 0.007, 21.6, T, -Math.PI / 2);
+box(260, 0.08, 4, pave, 0, 0, 30.6, T);
+const lampHeads = [], lampPools = [];
+const poolTex = canvasTex(128, 128, (g) => { const r = g.createRadialGradient(64, 64, 2, 64, 64, 64); r.addColorStop(0, 'rgba(255,214,150,.55)'); r.addColorStop(1, 'rgba(255,214,150,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); });
+function streetLamp(x, z) { const g = new THREE.Group(); g.position.set(x, 0, z); T.add(g); cyl(0.07, 0.1, 4.6, blackMetal, 0, 2.3, 0, g, 10); const arm = box(0.9, 0.06, 0.06, blackMetal, 0, 4.55, 0.4, g, false); arm.rotation.y = Math.PI / 2; const head = box(0.42, 0.1, 0.22, glow(0xffe0a8, 2.2), 0, 4.48, 0.8, g, false); lampHeads.push(head); const pool = plane(6, 6, new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0.05, 0.8, g, -Math.PI / 2); lampPools.push(pool); }
+[-28, -15, 15, 28].forEach(x => streetLamp(x, 13.7));
+function streetTree(x, z) { const g = new THREE.Group(); g.position.set(x, 0, z); T.add(g); box(1.1, 0.02, 1.1, blackMetal, 0, 0.05, 0, g, false); cyl(0.1, 0.16, 2.6, std(0x5a4636), 0, 1.3, 0, g, 8); for (let i = 0; i < 12; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(rand(0.6, 0.95), 12, 9), std(i % 3 ? 0x2f6b3a : 0x3d7f47, { roughness: 0.85 })); f.position.set(rand(-0.9, 0.9), rand(2.8, 4.0), rand(-0.9, 0.9)); f.castShadow = true; g.add(f); } }
+[-22, -8.5, 8.5, 22].forEach(x => streetTree(x, 12.6)); [-25, 25].forEach(x => streetTree(x, -6)); [-25, 25].forEach(x => streetTree(x, 5));
+function streetBench(x, z) { const g = new THREE.Group(); g.position.set(x, 0, z); T.add(g); box(1.8, 0.06, 0.45, teak, 0, 0.46, 0, g); box(1.8, 0.36, 0.05, teak, 0, 0.72, -0.2, g); for (const s of [-0.8, 0.8]) box(0.06, 0.45, 0.45, blackMetal, s, 0.22, 0, g); }
+[-12, 12].forEach(x => streetBench(x, 13.3));
+for (const x of [-4.2, -3.4, 3.4, 4.2]) { cyl(0.08, 0.09, 0.8, blackMetal, x, 0.4, 13.8, T, 10); cyl(0.09, 0.09, 0.04, brass, x, 0.8, 13.8, T, 10); }
+function makeCar(color) {
+  const g = new THREE.Group(); const paint = std(color, { metalness: 0.75, roughness: 0.28, envMapIntensity: 0.8 });
+  box(4.2, 0.62, 1.8, paint, 0, 0.6, 0, g); const cab = box(2.3, 0.56, 1.62, std(0x111722, { metalness: 0.6, roughness: 0.15, envMapIntensity: 1 }), -0.25, 1.18, 0, g); cab.scale.x = 1;
+  for (const sx of [-1.35, 1.35]) for (const sz of [-0.86, 0.86]) { const w = cyl(0.34, 0.34, 0.24, std(0x111111), sx, 0.34, sz, g, 16); w.rotation.x = Math.PI / 2; }
+  const hl = glow(0xfff2d0, 1.6), tl = glow(0xff2a2a, 1.4);
+  for (const sz of [-0.62, 0.62]) { box(0.05, 0.14, 0.34, hl, 2.11, 0.66, sz, g, false); box(0.05, 0.12, 0.34, tl, -2.11, 0.68, sz, g, false); }
+  return g;
+}
+const parked = [[0x2a2d33, -18, 16.4, 0], [0x8a1f2b, 10.5, 16.4, Math.PI], [0xd9d9de, 19.5, 16.4, 0]];
+parked.forEach(([c, x, z, ry]) => { const car = makeCar(c); car.position.set(x, 0, z); car.rotation.y = ry; T.add(car); });
+const traffic = [{ g: makeCar(0x1e3a8a), z: 19.6, dir: 1, v: 7, x: -60 }, { g: makeCar(0x111111), z: 23.8, dir: -1, v: 8.5, x: 40 }, { g: makeCar(0xf4f1ea), z: 19.6, dir: 1, v: 6.2, x: 10 }];
+traffic.forEach(c => { c.g.rotation.y = c.dir > 0 ? 0 : Math.PI; c.g.position.set(c.x, 0, c.z); T.add(c.g); });
+// edificios vecinos con ventanas que se encienden de noche
+function towerTex(seed) {
+  let s = seed; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const map = canvasTex(256, 512, (g, W, H) => { g.fillStyle = '#3a4152'; g.fillRect(0, 0, W, H); for (let y = 12; y < H - 8; y += 22) for (let x = 10; x < W - 10; x += 20) { g.fillStyle = r() < 0.5 ? '#5d6b85' : '#4a5670'; g.fillRect(x, y, 13, 15); } });
+  s = seed; const em = canvasTex(256, 512, (g, W, H) => { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); for (let y = 12; y < H - 8; y += 22) for (let x = 10; x < W - 10; x += 20) { if (r() < 0.42) { g.fillStyle = r() < 0.8 ? '#ffd27a' : '#9fd8ff'; g.fillRect(x, y, 13, 15); } } });
+  return { map, em };
+}
+const towerMats = [];
+[[-70, -70, 16, 21, 14], [-42, -78, 14, 30, 12], [-14, -82, 18, 19, 16], [14, -76, 14, 35, 14], [40, -72, 16, 24, 14], [68, -66, 14, 16, 14], [-80, -24, 14, 14, 18], [82, -14, 14, 17, 16], [-78, 30, 16, 11, 12], [80, 34, 14, 12, 12], [-50, -40, 12, 10, 12], [52, -42, 12, 11, 12]].forEach(([x, z, w, h, d], i) => {
+  const tx = towerTex(1000 + i * 77); tx.map.wrapS = tx.map.wrapT = tx.em.wrapS = tx.em.wrapT = THREE.RepeatWrapping; tx.map.repeat.set(w / 12, h / 24); tx.em.repeat.copy(tx.map.repeat);
+  const m = new THREE.MeshStandardMaterial({ map: tx.map, emissive: 0xffffff, emissiveMap: tx.em, emissiveIntensity: 0.9, roughness: 0.6, metalness: 0.3 });
+  towerMats.push(m); const b0 = box(w, h, d, m, x, h / 2, z, T, false); b0.receiveShadow = false;
+  box(w + 0.3, 0.4, d + 0.3, std(0x23262e), x, h + 0.2, z, T, false);
+  const beacon = box(0.3, 0.3, 0.3, glow(0xff3b3b, 2), x, h + 0.6, z, T, false); beacon.userData.night = true;
+});
+// cielo según la hora
+const skyTexs = {};
+for (const [k, c] of Object.entries({ noche: ['#050914', '#141a36', '#0b0f1c'], tarde: ['#1e2350', '#f08a5d', '#2a2030'], dia: ['#3d7fd0', '#cfe6f7', '#9aa8b8'] })) skyTexs[k] = canvasTex(16, 512, (g, W, H) => { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, c[0]); gr.addColorStop(0.48, c[1]); gr.addColorStop(0.52, c[2]); gr.addColorStop(1, c[2]); g.fillStyle = gr; g.fillRect(0, 0, W, H); });
+const skyMat = new THREE.MeshBasicMaterial({ map: skyTexs.noche, side: THREE.BackSide, fog: false, depthWrite: false });
+const skyDome = new THREE.Mesh(new THREE.SphereGeometry(190, 32, 16), skyMat); skyDome.renderOrder = -1; scene.add(skyDome);
+const nightMeshes = []; scene.traverse(o => { if (o.userData?.night) nightMeshes.push(o); });
+function edificioDaylight(kind, day) {
+  const night = kind === 'noche' ? 1 : kind === 'tarde' ? 0.6 : 0;
+  skyMat.map = skyTexs[kind]; skyMat.needsUpdate = true;
+  towerMats.forEach(m => m.emissiveIntensity = 0.08 + night * 0.95);
+  lampHeads.forEach(h => h.material.emissiveIntensity = 0.3 + night * 2.4); lampPools.forEach(p => p.material.opacity = night);
+  signMat.emissiveIntensity = 0.55 + night * 1.0; signHalo.material.opacity = 0.02 + night * 0.09;
+  bulbMat.emissiveIntensity = 0.5 + night * 2.2; doorGlass.emissiveIntensity = 0.12 + night * 0.4;
+  nightMeshes.forEach(m => { if (m.material?.emissiveIntensity !== undefined) m.material.emissiveIntensity = 0.3 + night * 1.8; });
+  traffic.forEach(c => c.g.children.forEach(ch => { if (ch.material?.emissive && ch.material.emissiveIntensity) ch.material.emissiveIntensity = 0.4 + night * 1.6; }));
+  edificioDaylight.night = night;
+}
+
+// ---------- SALAS EN MARCHA: la luz de cada sala se enciende cuando trabajan dentro ----------
+function salaActiva(room) {
+  if (room === 'dir') return director.mode === 'habla' || thinking || !!director.speaking;
+  if (room === 'eco') return eco.estado === 'ok';
+  if (room === 'core') return false;
+  if (room === 'lab' && D && D.state !== 'fin') return true;
+  return Object.values(agents).some(a => a.def.room === room && (a.mode === 'work' || a.action?.type === 'work'));
+}
+
+// ---------- HUMO, ASCENSORES Y TRÁFICO ----------
+const puffTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 2, 32, 32, 30); r.addColorStop(0, 'rgba(235,235,240,.95)'); r.addColorStop(1, 'rgba(235,235,240,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
+const puffs = []; for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, depthWrite: false, opacity: 0 })); s.visible = false; scene.add(s); puffs.push({ s, life: 9, vx: 0, vz: 0 }); }
+const _wp = new THREE.Vector3();
+function emitPuff(p, big) { const q = puffs.find(x => x.life > 2.6) || puffs[0]; q.life = 0; q.big = big; q.s.position.copy(p); q.vx = rand(-0.08, 0.08) + 0.06; q.vz = rand(-0.08, 0.08); q.s.visible = true; }
+let glassT = 0;
+function edificioTick(rdt) {
+  const now = performance.now() / 1000;
+  for (const e of elevs) { const want = now < e.until ? 1 : 0; e.open += (want - e.open) * Math.min(1, rdt * 4); e.L.position.x = -0.325 - e.open * 0.6; e.R.position.x = 0.325 + e.open * 0.6; }
+  for (const id in agents) {
+    const a = agents[id];
+    if (a.mode === 'smoke' && a.c.g.visible) {
+      a._puffT = (a._puffT ?? 0) - rdt;
+      if (a._puffT <= 0) { a._puffT = 0.28; a.c.cig.getWorldPosition(_wp); emitPuff(_wp, false); }
+      const k = (t * 0.55 + a.phase) % 1; if (k > 0.3 && k < 0.34 && !a._exhaled) { a._exhaled = true; a.c.head.getWorldPosition(_wp); _wp.y += 0.02; _wp.x += Math.sin(a.yaw) * 0.2; _wp.z += Math.cos(a.yaw) * 0.2; for (let i = 0; i < 3; i++) emitPuff(_wp, true); } else if (k > 0.5) a._exhaled = false;
+    }
+  }
+  for (const q of puffs) { if (q.life > 2.6) continue; q.life += rdt; q.s.position.y += rdt * (q.big ? 0.22 : 0.32); q.s.position.x += q.vx * rdt; q.s.position.z += q.vz * rdt; const sz = (q.big ? 0.16 : 0.05) + q.life * (q.big ? 0.28 : 0.14); q.s.scale.set(sz, sz, 1); q.s.material.opacity = Math.max(0, (q.big ? 0.32 : 0.22) * (1 - q.life / 2.6)); if (q.life > 2.6) q.s.visible = false; }
+  for (const c of traffic) { c.x += c.dir * c.v * rdt; if (c.x > 90) c.x = -90; if (c.x < -90) c.x = 90; c.g.position.x = c.x; c.g.visible = nivel === 'edificio' || Math.abs(c.x) < 60; }
+  coin.rotation.z += rdt * 0.8; holoMesaP.rotation.y += rdt * 0.35; holoMesaRing.rotation.z += rdt * 0.6; fanBlade.rotation.y += rdt * 9;
+  tkTex.offset.x = (tkTex.offset.x + rdt * 0.018) % 1;
+  glassT -= rdt;
+  if (glassT <= 0) {
+    glassT = 0.1;
+    const night = edificioDaylight.night || 0;
+    for (const room in GL) { const on = salaActiva(room); const m = GL[room]; const tgt = on ? 0.95 : room === 'core' ? 0.1 + night * 0.25 : night * 0.05; m.emissiveIntensity += (tgt - m.emissiveIntensity) * 0.25; m.opacity = 0.55 + m.emissiveIntensity * 0.25; }
+    const c = botradeCalc(); botLamp.material.color.set(!c ? 0x9aa6c4 : c.halted ? 0xf87171 : c.activo ? 0x4ade80 : 0xfbbf24); botLamp.material.emissive.copy(botLamp.material.color);
+    botLamp.material.emissiveIntensity = 1.4 + Math.sin(now * 3) * 0.8;
+  }
+}
+
+// ---------- PLANTAS Y VISTAS ----------
+let nivel = 'p1';
+const VIEW_NIVEL = { general: 'p1', proy: 'p1', yt: 'p1', lab: 'p1', dir: 'p1', planta2: 'p2', cripto: 'p2', eco: 'p2', edificio: 'edificio', terraza: 'edificio' };
+Object.assign(VIEWS, {
+  planta2: { pos: V(0, 27 + L2, 14), target: V(0, L2, 0.6) },
+  cripto: { pos: V(-11, L2 + 9.5, 10.5), target: V(-11, L2 + 0.5, -1.6) },
+  eco: { pos: V(11, L2 + 9.5, 10.5), target: V(11, L2 + 0.5, -1.6) },
+  edificio: { pos: V(26, 9.5, 46), target: V(0, 4.4, 0) },
+  terraza: { pos: V(3, TERR + 29, 39), target: V(1, TERR, -0.8) },
+});
+Object.assign(VIEWS_TALL, {
+  planta2: { pos: V(0, 30 + L2, 9), target: V(0, L2, 0.6) },
+  cripto: { pos: V(-11, L2 + 14, 14), target: V(-11, L2 + 0.5, -1) },
+  eco: { pos: V(11, L2 + 14, 14), target: V(11, L2 + 0.5, -1) },
+  edificio: { pos: V(18, 16, 62), target: V(0, 5, 0) },
+  terraza: { pos: V(14, TERR + 20, 32), target: V(1, TERR, 0) },
+});
+function setNivel(n) {
+  nivel = n;
+  B.g2.visible = n !== 'p1';
+  B.roof.visible = B.shell.visible = n === 'edificio';
+  jagerTag.s.visible = n === 'p1';
+  scene.fog.near = n === 'edificio' ? 95 : 44; scene.fog.far = n === 'edificio' ? 240 : 80;
+  document.body.dataset.nivel = n;
+  const piso = n === 'edificio' ? (currentView === 'terraza' ? 'terraza' : 'edificio') : n === 'p2' ? 'planta2' : 'general';
+  $$('[data-piso]').forEach(b => b.setAttribute('aria-pressed', b.dataset.piso === piso));
+  renderPisos();
+}
+function renderPisos() {
+  const el = $('#pisos'); if (!el) return;
+  el.hidden = nivel !== 'edificio';
+  if (el.hidden) return;
+  const dot = (r, label) => `<span class="pd${salaActiva(r) ? ' on' : ''}" style="--c:${ROOM_COL[r]}">${label}</span>`;
+  const fuera = Object.values(agents).filter(a => a.pos.y > TERR - 0.5).length;
+  const html = `<b class="pisos-t">OFICINAS JAGER</b>
+    <button type="button" class="piso-row" data-view="terraza"><span>Terraza</span><small>${fuera ? `${fuera} ${fuera === 1 ? 'persona' : 'personas'} tomando el aire` : 'Vacía ahora mismo'}</small></button>
+    <button type="button" class="piso-row" data-view="planta2"><span>Planta 2</span><small>${dot('cripto', 'Cripto')}${dot('eco', 'Ecommerce')}</small></button>
+    <button type="button" class="piso-row" data-view="general"><span>Planta 1</span><small>${dot('proy', 'Proyectos')}${dot('yt', 'YouTube')}${dot('lab', 'Análisis')}${dot('dir', 'Nyx')}</small></button>
+    <span class="pisos-hint">Pulsa una planta del edificio para entrar</span>`;
+  if (html !== renderPisos.last) { el.innerHTML = html; renderPisos.last = html; }
+}
+setInterval(renderPisos, 600);
+
+// ---------- DESCANSOS EN LA TERRAZA ----------
+const FUMA = new Set(['tito', 'paco', 'rui', 'max']);
+const TERR_IN = V(ELEV.x, TERR, -6.5), TERR_OUT = V(ELEV.x, TERR, -5.2), TERR_MID = V(ELEV.x, TERR, 0.8);
+const TERR_SPOTS = [
+  { p: V(16.5, TERR, 2.4), face: V(19, TERR, 2.6), fuma: true }, { p: V(16.5, TERR, 4.2), face: V(19, TERR, 4.0), fuma: true }, { p: V(15.0, TERR, 3.3), face: V(16.5, TERR, 3.3), fuma: true },
+  { p: V(16.5, TERR, -1.8), face: V(19, TERR, -1.8) }, { p: V(1.0, TERR, 6.7), face: V(1.0, TERR, 9) }, { p: V(5.2, TERR, 6.8), face: V(5.2, TERR, 9) },
+];
+function goTerraza(a) {
+  if (!a.idle() || a.agenda.length) return false;
+  const fuma = FUMA.has(a.id);
+  const libres = TERR_SPOTS.filter(s => !s.who && !!s.fuma === fuma);
+  if (!libres.length) return false;
+  const spot = libres[Math.floor(Math.random() * libres.length)]; spot.who = a.id;
+  const Y = a.def.y || 0, lobby = V(ELEV.x, Y, -7.1), inside = V(ELEV.x, Y, -7.75);
+  a.agenda.push({ type: 'goto', dest: lobby, status: fuma ? 'Sube a fumar a la terraza' : 'Sube a tomar el aire', color: '#9be7c4' });
+  a.agenda.push({ type: 'do', pose: 'idle', face: inside, dur: 1.0, status: 'Esperando el ascensor', color: '#9be7c4', fn: () => openElev(Y) });
+  a.agenda.push({ type: 'goto', fixed: [inside], dest: inside, status: 'Entra en el ascensor', color: '#9be7c4' });
+  a.agenda.push({ type: 'do', pose: 'idle', hide: true, dur: 3.2, status: 'En el ascensor', color: '#9be7c4', fn: () => { a.pos.copy(TERR_IN); openElev(TERR); } });
+  a.agenda.push({ type: 'goto', fixed: [TERR_OUT, TERR_MID, spot.p], dest: spot.p, status: fuma ? 'Sale a fumar' : 'Sale a tomar el aire', color: '#9be7c4' });
+  a.agenda.push({ type: 'do', pose: fuma ? 'smoke' : 'air', face: spot.face, dur: rand(16, 26), breakable: true, status: fuma ? 'Fumando en la terraza' : 'Tomando el aire en la terraza', color: '#9be7c4' });
+  a.agenda.push({ type: 'goto', fixed: [TERR_MID, TERR_OUT], dest: TERR_OUT, status: 'Vuelve al trabajo', color: '#9be7c4' });
+  a.agenda.push({ type: 'do', pose: 'idle', face: TERR_IN, dur: 0.9, status: 'Esperando el ascensor', color: '#9be7c4', fn: () => openElev(TERR) });
+  a.agenda.push({ type: 'goto', fixed: [TERR_IN], dest: TERR_IN, status: 'Baja a su planta', color: '#9be7c4' });
+  a.agenda.push({ type: 'do', pose: 'idle', hide: true, dur: 3.2, status: 'En el ascensor', color: '#9be7c4', fn: () => { a.pos.copy(inside); openElev(Y); spot.who = null; } });
+  a.agenda.push({ type: 'goto', dest: 'home' });
+  return true;
+}
+
+// ---------- BOTRADE: estado del bot y precios en directo ----------
+const BOTRADE_SNAPSHOT = {};
+const BOTRADE_REPO = 'https://github.com/christian69mp-ctrl/botrade';
+const CRIPTO = ['BTC', 'ETH', 'BNB', 'XRP', 'ADA', 'LTC'];
+const CRIPTO_NOMBRE = { BTC: 'Bitcoin', ETH: 'Ethereum', BNB: 'BNB', XRP: 'XRP', ADA: 'Cardano', LTC: 'Litecoin' };
+const CRIPTO_COL = { BTC: '#f7931a', ETH: '#8c8cff', BNB: '#f3ba2f', XRP: '#9fb3c8', ADA: '#3c8dff', LTC: '#bfbbbb' };
+const KRAKEN = { BTC: 'XBTEUR', ETH: 'ETHEUR', BNB: 'BNBEUR', XRP: 'XRPEUR', ADA: 'ADAEUR', LTC: 'LTCEUR' };
+const botrade = { state: BOTRADE_SNAPSHOT.state || null, journal: BOTRADE_SNAPSHOT.journal || [], readme: BOTRADE_SNAPSHOT.readme || '', at: BOTRADE_SNAPSHOT.at ? Date.parse(BOTRADE_SNAPSHOT.at) : null, fuente: BOTRADE_SNAPSHOT.state ? 'copia' : null, precios: {}, preciosAt: null, preciosFuente: null, error: null };
+const eurF = (n, d = 2) => (Number(n) || 0).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d }) + ' €';
+const eurP = p => eurF(p, p >= 1000 ? 0 : p >= 10 ? 2 : 4);
+const pctF = x => (x >= 0 ? '+' : '') + (x * 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' %';
+function botradeCalc() {
+  const s = botrade.state; if (!s) return null;
+  const hist = s.equity_history || [], lastP = hist.at(-1)?.prices || {};
+  const pr = a => botrade.precios[a]?.p ?? lastP[a] ?? 0;
+  const pos = CRIPTO.filter(a => (s.units?.[a] || 0) > 1e-9).map(a => ({ a, u: s.units[a], v: s.units[a] * pr(a) }));
+  const eq = (s.cash || 0) + pos.reduce((x, p) => x + p.v, 0), ini = s.initial_capital || 500;
+  const activo = !s.halted && !!s.last_run_date && (Date.now() - Date.parse(s.last_run_date + 'T00:17:00Z')) < 2.2 * 864e5;
+  const btcRet = s.btc_start_price && pr('BTC') ? pr('BTC') / s.btc_start_price - 1 : null;
+  return { eq, ini, ret: eq / ini - 1, cash: s.cash || 0, pos, halted: !!s.halted, haltReason: s.halt_reason, last: s.last_run_date, version: s.model_version, activo, hist, fills: s.fills || [], btcRet };
+}
+function resumenJournal(j) {
+  if (!j) return '';
+  const tr = (j.trades || []).map(x => `${x.side === 'buy' ? 'compra' : 'venta'} de ${x.asset} a ${eurP(x.exec_price)}`).join(', ');
+  const obj = Object.entries(j.decisions || {}).filter(([, d]) => d.target > 0).map(([a, d]) => `${a} ${Math.round(d.target * 100)} %`).join(', ');
+  return `${j.date}: ${tr || 'sin operaciones'}${(j.risk_reasons || []).length ? '; avisos de riesgo: ' + j.risk_reasons.join(', ') : ''}; cartera objetivo: ${obj || 'todo en efectivo'}.`;
+}
+function botradeResumen() {
+  const c = botradeCalc(); if (!c) return '';
+  const pre = CRIPTO.filter(a => botrade.precios[a]).map(a => `${a} ${eurP(botrade.precios[a].p)} (${pctF(botrade.precios[a].ch)} hoy)`).join(', ');
+  return `\nBOTRADE (bot de trading del jefe, en la Sala Cripto de la planta 2; repositorio christian69mp-ctrl/botrade): SOLO SIMULACIÓN con dinero ficticio y precios públicos de Kraken; un ciclo al día por GitHub Actions. Modelo ${c.version || '—'}. Capital inicial ${eurF(c.ini)}; ahora ${eurF(c.eq)} (${pctF(c.ret)}).${c.btcRet !== null ? ` Comprar y mantener BTC desde el inicio: ${pctF(c.btcRet)}.` : ''} Efectivo ${eurF(c.cash)}. Posiciones: ${c.pos.length ? c.pos.map(p => `${p.a} ${eurF(p.v)}`).join(', ') : 'ninguna, todo en efectivo'}. Último ciclo: ${c.last || '—'}. ${c.halted ? 'PARADO por el motor de riesgo: ' + c.haltReason + '.' : 'En marcha.'} Monedas que vigila: ${CRIPTO.join(', ')}.${pre ? ' Precios ahora: ' + pre + '.' : ''}${botrade.journal.length ? ' Última decisión: ' + resumenJournal(botrade.journal.at(-1)) : ''}\n`;
+}
+function botradeCtx() {
+  const c = botradeCalc();
+  if (!c) return '\nTodavía no tengo los datos de BOTRADE (el servidor necesita GITHUB_TOKEN con lectura del repositorio). Dilo al principio y trabaja con los precios del mercado.\n';
+  return `${botradeResumen()}
+Evolución del capital por día: ${c.hist.map(h => `${h.date} ${eurF(h.equity)}`).join(' · ')}
+Diario de decisiones (más reciente al final):
+${botrade.journal.map(resumenJournal).join('\n')}
+Últimas órdenes simuladas: ${c.fills.slice(-8).map(f => `${f.time.slice(0, 10)} ${f.side === 'buy' ? 'compra' : 'venta'} ${f.asset} ${Math.abs(f.qty).toPrecision(4)} a ${eurP(f.exec_price)} (comisión ${eurF(f.fee)})`).join('; ') || '—'}
+${botrade.readme ? 'README del repositorio:\n' + clip(botrade.readme, 4000) : ''}\n`;
+}
+function preciosDeCopia() {
+  const h = botrade.state?.equity_history; if (!h?.length) return;
+  const last = h.at(-1), prev = h.at(-2);
+  for (const a of CRIPTO) if (last.prices?.[a]) botrade.precios[a] = { p: last.prices[a], ch: prev?.prices?.[a] ? last.prices[a] / prev.prices[a] - 1 : 0 };
+  botrade.preciosFuente = 'cierre del bot ' + last.date;
+}
+async function loadPrecios() {
+  try {
+    const r = await fetch('https://api.kraken.com/0/public/Ticker?pair=' + Object.values(KRAKEN).join(','));
+    const d = await r.json(); if (d.error?.length || !d.result) throw new Error('Kraken');
+    for (const a of CRIPTO) { const code = a === 'BTC' ? 'XBT' : a; const k = Object.keys(d.result).find(x => x.includes(code) && x.endsWith('EUR')); if (!k) continue; const v = d.result[k], c = +v.c[0], o = +v.o; botrade.precios[a] = { p: c, ch: o ? c / o - 1 : 0 }; }
+    botrade.preciosAt = Date.now(); botrade.preciosFuente = 'Kraken';
+  } catch (e) { if (!botrade.preciosAt) preciosDeCopia(); }
+  drawCripto(); drawTicker(); renderCriptoCard();
+}
+async function loadBotrade() {
+  if (serverReady() && srv.caps.botrade) {
+    try { const d = await srvFetch('/botrade', {}); if (d.state) { Object.assign(botrade, { state: d.state, journal: d.journal || [], readme: d.readme || botrade.readme, at: Date.now(), fuente: 'GitHub', error: null }); } }
+    catch (e) { botrade.error = e.message; }
+  }
+  if (!botrade.preciosAt) preciosDeCopia();
+  drawCripto(); renderCriptoCard();
+}
+setTimeout(() => { loadBotrade(); loadPrecios(); }, 2200); setInterval(loadPrecios, 60000); setInterval(loadBotrade, 15 * 60000);
+function drawTicker() {
+  const g = tkTex.image.getContext('2d'), W = 4096, H = 64;
+  g.fillStyle = '#07080b'; g.fillRect(0, 0, W, H); g.font = '700 34px "Chakra Petch", sans-serif'; g.textBaseline = 'middle';
+  let x = 20;
+  for (let rep = 0; rep < 3; rep++) for (const a of CRIPTO) {
+    const p = botrade.precios[a]; if (!p) continue;
+    g.fillStyle = CRIPTO_COL[a]; g.fillText(a, x, H / 2); x += g.measureText(a + ' ').width;
+    g.fillStyle = '#f4f1ea'; const ps = eurP(p.p); g.fillText(ps, x, H / 2); x += g.measureText(ps + ' ').width;
+    g.fillStyle = p.ch >= 0 ? '#4ade80' : '#f87171'; const cs = (p.ch >= 0 ? '▲ ' : '▼ ') + pctF(p.ch); g.fillText(cs, x, H / 2); x += g.measureText(cs).width + 60;
+    if (x > W - 200) break;
+  }
+  tkTex.needsUpdate = true;
+}
+function drawCripto() {
+  const g = cwTex.image.getContext('2d'), W = 2048, H = 640, c = botradeCalc();
+  const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#0a0c11'); bg.addColorStop(1, '#17120a'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(247,185,85,.06)'; g.lineWidth = 1; for (let x = 0; x < W; x += 64) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); } for (let y = 0; y < H; y += 64) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.fillStyle = '#f7b955'; g.font = '700 64px "Chakra Petch", sans-serif'; g.fillText('BOTRADE', 48, 92);
+  g.fillStyle = '#9aa0ae'; g.font = '500 24px Figtree, sans-serif'; g.fillText('Simulación · dinero ficticio · precios de Kraken', 48, 128);
+  if (!c) {
+    g.fillStyle = '#e8e3d6'; g.font = '600 34px Figtree, sans-serif'; g.fillText('Sin datos del bot todavía', 48, 230);
+    g.fillStyle = '#9aa0ae'; g.font = '500 24px Figtree, sans-serif'; g.fillText('El servidor necesita GITHUB_TOKEN (lectura de christian69mp-ctrl/botrade).', 48, 272);
+  } else {
+    const st = c.halted ? ['PARADO', '#f87171'] : c.activo ? ['EN MARCHA', '#4ade80'] : ['SIN CICLO RECIENTE', '#fbbf24'];
+    g.font = '700 24px Figtree, sans-serif'; const sw = g.measureText(st[0]).width + 44;
+    g.fillStyle = st[1] + '33'; g.beginPath(); g.roundRect(48, 158, sw, 42, 21); g.fill(); g.fillStyle = st[1]; g.beginPath(); g.arc(70, 179, 7, 0, 7); g.fill(); g.fillText(st[0], 86, 188);
+    g.fillStyle = '#9aa0ae'; g.font = '500 24px Figtree, sans-serif'; g.fillText('Capital simulado', 48, 252);
+    g.fillStyle = '#f4f1ea'; g.font = '700 76px "Chakra Petch", sans-serif'; g.fillText(eurF(c.eq), 48, 330);
+    g.fillStyle = c.ret >= 0 ? '#4ade80' : '#f87171'; g.font = '700 32px Figtree, sans-serif'; g.fillText(`${pctF(c.ret)} desde ${eurF(c.ini, 0)}`, 48, 374);
+    g.fillStyle = '#c9c3b5'; g.font = '500 25px Figtree, sans-serif';
+    [['Efectivo', eurF(c.cash)], ['Posiciones', c.pos.length ? c.pos.map(p => p.a).join(' · ') : 'ninguna'], ['Último ciclo', c.last || '—'], ['Modelo', c.version || '—'], ['Comprar BTC', c.btcRet !== null ? pctF(c.btcRet) : '—']].forEach(([k, v], i) => { g.fillStyle = '#8b8577'; g.fillText(k, 48, 428 + i * 38); g.fillStyle = '#ece6d8'; g.fillText(v, 230, 428 + i * 38); });
+    // gráfico del capital frente a comprar BTC
+    const x0 = 720, x1 = 1380, y0 = 120, y1 = 470, hist = c.hist;
+    g.fillStyle = '#ece6d8'; g.font = '700 28px "Chakra Petch", sans-serif'; g.fillText('CAPITAL POR DÍA', x0, 92);
+    if (hist.length > 1) {
+      const btc0 = hist[0].btc || hist[0].prices?.BTC;
+      const serie = hist.map(h => h.equity), serieB = hist.map(h => btc0 ? c.ini * (h.btc || h.prices?.BTC) / btc0 : null);
+      const all = [...serie, ...serieB.filter(Boolean), c.ini], lo = Math.min(...all) * 0.995, hi = Math.max(...all) * 1.005;
+      const X = i => x0 + i * (x1 - x0) / (hist.length - 1), Y = v => y1 - (v - lo) / (hi - lo) * (y1 - y0);
+      g.strokeStyle = 'rgba(255,255,255,.18)'; g.setLineDash([8, 8]); g.beginPath(); g.moveTo(x0, Y(c.ini)); g.lineTo(x1, Y(c.ini)); g.stroke(); g.setLineDash([]);
+      g.strokeStyle = 'rgba(247,147,26,.55)'; g.lineWidth = 3; g.beginPath(); serieB.forEach((v, i) => v && (i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v)))); g.stroke();
+      const ar = g.createLinearGradient(0, y0, 0, y1); ar.addColorStop(0, 'rgba(247,185,85,.35)'); ar.addColorStop(1, 'rgba(247,185,85,0)');
+      g.fillStyle = ar; g.beginPath(); g.moveTo(X(0), y1); serie.forEach((v, i) => g.lineTo(X(i), Y(v))); g.lineTo(X(serie.length - 1), y1); g.fill();
+      g.strokeStyle = '#f7b955'; g.lineWidth = 5; g.beginPath(); serie.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.stroke();
+      g.fillStyle = '#f7b955'; serie.forEach((v, i) => { g.beginPath(); g.arc(X(i), Y(v), 6, 0, 7); g.fill(); });
+      g.fillStyle = '#8b8577'; g.font = '500 20px Figtree, sans-serif'; hist.forEach((h, i) => { if (hist.length <= 8 || i % Math.ceil(hist.length / 8) === 0) g.fillText(h.date.slice(5).split('-').reverse().join('/'), X(i) - 26, y1 + 30); });
+      g.fillStyle = '#f7b955'; g.fillRect(x0, y1 + 52, 26, 6); g.fillStyle = '#c9c3b5'; g.fillText('Bot', x0 + 36, y1 + 60); g.fillStyle = 'rgba(247,147,26,.7)'; g.fillRect(x0 + 110, y1 + 52, 26, 6); g.fillStyle = '#c9c3b5'; g.fillText('Comprar y mantener BTC', x0 + 146, y1 + 60);
+    } else { g.fillStyle = '#8b8577'; g.font = '500 24px Figtree, sans-serif'; g.fillText('El gráfico aparece con dos días de datos', x0, 200); }
+    // últimas órdenes
+    g.fillStyle = '#ece6d8'; g.font = '700 22px "Chakra Petch", sans-serif'; g.fillText('ÚLTIMAS ÓRDENES', 48, 616);
+  }
+  // monedas
+  const mx = 1440; g.fillStyle = '#ece6d8'; g.font = '700 28px "Chakra Petch", sans-serif'; g.fillText('MERCADO', mx, 92);
+  const decs = botrade.journal.at(-1)?.decisions || {};
+  CRIPTO.forEach((a, i) => {
+    const y = 132 + i * 78, p = botrade.precios[a], held = (botrade.state?.units?.[a] || 0) > 1e-9;
+    g.fillStyle = held ? 'rgba(247,185,85,.12)' : 'rgba(255,255,255,.035)'; g.beginPath(); g.roundRect(mx - 12, y - 6, 572, 66, 12); g.fill();
+    g.fillStyle = CRIPTO_COL[a]; g.beginPath(); g.arc(mx + 22, y + 27, 20, 0, 7); g.fill(); g.fillStyle = '#0a0c11'; g.font = '700 16px Figtree, sans-serif'; g.textAlign = 'center'; g.fillText(a[0], mx + 22, y + 33); g.textAlign = 'left';
+    g.fillStyle = '#f4f1ea'; g.font = '700 26px Figtree, sans-serif'; g.fillText(a, mx + 56, y + 24); g.fillStyle = '#8b8577'; g.font = '500 19px Figtree, sans-serif'; g.fillText(CRIPTO_NOMBRE[a] + (held ? ' · en cartera' : decs[a] ? ` · objetivo ${Math.round((decs[a].target || 0) * 100)} %` : ''), mx + 56, y + 50);
+    g.textAlign = 'right'; g.fillStyle = '#f4f1ea'; g.font = '700 26px Figtree, sans-serif'; g.fillText(p ? eurP(p.p) : '—', mx + 420, y + 36);
+    g.fillStyle = !p ? '#8b8577' : p.ch >= 0 ? '#4ade80' : '#f87171'; g.font = '700 22px Figtree, sans-serif'; g.fillText(p ? pctF(p.ch) : '', mx + 548, y + 36); g.textAlign = 'left';
+  });
+  g.fillStyle = '#6f6a5e'; g.font = '500 19px Figtree, sans-serif';
+  const hh = ts => ts ? new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—';
+  g.fillText(`Precios: ${botrade.preciosFuente || '—'} ${botrade.preciosFuente === 'Kraken' ? hh(botrade.preciosAt) : ''} · Bot: ${botrade.fuente === 'GitHub' ? 'GitHub ' + hh(botrade.at) : botrade.fuente === 'copia' ? 'copia del ' + new Date(botrade.at).toLocaleDateString('es-ES') : 'sin conexión'}`, mx, 618);
+  if (c) { g.font = '500 20px Figtree, sans-serif'; c.fills.slice(-2).reverse().forEach((f, i) => { g.fillStyle = f.side === 'buy' ? '#4ade80' : '#f87171'; g.fillText(`${f.time.slice(5, 10).split('-').reverse().join('/')} ${f.side === 'buy' ? 'compra' : 'venta'} ${f.asset} ${eurP(f.exec_price)}`, 300 + i * 360, 616); }); }
+  cwTex.needsUpdate = true; drawHoloMesa();
+}
+function renderCriptoCard() {
+  const el = $('#criptoState'); if (!el) return; const c = botradeCalc();
+  el.textContent = c ? `${c.halted ? 'Parado' : c.activo ? 'En marcha' : 'Sin ciclo reciente'} · ${eurF(c.eq)} (${pctF(c.ret)}) · ${c.pos.length ? c.pos.map(p => p.a).join(', ') : 'todo en efectivo'}` : (botrade.error ? 'BOTRADE: ' + botrade.error : serverReady() ? 'El servidor necesita GITHUB_TOKEN para leer el bot' : 'Conecta el servidor para leer el bot');
+  el.className = 'conn-state' + (c ? (c.halted ? ' err' : ' ok') : '');
+  const m = $('#criptoMini'); if (!m) return;
+  m.innerHTML = CRIPTO.map(a => { const p = botrade.precios[a], held = (botrade.state?.units?.[a] || 0) > 1e-9; return `<span class="cm${held ? ' held' : ''}"><b style="color:${CRIPTO_COL[a]}">${a}</b>${p ? eurP(p.p) : '—'}<i class="${!p ? '' : p.ch >= 0 ? 'up' : 'dn'}">${p ? pctF(p.ch) : ''}</i></span>`; }).join('');
+}
+
+// ---------- SALA ECOMMERCE: la web cuando exista ----------
+const eco = { url: (() => { try { return localStorage.getItem('oficina.ecoUrl') || ''; } catch (e) { return ''; } })(), estado: null, ms: null, at: null };
+function drawEco() {
+  const g = ecoTex.image.getContext('2d'), W = 1600, H = 500;
+  const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#061a14'); bg.addColorStop(1, '#0d2a22'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.fillStyle = '#34d399'; g.font = '700 58px "Chakra Petch", sans-serif'; g.fillText('TIENDA ONLINE', 50, 96);
+  if (!eco.url) {
+    g.fillStyle = '#e9fff6'; g.font = '700 44px Figtree, sans-serif'; g.fillText('Próximamente', 50, 170);
+    g.fillStyle = '#9cc9b8'; g.font = '500 26px Figtree, sans-serif'; g.fillText('Cuando tengas la web, ponla en la tarjeta «Sala Ecommerce»', 50, 220); g.fillText('y aquí verás si está en línea.', 50, 256);
+    for (let i = 0; i < 4; i++) { const x = 830 + i * 185; g.fillStyle = '#123a30'; g.beginPath(); g.roundRect(x, 70, 165, 300, 14); g.fill(); g.fillStyle = ['#f7b955', '#6c9bff', '#ff6b7a', '#b38cff'][i]; g.globalAlpha = 0.65; g.beginPath(); g.roundRect(x + 18, 90, 129, 150, 10); g.fill(); g.globalAlpha = 1; g.fillStyle = '#c9f2e2'; g.fillRect(x + 18, 262, 100, 14); g.fillStyle = '#5f9d88'; g.fillRect(x + 18, 290, 70, 12); g.fillStyle = '#34d399'; g.beginPath(); g.roundRect(x + 18, 320, 129, 34, 17); g.fill(); }
+  } else {
+    let host = eco.url; try { host = new URL(eco.url).hostname; } catch (e) {}
+    g.fillStyle = '#e9fff6'; g.font = '700 54px Figtree, sans-serif'; g.fillText(host, 50, 180);
+    const ok = eco.estado === 'ok', mal = eco.estado === 'mal' || eco.estado === 'nopermitida';
+    g.fillStyle = ok ? '#4ade80' : mal ? '#f87171' : '#9aa6c4'; g.beginPath(); g.arc(68, 262, 14, 0, 7); g.fill();
+    g.font = '700 38px Figtree, sans-serif'; g.fillText(ok ? `En línea · ${eco.ms} ms` : eco.estado === 'nopermitida' ? 'Falta autorizar el dominio en el servidor' : mal ? 'Sin respuesta' : 'Estado sin comprobar', 96, 276);
+    g.fillStyle = '#9cc9b8'; g.font = '500 26px Figtree, sans-serif'; if (eco.at) g.fillText('Comprobado a las ' + new Date(eco.at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), 50, 330);
+  }
+  ecoTex.needsUpdate = true;
+}
+async function checkEco() {
+  if (eco.url && serverReady() && srv.caps.web) { try { const d = await srvFetch('/web/estado', { url: eco.url }); eco.estado = d.ok ? 'ok' : 'mal'; eco.ms = d.ms; } catch (e) { eco.estado = /permitida/i.test(e.message) ? 'nopermitida' : 'mal'; } eco.at = Date.now(); }
+  drawEco(); renderEcoCard();
+}
+function renderEcoCard() {
+  const el = $('#ecoState'); if (!el) return;
+  el.textContent = !eco.url ? 'Aún sin tienda online: cuando la tengas, pon aquí su dirección' : eco.estado === 'ok' ? `En línea · ${eco.ms} ms` : eco.estado === 'nopermitida' ? 'Falta añadir el dominio a WEBS en el servidor' : eco.estado === 'mal' ? 'La tienda no responde ahora mismo' : 'Comprobando…';
+  el.className = 'conn-state' + (eco.estado === 'ok' ? ' ok' : eco.estado === 'mal' || eco.estado === 'nopermitida' ? ' err' : '');
+  const i = $('#ecoUrl'); if (i && document.activeElement !== i) i.value = eco.url;
+}
+setTimeout(checkEco, 3200); setInterval(checkEco, 5 * 60000);
+$('#ecoGuardar').onclick = () => { let u = $('#ecoUrl').value.trim(); if (u && !/^https?:\/\//i.test(u)) u = 'https://' + u; eco.url = u; eco.estado = null; try { localStorage.setItem('oficina.ecoUrl', u); } catch (e) {} checkEco(); log(u ? `Sala Ecommerce: tienda <b>${esc(u)}</b>` : 'Sala Ecommerce: sin tienda'); };
+$('#ecoVer').onclick = () => { if (isNarrow() && !stage.classList.contains('big')) setBig(true); setView('eco'); setTimeout(() => focusTo({ kind: 'eco' }), 50); };
+$('#criptoVer').onclick = () => { if (isNarrow() && !stage.classList.contains('big')) setBig(true); setView('cripto'); setTimeout(() => focusTo({ kind: 'cripto' }), 50); };
+$('#criptoEncargo').onclick = () => { const t0 = $('#orderText'); t0.value = 'Cripto: '; t0.focus(); t0.setSelectionRange(t0.value.length, t0.value.length); };
+drawCripto(); drawTicker(); drawEco();
+{ let v0 = null; try { v0 = localStorage.getItem('oficina.vista'); } catch (e) {} currentView = ['edificio', 'general', 'planta2'].includes(v0) ? v0 : 'edificio'; setNivel(VIEW_NIVEL[currentView]); }
+
 function loop() {
   const rdt = Math.min(clock.getDelta(), 0.1); const dt = rdt * speed; t += rdt; simClock += dt;
   for (const id in agents) agents[id].update(dt, t, rdt);
   updateVoiceLevel();
   debateTick(dt);
   if (tableDirty) { tableDirty = false; drawTable(); }
-  tableHolo.s.visible = !!(D && D.state !== 'fin');
+  tableHolo.s.visible = !!(D && D.state !== 'fin') && nivel === 'p1';
+  edificioTick(rdt);
   tableRing.material.emissiveIntensity = D && D.state === 'hablando' ? 1.6 + Math.sin(t * 6) * 0.6 : 1.0;
   tableBeam.material.opacity = D && D.state === 'hablando' ? 0.09 + Math.sin(t * 4) * 0.03 : 0.04;
 

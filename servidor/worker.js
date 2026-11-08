@@ -20,7 +20,7 @@ export default {
     if (env.OFICINA_TOKEN && req.headers.get('X-Oficina-Token') !== env.OFICINA_TOKEN) return json({ error: 'Clave de la oficina incorrecta' }, 401);
 
     const path = new URL(req.url).pathname;
-    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL, youtube: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), vidiq: !!env.VIDIQ_API_KEY, web: !!env.ANTHROPIC_API_KEY, pedidos: !!(env.PEDIDO && env.DATOS) });
+    if (path === '/salud') return json({ ok: true, claude: !!env.ANTHROPIC_API_KEY, gemini: !!env.GEMINI_API_KEY, openai: !!env.OPENAI_API_KEY, voz: env.ELEVENLABS_API_KEY ? 'elevenlabs' : env.OPENAI_API_KEY ? 'openai' : null, oir: !!env.ELEVENLABS_API_KEY, datos: !!env.DATOS, drive: !!env.DRIVE_SCRIPT_URL, youtube: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), vidiq: !!env.VIDIQ_API_KEY, web: !!env.ANTHROPIC_API_KEY, pedidos: !!(env.PEDIDO && env.DATOS), botrade: !!env.GITHUB_TOKEN });
     // Datos compartidos entre el móvil y el ordenador (canales, vídeos, métricas y manual)
     if (path === '/datos') {
       if (!env.DATOS) return json({ error: 'Falta el almacén DATOS en el servidor (ver servidor/README.md)' }, 400);
@@ -61,6 +61,18 @@ export default {
       const t0 = Date.now();
       try { const r = await fetch(u.toString(), { method: 'GET', redirect: 'follow', headers: { 'User-Agent': 'OficinaJager/1.0 (vigilancia de disponibilidad)' } }); return json({ ok: r.ok, status: r.status, ms: Date.now() - t0 }); }
       catch (e) { return json({ ok: false, error: String(e.message || e), ms: Date.now() - t0 }); }
+    }
+    // BOTRADE: estado del bot (repositorio privado; necesita GITHUB_TOKEN de solo lectura)
+    if (path === '/botrade') {
+      if (!env.GITHUB_TOKEN) return json({ error: 'Falta GITHUB_TOKEN en el servidor' }, 400);
+      const repo = env.BOTRADE_REPO || 'christian69mp-ctrl/botrade';
+      const gh = async f => { const r = await fetch(`https://api.github.com/repos/${repo}/contents/${f}`, { headers: { Authorization: 'Bearer ' + env.GITHUB_TOKEN, Accept: 'application/vnd.github.raw+json', 'User-Agent': 'OficinaJager/1.0', 'X-GitHub-Api-Version': '2022-11-28' } }); if (!r.ok) throw new Error(f + ': GitHub respondió ' + r.status); return r.text(); };
+      try {
+        const [st, jr, rd] = await Promise.all([gh('paper/state.json'), gh('paper/journal.jsonl').catch(() => ''), gh('README.md').catch(() => '')]);
+        const state = JSON.parse(st); state.fills = (state.fills || []).slice(-20); state.events = (state.events || []).slice(-10); delete state.last_snapshot;
+        const journal = jr.trim().split('\n').filter(Boolean).slice(-5).map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
+        return json({ state, journal, readme: rd.slice(0, 6000), at: Date.now() });
+      } catch (e) { return json({ error: String(e.message || e) }, 502); }
     }
     // vidIQ
     if (path === '/vidiq') { try { return json(await vidiq(env, await req.json().catch(() => ({})))); } catch (e) { return json({ error: String(e.message || e) }, 502); } }

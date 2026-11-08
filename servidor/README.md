@@ -131,6 +131,26 @@ class_name = "Pedido"
 
 y publica con `npx wrangler deploy`. En la oficina, **Probar** activa los pedidos en el servidor automáticamente.
 
+## Sala Cripto: BOTRADE (planta 2)
+
+El repositorio `botrade` es privado, así que el servidor necesita una llave de GitHub **solo de lectura**:
+
+1. En GitHub: *Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token*.
+2. *Repository access*: **Only select repositories** → `christian69mp-ctrl/botrade`.
+3. *Permissions → Repository permissions → Contents*: **Read-only** (nada más).
+4. Guárdala en el servidor: `npx wrangler secret put GITHUB_TOKEN` y vuelve a publicar con `npx wrangler deploy`.
+
+La oficina lee `paper/state.json`, el diario `paper/journal.jsonl` y el README. Los precios en directo salen de la API pública de Kraken (sin claves).
+
+## Sala Ecommerce
+
+Cuando tengas la tienda online, escribe su dirección en la tarjeta «Sala Ecommerce». Para que el servidor pueda comprobar si está en línea, añade su dominio a la variable `WEBS` (separados por comas) en `wrangler.toml`:
+
+```toml
+[vars]
+WEBS = "laruletacaliente.com,tu-tienda.com"
+```
+
 ## Coste aproximado
 
 Cloudflare Workers es gratis hasta 100.000 peticiones al día. Lo que pagas son las IAs: un vídeo completo hace unas 15 peticiones de texto y 3 imágenes, y cada frase de Nyx es una petición corta a Claude más unos segundos de voz de ElevenLabs. El precio exacto depende de los modelos que elijas en `wrangler.toml`.
