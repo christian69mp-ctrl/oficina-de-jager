@@ -3838,6 +3838,7 @@ function fitGeneral(view, y0 = 0, cs = null) {
   const dir = view.pos.clone().sub(view.target).normalize();
   const cam = camera.clone(); cam.aspect = w / h; cam.fov = w / h < 1 ? 58 : 42; cam.updateProjectionMatrix();
   const corners = cs || []; if (!cs) for (const x of [-OW - 0.4, OW + 0.4]) for (const z of [-8.4, 8.6]) for (const y of [y0, y0 + 3.3]) corners.push(V(x, y, z));
+  let first = null;
   for (let d = 12; d < 130; d += 0.5) {
     let best = null;
     for (let shift = -16; shift <= 16; shift += 0.4) {
@@ -3850,8 +3851,10 @@ function fitGeneral(view, y0 = 0, cs = null) {
       if (!best || off < best.off) best = { pos: cam.position.clone(), target: tg, off };
     }
     if (best && best.off < 0.12) return best;
+    if (best) { best.d = d; if (!first || best.off < first.off) first = first && d > first.d0 * 1.35 ? first : { ...best, d0: first?.d0 || d }; }
+    if (first && d > first.d0 * 1.35) break;
   }
-  return view;
+  return first || view;
 }
 function setView(v) {
   currentView = v; userMovedCam = false;
@@ -4450,6 +4453,9 @@ function edificioTick(rdt) {
   }
   for (const q of puffs) { if (q.life > 2.6) continue; q.life += rdt; q.s.position.y += rdt * (q.big ? 0.22 : 0.32); q.s.position.x += q.vx * rdt; q.s.position.z += q.vz * rdt; const sz = (q.big ? 0.16 : 0.05) + q.life * (q.big ? 0.28 : 0.14); q.s.scale.set(sz, sz, 1); q.s.material.opacity = Math.max(0, (q.big ? 0.32 : 0.22) * (1 - q.life / 2.6)); if (q.life > 2.6) q.s.visible = false; }
   for (const c of traffic) { c.x += c.dir * c.v * rdt; if (c.x > 90) c.x = -90; if (c.x < -90) c.x = 90; c.g.position.x = c.x; c.g.visible = nivel === 'edificio' || Math.abs(c.x) < 60; }
+  // La niebla depende de lo lejos que esté la cámara: en el móvil en vertical la cámara se aleja más y no debe oscurecer la oficina
+  const camD = camera.position.distanceTo(controls.target);
+  scene.fog.near = Math.max(nivel === 'edificio' ? 95 : 44, camD + 22); scene.fog.far = Math.max(nivel === 'edificio' ? 240 : 80, camD * 2 + 70);
   coin.rotation.z += rdt * 0.8; holoMesaP.rotation.y += rdt * 0.35; holoMesaRing.rotation.z += rdt * 0.6; fanBlade.rotation.y += rdt * 9;
   tkTex.offset.x = (tkTex.offset.x + rdt * 0.018) % 1;
   glassT -= rdt;
