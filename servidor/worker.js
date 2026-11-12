@@ -161,6 +161,12 @@ async function geminiPost(env, tipo, body) {
   let model = modelosGemini[tipo] || (tipo === 'imagen' ? env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image' : env.GEMINI_MODEL || 'gemini-2.5-flash');
   let r = await pedir(model), d = await r.json().catch(() => ({}));
   if (!r.ok && modeloRetirado(r, d)) { delete modelosGemini[tipo]; model = await mejorModeloGemini(env, tipo); r = await pedir(model); d = await r.json().catch(() => ({})); }
+  // Saturación momentánea de Google (503 «high demand» / «overloaded»): se espera y se reintenta
+  for (const espera of [4000, 12000, 30000]) {
+    if (r.ok || !(r.status === 503 || /high demand|overloaded|try again later|UNAVAILABLE/i.test(d?.error?.message || ''))) break;
+    await new Promise(ok => setTimeout(ok, espera));
+    r = await pedir(model); d = await r.json().catch(() => ({}));
+  }
   return { r, d, model };
 }
 async function gemini(env, prompt) {
@@ -656,7 +662,8 @@ async function diagnostico(env, b) {
   if (b.imagen) tareas.gemini_imagen = async () => { const i = await geminiImage(env, 'Un círculo dorado sobre fondo negro, sin texto'); return i.mime + ' ' + Math.round(i.base64.length * 0.75 / 1024) + ' KB · modelo ' + (modelosGemini.imagen || env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'); };
   await Promise.all(Object.entries(tareas).map(async ([k, fn]) => { res[k] = await prueba(fn); }));
   res.pedidos = env.PEDIDO && env.DATOS ? { ok: true, detalle: 'motor de pedidos activo' } : { ok: false, error: !env.DATOS ? 'Falta el almacén DATOS en wrangler.toml' : 'Falta el bloque [[workflows]] (binding PEDIDO) en wrangler.toml: los pedidos se hacen en el navegador' };
-  res.modelos = { ok: true, detalle: `Claude ${env.CLAUDE_MODEL || 'claude-opus-5-5'} · Gemini ${env.GEMINI_MODEL || 'gemini-2.5-flash'} · imagen ${env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'} · ChatGPT ${env.OPENAI_MODEL || 'gpt-4.1-mini'}` };
+  for (const k of ['gemini', 'gemini_imagen', 'chatgpt']) if (res[k] && !res[k].ok && /high demand|overloaded|try again later|UNAVAILABLE|503/i.test(res[k].error || '')) res[k].temporal = true;
+  res.modelos = { ok: true, detalle: `Claude ${env.CLAUDE_MODEL || 'claude-opus-5-5'} · Gemini ${modelosGemini.texto || env.GEMINI_MODEL || 'gemini-2.5-flash'} · imagen ${modelosGemini.imagen || env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'} · ChatGPT ${env.OPENAI_MODEL || 'gpt-4.1-mini'}` };
   return res;
 }
 // Miniatura creada por Gema en un pedido del servidor
