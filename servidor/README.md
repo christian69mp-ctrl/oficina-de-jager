@@ -86,6 +86,20 @@ npx wrangler deploy
 
 7. En la oficina, **Conexiones → Entrega a Pixelido → Elegir carpeta** y elige la carpeta con «Pixelido» en el nombre.
 
+### Tres carpetas ordenadas
+
+En **Ajustes → Conexiones → Entrega a Pixelido**, pulsa **Ordenar mis carpetas**:
+
+| Carpeta | Qué guarda | Quién la ve |
+|---|---|---|
+| **Guiones Pixelido** (o la que hayas elegido) | Un archivo por vídeo con guion y paquete, agrupados en una subcarpeta por pedido (`Pedido PX-02`) | Tú y Pixelido (compártela tú) |
+| **Miniaturas · Oficina Jager** | Una subcarpeta por vídeo con las miniaturas A, B y C de Gemini (y la elegida marcada) y sus ideas | **Solo tú** |
+| **La Ruleta Caliente · Oficina Jager** | Cada proyecto aprobado de la Ruleta: requisitos, código y revisión | **Solo tú** |
+
+Las dos privadas se crean sin enlace público y sin nadie más con acceso. Si Gemini no puede generar imágenes (hace falta la facturación activada), se guardan las ideas y prompts de cada miniatura.
+
+**Si ya tenías el script instalado**, actualízalo: en script.google.com pega otra vez todo `servidor/drive-script.gs` (con tu contraseña en `CLAVE`), guarda y ve a **Implementar → Gestionar implementaciones → lápiz → Versión: Nueva versión → Implementar**. Así la URL no cambia y no hay que tocar el servidor.
+
 ## YouTube Studio (tus 5 canales)
 
 Con esto la oficina lee de cada canal (solo lectura): suscriptores, vistas de los últimos 28 días, la lista de vídeos y las métricas de cada vídeo (vistas, retención a los 30 segundos, % medio visto, suscriptores ganados). Las impresiones y el CTR solo llegan si la API de YouTube los ofrece; si no, se copian de YouTube Studio.
