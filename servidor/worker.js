@@ -141,28 +141,38 @@ async function claude(env, prompt, rapido, buscar) {
   throw new Error('Claude no terminó la investigación');
 }
 
+// Modelos de Gemini: Google retira versiones; si la configurada ya no existe, se busca la más reciente que tu clave pueda usar
+const modelosGemini = {};
+const modeloRetirado = (r, d) => r.status === 404 || /no longer available|not found|is not supported|deprecated/i.test(d?.error?.message || '');
+async function mejorModeloGemini(env, tipo) {
+  if (modelosGemini[tipo]) return modelosGemini[tipo];
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000', { headers: { 'x-goog-api-key': env.GEMINI_API_KEY } });
+  const d = await r.json().catch(() => ({}));
+  const ver = n => (n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] * 1 || 0;
+  const lista = (d.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, ''));
+  const ok = tipo === 'imagen' ? lista.filter(n => /^gemini-[\d.]+-flash.*image/.test(n)) : lista.filter(n => /^gemini-[\d.]+-flash(-latest)?$/.test(n));
+  const estables = ok.filter(n => !/preview|exp/.test(n));
+  const elegido = (estables.length ? estables : ok).sort((a, b) => ver(b) - ver(a))[0];
+  if (!elegido) throw new Error(`Gemini: no hay ningún modelo ${tipo === 'imagen' ? 'de imágenes' : 'de texto'} disponible para tu clave`);
+  return (modelosGemini[tipo] = elegido);
+}
+async function geminiPost(env, tipo, body) {
+  const pedir = m => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY }, body: JSON.stringify(body) });
+  let model = modelosGemini[tipo] || (tipo === 'imagen' ? env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image' : env.GEMINI_MODEL || 'gemini-2.5-flash');
+  let r = await pedir(model), d = await r.json().catch(() => ({}));
+  if (!r.ok && modeloRetirado(r, d)) { delete modelosGemini[tipo]; model = await mejorModeloGemini(env, tipo); r = await pedir(model); d = await r.json().catch(() => ({})); }
+  return { r, d, model };
+}
 async function gemini(env, prompt) {
   if (!env.GEMINI_API_KEY) throw new Error('Falta la clave GEMINI_API_KEY en el servidor');
-  const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-  });
-  const d = await r.json();
+  const { r, d } = await geminiPost(env, 'texto', { contents: [{ parts: [{ text: prompt }] }] });
   if (!r.ok) throw new Error('Gemini: ' + (d.error?.message || r.status));
   return (d.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
 }
 
 async function geminiImage(env, prompt) {
   if (!env.GEMINI_API_KEY) throw new Error('Falta la clave GEMINI_API_KEY en el servidor');
-  const model = env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } }),
-  });
-  const d = await r.json();
+  const { r, d } = await geminiPost(env, 'imagen', { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } });
   if (!r.ok) throw new Error('Gemini imagen: ' + (d.error?.message || r.status));
   const part = (d.candidates?.[0]?.content?.parts || []).find(p => p.inlineData || p.inline_data);
   const img = part?.inlineData || part?.inline_data;
@@ -407,9 +417,15 @@ const jsonDe = t => { if (!t) return null; t = String(t).replace(/```(?:json)?/g
 const corta = (t, n) => { t = String(t || '').trim(); return t.length > n ? t.slice(0, n).trimEnd() + '\n…(recortado)' : t; };
 // Cada puesto con su IA; si falta la clave, lo hace Claude
 async function pensar(env, ia, prompt, o = {}) {
-  if (ia === 'gemini' && env.GEMINI_API_KEY) return gemini(env, prompt + (o.json ? '\n\nResponde solo con el JSON, sin texto alrededor.' : ''));
-  if (ia === 'chatgpt' && env.OPENAI_API_KEY) return chatgpt(env, prompt + (o.json ? '\n\nResponde solo con el JSON, sin texto alrededor.' : ''));
-  return claude(env, prompt, !!o.rapido, !!o.buscar);
+  const extra = o.json ? '\n\nResponde solo con el JSON, sin texto alrededor.' : '';
+  try {
+    if (ia === 'gemini' && env.GEMINI_API_KEY) return await gemini(env, prompt + extra);
+    if (ia === 'chatgpt' && env.OPENAI_API_KEY) return await chatgpt(env, prompt + extra);
+  } catch (e) {
+    // Sin saldo, sin cuota o modelo retirado: Claude ocupa su puesto para que el pedido no se quede a medias
+    if (!env.ANTHROPIC_API_KEY || o.sinSustituto) throw e;
+  }
+  return claude(env, prompt + extra, !!o.rapido, !!o.buscar);
 }
 const P = {
   vidiqTxt: out => out.vidiq ? `\nDATOS REALES DE vidIQ (úsalos: palabras con volumen y poca competencia, y patrones de los outliers):\n${corta(out.vidiq, 5000)}\n` : '',
@@ -534,7 +550,7 @@ export class Pedido extends WorkflowEntrypoint {
           const pr = P.propuesta(job, c, out, id, otros);
           let t = null, via = quien[id], error = null;
           for (let k = 0; k < 3 && !t; k++) {
-            try { t = await pensar(env, quien[id], pr, { rapido: true }); } catch (e) { error = String(e.message || e).slice(0, 240); }
+            try { t = await pensar(env, quien[id], pr, { rapido: true, sinSustituto: true }); } catch (e) { error = String(e.message || e).slice(0, 240); }
             if (!t && k < 2) await new Promise(r => setTimeout(r, k ? 25000 : 8000));
           }
           if (!t && quien[id] !== 'claude') { t = await claude(env, pr, true, false).catch(() => null); if (t) via = 'claude'; }
@@ -623,7 +639,7 @@ async function diagnostico(env, b) {
   const tareas = {
     claude: () => claude(env, 'Responde solo: OK', true, false),
     claude_busqueda: () => claude(env, 'Busca en internet la fecha de hoy y responde en una frase.', true, true),
-    gemini: () => gemini(env, 'Responde solo: OK'),
+    gemini: async () => { const t = await gemini(env, 'Responde solo: OK'); return `${t} · modelo ${modelosGemini.texto || env.GEMINI_MODEL || 'gemini-2.5-flash'}`; },
     chatgpt: () => chatgpt(env, 'Responde solo: OK'),
     vidiq: async () => { const r = await vidiq(env, { tool: 'vidiq_balance', args: {} }); return r.texto; },
     drive: async () => {
@@ -637,7 +653,7 @@ async function diagnostico(env, b) {
       if (!r.ok) throw new Error('GitHub respondió ' + r.status); return 'acceso correcto';
     },
   };
-  if (b.imagen) tareas.gemini_imagen = async () => { const i = await geminiImage(env, 'Un círculo dorado sobre fondo negro, sin texto'); return i.mime + ' ' + Math.round(i.base64.length * 0.75 / 1024) + ' KB'; };
+  if (b.imagen) tareas.gemini_imagen = async () => { const i = await geminiImage(env, 'Un círculo dorado sobre fondo negro, sin texto'); return i.mime + ' ' + Math.round(i.base64.length * 0.75 / 1024) + ' KB · modelo ' + (modelosGemini.imagen || env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'); };
   await Promise.all(Object.entries(tareas).map(async ([k, fn]) => { res[k] = await prueba(fn); }));
   res.pedidos = env.PEDIDO && env.DATOS ? { ok: true, detalle: 'motor de pedidos activo' } : { ok: false, error: !env.DATOS ? 'Falta el almacén DATOS en wrangler.toml' : 'Falta el bloque [[workflows]] (binding PEDIDO) en wrangler.toml: los pedidos se hacen en el navegador' };
   res.modelos = { ok: true, detalle: `Claude ${env.CLAUDE_MODEL || 'claude-opus-5-5'} · Gemini ${env.GEMINI_MODEL || 'gemini-2.5-flash'} · imagen ${env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'} · ChatGPT ${env.OPENAI_MODEL || 'gpt-4.1-mini'}` };
