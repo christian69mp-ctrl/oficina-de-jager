@@ -246,6 +246,11 @@ button.step { font: inherit; font-size: 11.5px; }
 .ped-row select { max-width: 42%; } .ped-row input { flex: 1; min-width: 0; }
 .meritos { display: grid; gap: 6px; } .merit-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; } .merit-row small { color: var(--muted); } .merit-row.top { border-color: #d8b46a; background: color-mix(in srgb, #d8b46a 12%, transparent); } .merit-pts { font-family: var(--f-display); font-size: 16px; color: #d8b46a; }
 .msg-err { display: block; margin-top: 6px; color: #f6a6a6; font-size: 11.5px; }
+.diag { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.diag td { border-top: 1px solid var(--line); padding: 7px 6px; vertical-align: top; }
+.diag td:first-child { width: 22px; }
+.diag-err { color: #f6a6a6; } .diag-ok { color: #4ade80; }
+.job-warn { margin: 6px 0; padding: 7px 9px; border-radius: 8px; border: 1px solid #f87171; color: #fecaca; background: color-mix(in srgb, #f87171 12%, transparent); font-size: 12.5px; }
 .ruleta-card { border-color: color-mix(in srgb, #ff4d6d 45%, var(--line)); }
 .cripto-card { border-color: color-mix(in srgb, #f7b955 45%, var(--line)); }
 .eco-card { border-color: color-mix(in srgb, #34d399 45%, var(--line)); }
@@ -452,7 +457,7 @@ body[data-nivel="p1"] [data-vn="p2"], body[data-nivel="p2"] [data-vn="p1"], body
           <label class="toggle"><input type="checkbox" id="driveOn" checked> Guardar cada paquete aprobado en Drive</label>
         </div>
         <div class="conn" id="connServer" hidden>
-          <div class="conn-head"><b>Servidor de la oficina</b><button type="button" class="btn small" id="srvTest">Probar</button></div>
+          <div class="conn-head"><b>Servidor de la oficina</b><span><button type="button" class="btn small" id="srvTest">Probar</button> <button type="button" class="btn small primary" id="srvDiag">Diagnóstico completo</button></span></div>
           <div class="conn-state" id="srvState">Con tu servidor (carpeta servidor/ del proyecto), Lía y Gema usan Gemini y Rui, Tito y Max usan ChatGPT de verdad. Gema genera miniaturas reales.</div>
           <div class="field-row"><input id="srvUrl" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://oficina-jager.tu-cuenta.workers.dev" aria-label="Dirección del servidor"></div>
           <div class="field-row"><input id="srvKey" type="password" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="Clave de la oficina (OFICINA_TOKEN)" aria-label="Clave de la oficina"><button type="button" class="btn small" id="srvShow" aria-pressed="false">Ver</button><button type="button" class="btn small" id="srvSave">Guardar</button></div>
@@ -3047,7 +3052,7 @@ function openPedido() {
   body.innerHTML = `<form id="pedidoForm" style="display:flex;flex-direction:column;gap:10px">
     <label class="field" for="pedCode">Código del pedido<input id="pedCode" value="${esc(nextPedidoCode())}"></label>
     ${order.map((cid, i) => `<div class="field-row ped-row"><select id="pedCh${i}" aria-label="Canal del vídeo ${i + 1}">${opts(cid)}</select><input id="pedT${i}" placeholder="Vídeo ${i + 1}: tema (vacío = no se hace)" aria-label="Tema del vídeo ${i + 1}"></div>`).join('')}
-    <p class="note" id="pedErr">Consejo: comprueba antes en «Ver ficha del canal» los temas ya cubiertos.</p>
+    <p class="note${serverPedidos() ? '' : ' diag-err'}" id="pedErr">${serverPedidos() ? 'Trabaja en el servidor: puedes cerrar la oficina. Consejo: comprueba antes en «Ver ficha del canal» los temas ya cubiertos.' : 'Atención: el servidor no tiene el motor de pedidos, así que este pedido trabajará en este navegador. No cierres ni bloquees la pestaña hasta que termine, o mejor, arréglalo antes (Ajustes → Diagnóstico completo).'}</p>
     <div class="order-row"><button type="submit" class="btn primary">Lanzar pedido</button></div></form>`;
   $('#pedidoForm').addEventListener('submit', e => {
     e.preventDefault();
@@ -3338,6 +3343,41 @@ $('#estudioAct').onclick = () => loadEstudio(true);
 $('#folders').addEventListener('click', e => { const b = e.target.closest('[data-folder]'); if (!b) return; const f = conn.folders.find(x => x.id === b.dataset.folder); store.drive = { ...f, miniaturas: store.drive?.miniaturas || null, ruleta: store.drive?.ruleta || null, proyectos: store.drive?.proyectos || null }; conn.driveMsg = `Carpeta elegida: ${f.title}. Los próximos paquetes aprobados se guardarán ahí.`; conn.driveOk = true; store.saveDrive(); });
 $('#srvSave').onclick = () => { srv.url = $('#srvUrl').value.trim(); if ($('#srvKey').value.trim()) srv.key = $('#srvKey').value.trim(); try { localStorage.setItem('oficina-servidor', JSON.stringify({ url: srv.url, key: srv.key })); } catch (e) {} $('#srvKey').value = ''; testServer(); };
 $('#srvTest').onclick = testServer;
+// Diagnóstico: prueba de verdad cada servicio y explica cómo arreglar lo que falle
+const DIAG = {
+  claude: ['Claude', 'Nyx, Nora (guion), Iris, Paco, Sam', 'Revisa ANTHROPIC_API_KEY y que tu cuenta de Anthropic tenga saldo (console.anthropic.com → Billing).'],
+  claude_busqueda: ['Claude con búsqueda en internet', 'investigación del guion y verificación de Iris', 'Activa la búsqueda web en console.anthropic.com → Settings → Privacy/Web search, o revisa el saldo.'],
+  gemini: ['Gemini', 'Lía y Gema (ideas de miniatura)', 'Revisa GEMINI_API_KEY en aistudio.google.com. «quota»/«429» = límite del plan gratis: activa la facturación.'],
+  gemini_imagen: ['Gemini · imágenes', 'Gema crea las miniaturas', 'Crear imágenes necesita la facturación activada en Google AI Studio.'],
+  chatgpt: ['ChatGPT', 'Rui y Tito (títulos y test de CTR)', 'Revisa OPENAI_API_KEY y que tengas saldo en platform.openai.com → Billing («insufficient_quota» = sin saldo).'],
+  vidiq: ['vidIQ', 'investigación de Lía en cada vídeo', 'Revisa VIDIQ_API_KEY y los créditos que te quedan en vidIQ.'],
+  drive: ['Google Drive', 'entrega a Pixelido y carpetas', 'Revisa DRIVE_SCRIPT_URL, DRIVE_CLAVE y que el script esté implementado como «Cualquier usuario».'],
+  botrade: ['GitHub · BOTRADE', 'Sala Cripto', 'Revisa GITHUB_TOKEN (Contents: Read-only sobre botrade).'],
+  pedidos: ['Motor de pedidos', 'que los pedidos sigan aunque cierres la oficina', 'Añade a wrangler.toml el bloque [[workflows]] (name = "oficina-pedido", binding = "PEDIDO", class_name = "Pedido") y vuelve a hacer npx wrangler deploy.'],
+  modelos: ['Modelos', '', ''],
+};
+$('#srvDiag').onclick = async () => {
+  const body = openModal('Diagnóstico de la oficina', 'Prueba real de cada servicio desde tu servidor', false);
+  if (!srv.url) { body.innerHTML = '<p>Primero conecta el servidor.</p>'; return; }
+  body.innerHTML = `<p>Probando todos los servicios… (tarda unos segundos)</p><label class="toggle"><input type="checkbox" id="diagImg"> Probar también la creación de imágenes de Gemini (cuesta unos céntimos)</label><div class="order-row"><button type="button" class="btn small primary" id="diagGo">Repetir la prueba</button></div><div id="diagRes"></div>`;
+  const run = async () => {
+    $('#diagRes').innerHTML = '<p>Probando…</p>';
+    try {
+      const d = await srvFetch('/diagnostico', { imagen: $('#diagImg').checked });
+      const filas = Object.entries(d).map(([k, r]) => { const m = DIAG[k] || [k, '', '']; return `<tr><td>${r.ok ? '✅' : '❌'}</td><td><b>${esc(m[0])}</b>${m[1] ? `<br><small>${esc(m[1])}</small>` : ''}</td><td>${r.ok ? esc(r.detalle || 'correcto') + (r.ms ? ` <small>(${(r.ms / 1000).toFixed(1)} s)</small>` : '') : `<span class="diag-err">${esc(r.error || 'error')}</span>${m[2] ? `<br><small>Cómo arreglarlo: ${esc(m[2])}</small>` : ''}`}</td></tr>`; }).join('');
+      const malos = Object.values(d).filter(r => !r.ok).length;
+      $('#diagRes').innerHTML = `<p class="${malos ? 'diag-err' : 'diag-ok'}">${malos ? `${malos} ${malos === 1 ? 'servicio falla' : 'servicios fallan'}: no lances pedidos hasta arreglarlo.` : 'Todo funciona: puedes lanzar pedidos.'}</p><table class="diag">${filas}</table>`;
+      log(`Diagnóstico: ${malos ? malos + ' servicios con fallos' : 'todo correcto'}`);
+    } catch (e) { $('#diagRes').innerHTML = `<p class="diag-err">${esc(/Ruta desconocida|404/.test(e.message) ? 'Tu servidor no tiene el diagnóstico: actualiza worker.js y vuelve a publicarlo.' : e.message)}</p>`; }
+  };
+  $('#diagGo').onclick = run; run();
+};
+// Mientras el navegador hace trabajo de la oficina, que la pantalla no se apague
+let wakeLock = null;
+setInterval(async () => {
+  const local = jobs.some(j => j.status === 'en curso' && !j.server);
+  try { if (local && !wakeLock && navigator.wakeLock && document.visibilityState === 'visible') { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } else if (!local && wakeLock) { await wakeLock.release(); wakeLock = null; } } catch (e) {}
+}, 5000);
 $('#srvShow').onclick = () => { const k = $('#srvKey'), show = k.type === 'password'; k.type = show ? 'text' : 'password'; $('#srvShow').setAttribute('aria-pressed', show); $('#srvShow').textContent = show ? 'Ocultar' : 'Ver'; };
 if (!hasRuntime && srv.url) testServer();
 
@@ -3491,6 +3531,7 @@ function finishStep(agent, task) {
 
 function arriveDirector(job) {
   const ok = job.step('ok');
+  job.fallos = job.steps.filter(s => s.output?.via === 'error').map(s => s.label);
   if (job.type === 'radar') {
     job.status = 'elige'; ok.state = 'cola';
     const top = job.picks?.[0];
@@ -3523,6 +3564,11 @@ function arriveDirector(job) {
       updateEmpleadoMes();
     } else WORKERS.filter(w => w.room === 'lab').forEach(w => { if (!agents[w.id].busy()) agents[w.id].celebrate = 2.5; });
     log(`Análisis de <b>${esc(job.short)}</b> terminado · manual actualizado`);
+  } else if (job.fallos.length) {
+    job.status = 'esperando'; ok.state = 'cola';
+    const lista = job.fallos.join(', ');
+    directorSay(`Jefe, el encargo «${job.short}» NO está bien: han fallado ${lista}. No lo apruebes; pulsa «Pedir cambios» para repetirlo y mira el diagnóstico en Ajustes.`, 'aviso');
+    log(`⚠ Encargo <b>#${job.id}</b> con pasos fallidos: ${esc(lista)}. No se puede aprobar.`);
   } else {
     job.status = 'esperando'; ok.state = 'cola';
     const fb = job.type === 'video'
@@ -3539,6 +3585,7 @@ function arriveDirector(job) {
 
 function approve(job) {
   if (!job || job.status !== 'esperando') return;
+  if (job.fallos?.length) { directorSay(`No puedo aprobar «${job.short}», jefe: fallaron ${job.fallos.join(', ')}. Pulsa «Pedir cambios» para repetirlo.`, 'aviso'); return; }
   if (job.server) srvFetch('/pedido/olvidar', { key: job.server }).catch(() => {});
   job.step('ok').state = 'hecho'; job.status = 'aprobado';
   const crew = job.steps.filter(s => agents[s.worker]).map(s => agents[s.worker]);
@@ -3627,7 +3674,7 @@ function renderJobs() {
   if (!jobs.length) { boxEl.innerHTML = '<div class="empty">Todavía no hay encargos. Pide «Busca temas virales», «Prepara un vídeo sobre…» o «Proyecto: …», y Nyx lo repartirá entre el equipo.</div>'; }
   else boxEl.innerHTML = jobs.slice(0, 12).map(j => `
     <article class="job ${['esperando', 'elige'].includes(j.status) ? 'wait' : ''}">
-      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>
+      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>${j.fallos?.length && j.status === 'esperando' ? `<div class="job-warn">⚠ Fallaron: ${esc(j.fallos.join(', '))}. No se puede aprobar: pulsa «Pedir cambios» para repetirlo.</div>` : ''}
       <div class="steps">${j.steps.map(s => {
         const inner = `<span>${s.label} · ${stepOwner(s, j)}</span>`;
         return s.output
