@@ -48,7 +48,7 @@ export default {
     // Pedidos en el servidor
     if (path.startsWith('/pedido/')) {
       const b = await req.json().catch(() => ({}));
-      const fn = { '/pedido/iniciar': () => pedidoIniciar(env, b), '/pedido/estado': () => pedidoEstado(env, b), '/pedido/olvidar': () => pedidoOlvidar(env, b) }[path];
+      const fn = { '/pedido/iniciar': () => pedidoIniciar(env, b), '/pedido/estado': () => pedidoEstado(env, b), '/pedido/olvidar': () => pedidoOlvidar(env, b), '/pedido/imagen': () => pedidoImagen(env, b) }[path];
       if (!fn) return json({ error: 'Ruta desconocida' }, 404);
       try { return json(await fn()); } catch (e) { return json({ error: String(e.message || e) }, 502); }
     }
@@ -492,6 +492,11 @@ ${corta(out.verifica, 5000)}
 En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION (escribe solo «Ver LOCUCIÓN LIMPIA del guion adjunto»; el texto completo va aparte en el paquete) · DESCRIPCIÓN DE EDICIÓN (estilo del canal y tabla de bloques: bloque, minuto, qué se ve, rótulos) · OBSERVACIONES (voz asignada a este canal según PIXELIDO, cambios de tono, límites, pantalla final) · MINIATURA (texto exacto + descripción visual igual al prompt de Gemini) · DATOS A VERIFICAR ANTES DE LOCUTAR. Máximo 650 palabras.`; },
 };
 
+// Gema: instrucción para que Gemini cree cada miniatura (16:9, lista para YouTube)
+function promptMiniatura(out, x) {
+  return `Miniatura de YouTube en formato horizontal 16:9 (1280x720), acabado fotográfico cinematográfico de alta calidad, para un documental en español titulado «${out.tema}». ${x.prompt_imagen ? x.prompt_imagen + '. ' : ''}Escena: ${x.escena || ''}. Emoción que debe transmitir: ${x.emocion || ''}.${x.colores ? ' Colores: ' + x.colores + '.' : ''}${x.texto ? ` Texto grande, grueso y muy legible en la imagen, escrito exactamente así: «${x.texto}».` : ' Sin texto.'} Composición clara con un único punto de atención, alto contraste y que se entienda en la pantalla de un móvil. Sin logotipos ni marcas de agua.`;
+}
+
 export class Pedido extends WorkflowEntrypoint {
   async run(event, step) {
     const env = this.env;
@@ -544,8 +549,21 @@ export class Pedido extends WorkflowEntrypoint {
       });
       // Iris: verificación de datos con búsqueda en internet
       out.verifica = await step.do('verifica', R, async () => { const t = c.formacion.iris ? await claude(env, P.verifica(job, c, out), false, true) : ''; await guardar('miniaturas', { verifica: t }); return t; });
-      // 4. Gema (miniaturas) y 5. Tito (títulos y SEO)
+      // 4. Gema: ideas de miniatura y después las 3 imágenes con Gemini
       out.miniaturas = await step.do('miniaturas', R, async () => { const d = jsonDe(await pensar(env, 'gemini', P.miniaturas(job, c, out), { json: true })); if (!d?.conceptos) throw new Error('Miniaturas sin formato'); await guardar('titulos', { miniaturas: d }); return d; });
+      out.imagenes = await step.do('imagenes', { retries: { limit: 1, delay: '20 seconds' }, timeout: '10 minutes' }, async () => {
+        const res = { ok: [], error: null };
+        for (const [i, x] of (out.miniaturas.conceptos || []).slice(0, 3).entries()) {
+          try {
+            const img = await geminiImage(env, promptMiniatura(out, x));
+            await env.DATOS.put(`img:${key}:${i}`, JSON.stringify(img), { expirationTtl: 60 * 86400 });
+            res.ok[i] = true;
+          } catch (e) { res.ok[i] = false; res.error = String(e.message || e).slice(0, 300); }
+        }
+        await guardar('titulos', { imagenes: res });
+        return res;
+      });
+      // 5. Tito: títulos y SEO
       out.titulos = await step.do('titulos', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.titulos(job, c, out), { json: true })); if (!d?.titulos) throw new Error('Títulos sin formato'); await guardar('pretest', { titulos: d }); return d; });
       // 6. Rui: versión definitiva de título y miniatura
       out.pretest = await step.do('pretest', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out), { json: true })); if (!d?.ganador) throw new Error('Test de CTR sin formato'); await guardar('brief', { pretest: d }); return d; });
@@ -588,4 +606,11 @@ async function pedidoEstado(env, b) {
   } while (cursor);
   return { videos };
 }
-async function pedidoOlvidar(env, b) { if (env.DATOS && String(b.key || '').startsWith('pv:')) await env.DATOS.delete(b.key); return { ok: true }; }
+async function pedidoOlvidar(env, b) { if (env.DATOS && String(b.key || '').startsWith('pv:')) { await env.DATOS.delete(b.key); for (const i of [0, 1, 2]) await env.DATOS.delete(`img:${b.key}:${i}`); } return { ok: true }; }
+// Miniatura creada por Gema en un pedido del servidor
+async function pedidoImagen(env, b) {
+  if (!env.DATOS || !String(b.key || '').startsWith('pv:')) throw new Error('Pedido desconocido');
+  const img = JSON.parse((await env.DATOS.get(`img:${b.key}:${Number(b.i) || 0}`)) || 'null');
+  if (!img) throw new Error('Miniatura no encontrada');
+  return img;
+}
