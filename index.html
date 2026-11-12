@@ -2646,7 +2646,7 @@ function startRealWork(agent, job, step) {
     if (step.id === 'miniaturas' && serverReady()) {
       if (step.realData?.conceptos) job.concepts = step.realData.conceptos.slice(0, 3);
       const cs = job.concepts?.length === 3 ? job.concepts : [0, 1, 2].map(i => ({ texto: (keywords(job.topicFinal || job.topic).slice(0, 2).join(' ') || 'MIRA ESTO').toUpperCase(), escena: ['cara de sorpresa en primer plano', 'antes y después', 'reacción en plano detalle'][i], emocion: 'sorpresa' }));
-      job.realThumbs = await Promise.all(cs.map(c => askServerImage(`Miniatura de YouTube 16:9, estilo fotográfico, colores muy contrastados, para el vídeo «${job.topicFinal || job.topic}». Escena: ${c.escena}. Emoción: ${c.emocion}. Texto grande en la imagen: «${c.texto}». Fácil de entender en un móvil.`).catch(() => null)));
+      job.realThumbs = await Promise.all(cs.map(c => askServerImage(`Miniatura de YouTube 16:9, estilo fotográfico, colores muy contrastados, para el vídeo «${job.topicFinal || job.topic}». Escena: ${c.escena}. Emoción: ${c.emocion}. Texto grande en la imagen: «${c.texto}». Fácil de entender en un móvil.`).catch(e => { job.thumbErr = /billing|quota|RESOURCE_EXHAUSTED|429|free tier|limit: 0/i.test(e.message) ? 'Gemini no ha creado las imágenes: tu clave necesita la facturación activada en Google AI Studio para generar imágenes.' : 'Gemini no ha creado las imágenes: ' + e.message; return null; })));
     }
   })();
   Promise.race([work, timeout]).finally(() => { step.realPending = false; });
@@ -2935,6 +2935,17 @@ async function saveProyectoToDrive(job) {
     log(`Proyecto <b>${esc(job.short)}</b> guardado en tu carpeta privada «${esc(base.title || '')}» (${archivos.length} archivos)`);
   } catch (e) { log('No se pudo guardar el proyecto en Drive: ' + esc(scriptViejo(e))); }
 }
+// Las 3 miniaturas que Gema ha creado con Gemini en el servidor
+async function cargarMiniaturasServidor(job, info) {
+  const imgs = await Promise.all([0, 1, 2].map(i => info.ok?.[i] ? srvFetch('/pedido/imagen', { key: job.server, i }).then(d => d.base64 ? `data:${d.mime || 'image/png'};base64,${d.base64}` : null).catch(() => null) : null));
+  if (imgs.some(Boolean)) { job.realThumbs = imgs; job.thumbErr = null; log(`Gema ha creado las miniaturas de <b>${esc(job.short)}</b> con Gemini`); }
+  else if (info.error) {
+    job.thumbErr = /billing|quota|RESOURCE_EXHAUSTED|429|free tier|limit: 0/i.test(info.error) ? 'Gemini no ha creado las imágenes: tu clave necesita la facturación activada en Google AI Studio para generar imágenes.' : 'Gemini no ha creado las imágenes: ' + info.error;
+    log(esc(job.thumbErr));
+  }
+  const st = job.step('miniaturas'); if (st?.output) st.output = thumbsOutput(job, 'gemini');
+  markDirty();
+}
 async function savePedidoToDrive(code, lote) {
   const texto = `PEDIDO ${code} PARA PIXELIDO · ${lote.length} vídeos · ${today()}\nPreparado por La oficina de Jager. Voces y límites de cada canal: ver OBSERVACIONES de cada vídeo.\n\n` + lote.map((j, i) => `\n\n████████ VÍDEO ${i + 1} de ${lote.length} · ${chanName(j.channelId)} ████████\n` + packageText(j)).join('');
   const titulo = `Pedido ${code} para Pixelido · ${lote.length} vídeos · ${today()}`;
@@ -2990,6 +3001,7 @@ function applyServerRec(rec) {
   if (out.guion && !A.guion) setOut('guion', { kind: 'text', text: out.guion, via: 'claude' });
   if (out.verifica && !A.verifica) setOut('verifica', { kind: 'text', text: out.verifica, via: 'claude' });
   if (out.miniaturas && !A.miniaturas) { SPECS.miniaturas.format(out.miniaturas, job); setOut('miniaturas', thumbsOutput(job, 'gemini')); }
+  if (out.imagenes && A.miniaturas && !A.imagenes) { A.imagenes = true; cargarMiniaturasServidor(job, out.imagenes); }
   if (out.titulos && !A.titulos) setOut('titulos', { kind: 'text', text: SPECS.titulos.format(out.titulos, job), via: 'chatgpt' });
   if (out.pretest && !A.pretest) setOut('pretest', { kind: 'text', text: SPECS.pretest.format(out.pretest, job), via: 'chatgpt' });
   if (out.brief && !A.brief) setOut('brief', { kind: 'text', text: out.brief, via: 'claude' });
@@ -3405,9 +3417,9 @@ function enqueue(job, step) { if (step.debate) return startDebate(job, step); st
 
 function thumbsOutput(job, via, subFor) {
   const cs = job.concepts && job.concepts.length === 3 ? job.concepts : null;
-  const real = job.realThumbs?.filter(Boolean).length === 3;
+  const real = (job.realThumbs || []).filter(Boolean).length > 0;
   if (real) { via = 'gemini'; subFor = null; }
-  return { kind: 'thumbs', via, subFor, realImages: real, images: [0, 1, 2].map(v => real ? job.realThumbs[v] : thumb(cs ? cs[v].texto : job.topicFinal || job.topic, v, !!cs)),
+  return { kind: 'thumbs', via, subFor, realImages: real, thumbErr: job.thumbErr || null, images: [0, 1, 2].map(v => job.realThumbs?.[v] ? job.realThumbs[v] : thumb(cs ? cs[v].texto : job.topicFinal || job.topic, v, !!cs)),
     notes: cs ? cs.map((c, i) => `${'ABC'[i]} · ${c.escena} · emoción: ${c.emocion}`) : ['A · cara de sorpresa + texto grande', 'B · contraste frío, texto a la derecha', 'C · morado llamativo, boca abierta'] };
 }
 function buildOutput(step, job, agent) {
@@ -3731,7 +3743,7 @@ function openOutput(jobId, stepId) {
   const body = openModal(`${s.label} · ${j.topicFinal || j.topic}`, `Hecho por ${by.def.name} (${by.def.role}) · ${viaLabel(s.output)}`, s.output.via === 'claude');
   if (s.output.kind === 'thumbs') {
     body.innerHTML = `<div class="thumbs">${s.output.images.map((src, i) => `<figure><img src="${src}" alt="Boceto de miniatura ${'ABC'[i]}"><figcaption>${esc(s.output.notes[i])}</figcaption></figure>`).join('')}</div>
-      <p class="note" style="margin-top:10px">${s.output.realImages ? 'Imágenes generadas con Gemini.' : 'Son bocetos con el texto y la idea de cada miniatura. Con el servidor de Gemini activado, Gema genera aquí las imágenes reales.'}</p>`;
+      <p class="note" style="margin-top:10px">${s.output.realImages ? 'Imágenes creadas por Gema con Gemini.' : s.output.thumbErr ? esc(s.output.thumbErr) + ' Mientras tanto, son bocetos con el texto y la idea de cada miniatura.' : 'Gema está creando las imágenes con Gemini; mientras tanto ves los bocetos.'}</p>`;
   } else { body.innerHTML = '<pre></pre>'; body.querySelector('pre').textContent = s.output.text; }
 }
 function openAnalysis(id) {
