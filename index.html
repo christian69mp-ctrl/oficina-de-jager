@@ -2418,12 +2418,16 @@ Acuerdo de la mesa de análisis (enfoque, gancho, promesa y público):
 ${j.step('estudio').output?.text || '(sin estudio)'}
 Lecciones del manual de la oficina (aplícalas):
 ${lessonsTxt()}
-Escribe el GUION completo de un vídeo largo. Extensión: mínimo 3.750 palabras de locución (norma del estudio); si faltan datos verificados, completa con recapitulaciones, transiciones, cliffhangers y pasajes de tono, nunca con datos inventados.
-Entrega en texto plano, sin markdown, con estas cuatro partes y estos títulos exactos:
-1. LOCUCIÓN LIMPIA — solo el texto que se lee en voz alta, en párrafos, sin títulos, marcas ni notas.
-2. INDICACIONES VISUALES — por bloques numerados (B1, B2…), con el minuto aproximado y lo que se ve (archivo, mapa, documento, recreación 3D, rótulo con dato; las recreaciones marcadas como tales).
-3. FUENTES — informes oficiales, sentencias, libros o artículos que respaldan los datos; si no estás seguro de una, márcala [VERIFICAR].
-4. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.`,
+El jefe pide este formato y esta extensión: si las reglas del estudio dicen otra cosa, manda esto.
+Escribe el GUION completo del vídeo, listo para locutar y para que Pixelido lo edite sin dudas. Extensión: unas 3.500 palabras de locución (entre 3.300 y 3.800, unos 22-24 minutos). Si faltan datos verificados, completa con contexto, recapitulaciones, transiciones, cliffhangers y pasajes de tono, nunca con datos inventados.
+Entrega en texto plano, sin markdown, con estas partes y estos títulos exactos:
+1. GUION DE EDICIÓN — el vídeo completo de principio a fin, dividido en bloques de 30 a 90 segundos. Cada bloque empieza con una línea así: [B1 · 0:00–0:40 · GANCHO] y debajo, siempre en este orden y con estas etiquetas:
+LOCUCIÓN: el texto exacto que se lee en voz alta en ese bloque, en párrafos completos (aquí va TODO el texto locutado del vídeo, sin notas).
+IMAGEN: qué se ve (archivo, foto, mapa, documento, metraje, recreación 3D marcada como recreación) y cómo se monta (ritmo, zoom, transición).
+TEXTO EN PANTALLA: cada rótulo exacto entre comillas «…» y cuándo aparece (cita la frase de la locución que lo dispara: fecha, lugar, nombre con cargo, cifra clave, cita textual), o «ninguno».
+SONIDO: música o efecto (tensión, silencio, golpe, cambio de tema) o «sigue».
+2. FUENTES — informes oficiales, sentencias, libros o artículos que respaldan los datos; si no estás seguro de una, márcala [VERIFICAR].
+3. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.`,
   },
   miniaturas: {
     json: true,
@@ -2460,9 +2464,12 @@ ${(j.titles || []).map((t, i) => `${i + 1}. ${t}`).join('\n')}
 Conceptos de miniatura de Gema:
 ${(j.concepts || []).map((c, i) => `${'ABC'[i]}: texto «${c.texto}» · ${c.escena} · ${c.emocion} · prompt: ${c.prompt_imagen || ''}`).join('\n') || '(sin conceptos de miniatura)'}
 Historial de la oficina (previsto y real): ${historyTxt()}
-Elige o mejora la mejor combinación (puedes ajustar el título o el prompt) y estima su CTR de forma orientativa. Explica las 2 alternativas descartadas en una frase.
-Devuelve SOLO JSON: {"promesa":"promesa central del vídeo","ganador":{"titulo":"título final","miniatura":"A|B|C","texto_miniatura":"texto exacto","prompt_gemini":"prompt final para copiar","ctr_estimado":número},"como_funcionan_juntos":"...","riesgo":"riesgo principal de interpretación","checklist":["¿Se entiende a 160 px?","..."],"descartadas":["..."]}`,
-    format: (d, j) => { j.winner = d.ganador; return `TÍTULO Y MINIATURA — VERSIÓN DEFINITIVA
+Elige o mejora la mejor combinación (puedes ajustar el título o el prompt) y estima su CTR de forma orientativa. Explica las 2 alternativas descartadas en una frase. Entrega además los 3 TÍTULOS FINALES para el jefe: el ganador primero y dos alternativas fuertes y distintas entre sí, listos para copiar.
+Devuelve SOLO JSON: {"titulos_finales":["título ganador","alternativa 2","alternativa 3"],"promesa":"promesa central del vídeo","ganador":{"titulo":"título final","miniatura":"A|B|C","texto_miniatura":"texto exacto","prompt_gemini":"prompt final para copiar","ctr_estimado":número},"como_funcionan_juntos":"...","riesgo":"riesgo principal de interpretación","checklist":["¿Se entiende a 160 px?","..."],"descartadas":["..."]}`,
+    format: (d, j) => { j.winner = d.ganador; j.titulos3 = [...new Set([d.ganador?.titulo, ...(d.titulos_finales || []), ...(j.titles || [])].filter(Boolean).map(t => String(t).trim()))].slice(0, 3); return `LOS 3 TÍTULOS (el primero es el recomendado)
+${j.titulos3.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+
+TÍTULO Y MINIATURA — VERSIÓN DEFINITIVA
 Promesa: ${d.promesa || '-'}
 
 TÍTULO (copiar tal cual):
@@ -2509,11 +2516,11 @@ Acuerdo de la mesa:
 ${j.step('estudio').output?.text || ''}
 Informe de verificación de Iris (aplica sus correcciones en DATOS A VERIFICAR):
 ${(j.step('verifica')?.output?.text || '').slice(0, 5000)}
-Indicaciones visuales del guion de Nora:
-${(() => { const g = j.step('guion').output?.text || ''; const i = g.search(/INDICACIONES VISUALES/i); return i >= 0 ? g.slice(i, i + 9000) : g.slice(0, 6000); })()}
+Guion de edición de Nora (inicio):
+${(() => { const g = j.step('guion').output?.text || ''; const i = g.search(/GUION DE EDICI[ÓO]N|INDICACIONES VISUALES/i); return i >= 0 ? g.slice(i, i + 9000) : g.slice(0, 6000); })()}
 Versión definitiva de título y miniatura de Rui:
 ${j.step('pretest').output?.text || ''}
-En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION (escribe solo «Ver LOCUCIÓN LIMPIA del guion adjunto»; el texto completo va aparte en el paquete) · DESCRIPCIÓN DE EDICIÓN (estilo del canal y tabla de bloques: bloque, minuto, qué se ve, rótulos) · OBSERVACIONES (voz asignada a este canal según PIXELIDO, cambios de tono, límites, pantalla final) · MINIATURA (texto exacto + descripción visual igual al prompt de Gemini) · DATOS A VERIFICAR ANTES DE LOCUTAR. Máximo 650 palabras.`,
+En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION (escribe solo «Ver GUION DE EDICIÓN y LOCUCIÓN LIMPIA del paquete»; van aparte) · DESCRIPCIÓN DE EDICIÓN (estilo del canal, ritmo, tipografía y estilo de los textos en pantalla, música; no repitas los bloques, ya están en el guion de edición) · OBSERVACIONES (voz asignada a este canal según PIXELIDO, cambios de tono, límites, pantalla final) · MINIATURA (texto exacto + descripción visual igual al prompt de Gemini) · DATOS A VERIFICAR ANTES DE LOCUTAR. Máximo 650 palabras.`,
   },
   requisitos: {
     prompt: j => `${FORMACION.max}
@@ -2871,10 +2878,43 @@ async function chooseFolder() {
   } catch (e) { conn.driveOk = false; conn.driveMsg = mcpFix('Google Drive', e); }
   renderConn();
 }
+// Locución limpia: todo lo que va detrás de «LOCUCIÓN:» en el guion de edición
+function locucionLimpia(g) {
+  const partes = []; let cur = null;
+  for (const linea of String(g || '').split('\n')) {
+    if (/^\s*LOCUCI[ÓO]N\s*:/i.test(linea)) { cur = [linea.replace(/^\s*LOCUCI[ÓO]N\s*:\s*/i, '')]; partes.push(cur); continue; }
+    if (/^\s*(IMAGEN|TEXTO EN PANTALLA|SONIDO)\s*:/i.test(linea) || /^\s*\[B\d+/i.test(linea) || /^\s*(\d\.\s*)?(FUENTES|AFIRMACIONES A VERIFICAR)\b/i.test(linea)) { cur = null; continue; }
+    if (cur) cur.push(linea);
+  }
+  return partes.map(p => p.join('\n').trim()).filter(Boolean).join('\n\n');
+}
+const contarPalabras = t => (String(t || '').match(/\S+/g) || []).length;
+// Lo que el jefe exige en cada entrega: guion de ~3.500 palabras, 3 miniaturas hechas y 3 títulos
+function faltasEntrega(job) {
+  if (job.type !== 'video') return [];
+  const f = [], n = contarPalabras(locucionLimpia(job.step('guion')?.output?.text));
+  if (job.step('guion')?.output?.via !== 'error' && n < 3000) f.push(`Guion (solo ${n} palabras de locución; hacen falta unas 3.500)`);
+  const imgs = (job.realThumbs || []).filter(Boolean).length; if (imgs < 3) f.push(`Miniaturas (${imgs} de 3 imágenes hechas)`);
+  if ((job.titulos3 || []).length < 3) f.push('3 títulos');
+  return f;
+}
 function packageText(job) {
-  const out = (id, t) => job.step(id)?.output?.text ? `\n\n══════ ${t} ══════\n${job.step(id).output.text}` : '';
-  return `PAQUETE PARA PIXELIDO · ${job.topicFinal || job.topic}\nPreparado por La oficina de Jager el ${today()}\nTítulo elegido: ${job.winner?.titulo || '-'}\nMiniatura elegida: ${job.winner?.miniatura || '-'}`
-    + out('brief', 'ENCARGO PARA PIXELIDO') + out('guion', 'GUION') + out('verifica', 'VERIFICACIÓN DE DATOS (Iris)') + out('vidiq', 'DATOS DE vidIQ') + (job.concepts?.length ? `\n\n══════ MINIATURAS (A, B, C) ══════\n${job.concepts.map((c, i) => `${'ABC'[i]} · ${c.texto || '(sin texto)'} · ${c.escena} · ${c.emocion} · colores: ${c.colores || '-'}${c.prompt_imagen ? `\n   Prompt para generar la imagen: ${c.prompt_imagen}` : ''}`).join('\n')}` : '') + out('titulos', 'TÍTULOS Y SEO') + out('pretest', 'TEST DE CTR') + out('estudio', 'ACUERDO DE LA MESA DE ANÁLISIS');
+  const txt = id => job.step(id)?.output?.via !== 'error' ? job.step(id)?.output?.text || '' : '';
+  const sec = (t, body) => body ? `\n\n════════ ${t} ════════\n${String(body).trim()}` : '';
+  const g = txt('guion'), loc = locucionLimpia(g), n = contarPalabras(loc);
+  const i = g.search(/GUION DE EDICI[ÓO]N/i), j2 = g.search(/\n\s*(2\.\s*)?FUENTES\b/i);
+  const edicion = i >= 0 ? g.slice(i, j2 > i ? j2 : undefined).replace(/^GUION DE EDICI[ÓO]N\s*[—-]?[^\n]*\n/i, '') : g;
+  const resto = j2 >= 0 ? g.slice(j2) : '';
+  const elegida = job.winner?.miniatura || 'A';
+  return `PAQUETE PARA PIXELIDO · ${job.topicFinal || job.topic}${job.pedido ? ' · ' + job.pedido : ''}\nPreparado por La oficina de Jager el ${today()}${chanName(job.channelId) ? ' · Canal ' + chanName(job.channelId) : ''}`
+    + sec('1. LOS 3 TÍTULOS (el primero es el recomendado)', (job.titulos3 || []).map((t, k) => `${k + 1}. ${t}`).join('\n'))
+    + sec('2. LAS 3 MINIATURAS', (job.concepts || []).slice(0, 3).map((c, k) => `${'ABC'[k]}${'ABC'[k] === elegida ? ' (ELEGIDA)' : ''} · texto «${c.texto || ''}» · ${c.escena || ''} · ${c.emocion || ''}`).join('\n') + '\nLas imágenes A, B y C están en la carpeta de miniaturas del vídeo.')
+    + sec('3. GUION DE EDICIÓN (bloque a bloque: locución, imagen, texto en pantalla y sonido)', edicion)
+    + sec(`4. LOCUCIÓN LIMPIA (para grabar la voz) · ${n} palabras · unos ${Math.round(n / 150)} minutos`, loc)
+    + sec('5. ENCARGO PARA PIXELIDO', txt('brief'))
+    + sec('6. DESCRIPCIÓN, SEO Y COMENTARIO FIJADO', txt('titulos'))
+    + sec('7. FUENTES Y DATOS A VERIFICAR', resto)
+    + sec('8. VERIFICACIÓN DE DATOS (Iris)', txt('verifica'));
 }
 // Pedido completo para Pixelido: todos los vídeos del lote en un solo documento
 // ---------- Carpetas de Drive: Guiones Pixelido (compartida), Miniaturas y La Ruleta Caliente (privadas) ----------
@@ -2953,6 +2993,21 @@ async function cargarMiniaturasServidor(job, info) {
     log(esc(job.thumbErr));
   }
   const st = job.step('miniaturas'); if (st?.output) st.output = thumbsOutput(job, 'gemini');
+  if (job.status === 'esperando') revisarEntrega(job);
+  markDirty();
+}
+// Recalcula qué falta (pasos fallidos + guion de ~3.500 palabras, 3 miniaturas hechas y 3 títulos)
+function revisarEntrega(job) { job.fallos = [...job.steps.filter(s => s.output?.via === 'error').map(s => s.label), ...faltasEntrega(job)]; markDirty(); return job.fallos; }
+async function rehacerMiniaturas(job) {
+  if (!serverReady()) return directorSay('Para crear las miniaturas hace falta el servidor conectado, jefe.', 'aviso');
+  const cs = (job.concepts || []).slice(0, 3); if (!cs.length) return directorSay('No hay ideas de miniatura en este encargo: pulsa «Pedir cambios» para repetirlo.', 'aviso');
+  log(`Gema vuelve a crear las miniaturas de <b>${esc(job.short)}</b>`); job.thumbErr = null; job.rehaciendo = true; markDirty();
+  const imgs = job.realThumbs ? [...job.realThumbs] : [null, null, null];
+  for (const [i, c] of cs.entries()) if (!imgs[i]) imgs[i] = await askServerImage(`Miniatura de YouTube en formato horizontal 16:9 (1280x720), acabado fotográfico cinematográfico de alta calidad, para un documental en español titulado «${job.topicFinal || job.topic}». ${c.prompt_imagen ? c.prompt_imagen + '. ' : ''}Escena: ${c.escena || ''}. Emoción: ${c.emocion || ''}.${c.texto ? ` Texto grande, grueso y muy legible, escrito exactamente así: «${c.texto}».` : ''} Composición clara, alto contraste, que se entienda en un móvil. Sin logotipos ni marcas de agua.`).catch(e => { job.thumbErr = /billing|quota|RESOURCE_EXHAUSTED|429|free tier|limit: 0/i.test(e.message) ? 'Gemini no ha creado las imágenes: tu clave necesita la facturación activada en Google AI Studio para generar imágenes.' : 'Gemini no ha creado las imágenes: ' + e.message; return null; });
+  job.realThumbs = imgs; job.rehaciendo = false;
+  const st = job.step('miniaturas'); if (st?.output) st.output = thumbsOutput(job, 'gemini');
+  job.fallos = [...job.steps.filter(s => s.output?.via === 'error').map(s => s.label), ...faltasEntrega(job)];
+  directorSay(job.fallos.length ? `Todavía falta: ${job.fallos.join(', ')}.${job.thumbErr ? ' ' + job.thumbErr : ''}` : `Listo, jefe: las 3 miniaturas de «${job.short}» están hechas. Ya puedes revisarlo y aprobarlo.`, 'aviso');
   markDirty();
 }
 async function savePedidoToDrive(code, lote) {
@@ -3026,7 +3081,8 @@ function applyServerRec(rec) {
   }
   if (rec.estado === 'listo' && job.status === 'en curso') {
     job.status = 'esperando'; job.step('ok').state = 'cola';
-    log(`Vídeo <b>${esc(job.short)}</b> del pedido ${esc(job.pedido)} listo para tu aprobación`);
+    revisarEntrega(job);
+    log(job.fallos.length ? `⚠ Vídeo <b>${esc(job.short)}</b> del pedido ${esc(job.pedido)} terminado, pero falta: ${esc(job.fallos.join(', '))}` : `Vídeo <b>${esc(job.short)}</b> del pedido ${esc(job.pedido)} listo para tu aprobación`);
     WORKERS.forEach(w => { if (agents[w.id] && !agents[w.id].busy()) agents[w.id].setStatus('Libre'); });
   }
   if (rec.estado === 'error' && job.status === 'en curso' && !A.error) {
@@ -3531,7 +3587,7 @@ function finishStep(agent, task) {
 
 function arriveDirector(job) {
   const ok = job.step('ok');
-  job.fallos = job.steps.filter(s => s.output?.via === 'error').map(s => s.label);
+  job.fallos = [...job.steps.filter(s => s.output?.via === 'error').map(s => s.label), ...faltasEntrega(job)];
   if (job.type === 'radar') {
     job.status = 'elige'; ok.state = 'cola';
     const top = job.picks?.[0];
@@ -3567,7 +3623,7 @@ function arriveDirector(job) {
   } else if (job.fallos.length) {
     job.status = 'esperando'; ok.state = 'cola';
     const lista = job.fallos.join(', ');
-    directorSay(`Jefe, el encargo «${job.short}» NO está bien: han fallado ${lista}. No lo apruebes; pulsa «Pedir cambios» para repetirlo y mira el diagnóstico en Ajustes.`, 'aviso');
+    directorSay(`Jefe, el encargo «${job.short}» todavía no está completo: ${lista}. No se puede aprobar hasta que esté todo.`, 'aviso');
     log(`⚠ Encargo <b>#${job.id}</b> con pasos fallidos: ${esc(lista)}. No se puede aprobar.`);
   } else {
     job.status = 'esperando'; ok.state = 'cola';
@@ -3674,7 +3730,7 @@ function renderJobs() {
   if (!jobs.length) { boxEl.innerHTML = '<div class="empty">Todavía no hay encargos. Pide «Busca temas virales», «Prepara un vídeo sobre…» o «Proyecto: …», y Nyx lo repartirá entre el equipo.</div>'; }
   else boxEl.innerHTML = jobs.slice(0, 12).map(j => `
     <article class="job ${['esperando', 'elige'].includes(j.status) ? 'wait' : ''}">
-      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>${j.fallos?.length && j.status === 'esperando' ? `<div class="job-warn">⚠ Fallaron: ${esc(j.fallos.join(', '))}. No se puede aprobar: pulsa «Pedir cambios» para repetirlo.</div>` : ''}
+      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>${j.fallos?.length && j.status === 'esperando' ? `<div class="job-warn">⚠ Falta o falló: ${esc(j.fallos.join(', '))}. No se puede aprobar todavía.${j.fallos.some(f => /^Miniaturas/.test(f)) && !j.fallos.some(f => !/^Miniaturas/.test(f)) ? ` <button type="button" class="btn small" data-rehacer-mini="${j.id}"${j.rehaciendo ? ' disabled' : ''}>${j.rehaciendo ? 'Creando miniaturas…' : 'Crear las miniaturas otra vez'}</button>` : ' Pulsa «Pedir cambios» para repetirlo.'}</div>` : ''}
       <div class="steps">${j.steps.map(s => {
         const inner = `<span>${s.label} · ${stepOwner(s, j)}</span>`;
         return s.output
@@ -3828,6 +3884,7 @@ function openMetrics(id, pre) {
 
 document.addEventListener('click', e => {
   const st = e.target.closest('[data-step]'); if (st) return openOutput(st.dataset.job, st.dataset.step);
+  const rm = e.target.closest('[data-rehacer-mini]'); if (rm) return rehacerMiniaturas(jobs.find(j => j.id === +rm.dataset.rehacerMini));
   const ap = e.target.closest('[data-approve]'); if (ap) return approve(jobs.find(j => j.id === +ap.dataset.approve));
   const ch = e.target.closest('[data-changes]'); if (ch) return requestChanges(jobs.find(j => j.id === +ch.dataset.changes));
   const pr = e.target.closest('[data-produce]'); if (pr) { const [jid, i] = pr.dataset.produce.split(':'); return produceTopic(jobs.find(j => j.id === +jid), +i); }
