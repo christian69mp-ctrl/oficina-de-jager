@@ -245,6 +245,7 @@ button.step { font: inherit; font-size: 11.5px; }
 .file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .ped-row select { max-width: 42%; } .ped-row input { flex: 1; min-width: 0; }
 .meritos { display: grid; gap: 6px; } .merit-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; } .merit-row small { color: var(--muted); } .merit-row.top { border-color: #d8b46a; background: color-mix(in srgb, #d8b46a 12%, transparent); } .merit-pts { font-family: var(--f-display); font-size: 16px; color: #d8b46a; }
+.msg-err { display: block; margin-top: 6px; color: #f6a6a6; font-size: 11.5px; }
 .ruleta-card { border-color: color-mix(in srgb, #ff4d6d 45%, var(--line)); }
 .cripto-card { border-color: color-mix(in srgb, #f7b955 45%, var(--line)); }
 .eco-card { border-color: color-mix(in srgb, #34d399 45%, var(--line)); }
@@ -2705,13 +2706,16 @@ async function fetchRound(d, r) {
   return Promise.all(MEMBERS.map(async id => {
     let text = null;
     const route = routeFor(agents[id].def.ai, d.job.demo);
-    if (route) text = cleanLine(await askAI(route, `Estás en una reunión de "La oficina de Jager" con tus compañeros ${MEMBERS.filter(x => x !== id).map(NAME).join(' y ')} para decidir ${GOAL[d.mode]}. Eres ${PERSONA[id]}
+    let via = route;
+    const pr = `Estás en una reunión de "La oficina de Jager" con tus compañeros ${MEMBERS.filter(x => x !== id).map(NAME).join(' y ')} para decidir ${GOAL[d.mode]}. Eres ${PERSONA[id]}
 ${ctx}
 ${prev ? 'Lo dicho hasta ahora en la reunión:\n' + prev : ''}
 ${r === 1 ? 'Ronda 1: da tu propuesta concreta desde tu especialidad.' : 'Ronda 2: responde a tus compañeros por su nombre: qué apoyas, qué cambiarías y por qué. Buscad juntos la opción más viral y más rentable.'}
-Habla en primera persona, en español de España, con tono de reunión y frases cortas. Máximo ${r === 1 ? 55 : 50} palabras. Escribe solo tu intervención, sin tu nombre delante.`, { tier: 'quick' }));
+Habla en primera persona, en español de España, con tono de reunión y frases cortas. Máximo ${r === 1 ? 55 : 50} palabras. Escribe solo tu intervención, sin tu nombre delante.`;
+    if (route) text = cleanLine(await askAI(route, pr, { tier: 'quick' }));
+    if (!text && route && route !== 'claude' && routeFor('claude', d.job.demo)) { text = cleanLine(await askAI('claude', pr, { tier: 'quick' })); if (text) { via = 'claude'; log(`Mesa: ${NAME(id)} no pudo usar ${AI[route].name} y la sustituye Claude en esta ronda`); } }
     if (text) d.via = 'real';
-    return { who: id, round: r, text: text || fallbackLine(d, id), via: text ? route : 'error' };
+    return { who: id, round: r, text: text || fallbackLine(d, id), via: text ? via : 'error' };
   }));
 }
 async function fetchConsensus(d) {
@@ -2997,6 +3001,7 @@ function applyServerRec(rec) {
     const transcript = [...(out.estudio.transcript || []), { who: 'sam', round: 3, text: r.acuerdo || '', acuerdo: true }];
     const text = `ACUERDO DE LA MESA DE ANÁLISIS\n${r.acuerdo}\n\nTema final: ${job.topicFinal}\nViral ${pz.viral ?? '?'}/100 · CTR estimado ${pz.ctr_estimado ?? '?'}% · Retención 30 s ${pz.retencion_30s ?? '?'}% · Rentabilidad ${pz.rentabilidad ?? '?'}/100\n\nÁNGULO: ${r.angulo || ''}\nGANCHO: ${r.gancho || ''}\nPROMESA: ${r.promesa || ''}\nPÚBLICO: ${r.publico || ''}\nDURACIÓN IDEAL: ${r.duracion_ideal || ''}\n\n${VOTE_TXT(r.votos)}\n\nPROPUESTAS\n${(out.estudio.transcript || []).map(m => `${NAME(m.who)}: ${m.text}`).join('\n')}`;
     setOut('estudio', { kind: 'debate', text, transcript, votos: r.votos, via: 'real', mode: 'estudio' });
+    for (const m of transcript) if (m.error || m.via === 'error') log(`Mesa de <b>${esc(job.short)}</b>: ${NAME(m.who)} no pudo usar ${AI[agents[m.who].def.ai].name}${m.via === 'claude' ? ' y la sustituyó Claude' : ''}${m.error ? ' · ' + esc(m.error) : ''}`);
   }
   if (out.guion && !A.guion) setOut('guion', { kind: 'text', text: out.guion, via: 'claude' });
   if (out.verifica && !A.verifica) setOut('verifica', { kind: 'text', text: out.verifica, via: 'claude' });
@@ -3734,7 +3739,7 @@ function openOutput(jobId, stepId) {
     body.innerHTML = `<div class="chat">${o.transcript.map(m => {
       const head = m.round !== lastRound ? `<div class="round">${m.round === 3 ? 'Acuerdo' : 'Ronda ' + m.round + (m.round === 1 ? ' · propuestas' : ' · réplicas')}</div>` : '';
       lastRound = m.round; const ag = agents[m.who];
-      return `${head}<div class="msg ${m.acuerdo ? 'acuerdo' : m.who}"><header><b>${esc(ag.def.name)}</b><small>${esc(ag.def.role)} · ${AI[ag.def.ai].name}${m.via && m.via !== 'ejemplo' && m.via !== ag.def.ai ? ' (piensa con ' + AI[m.via].name + ')' : ''}</small></header>${esc(m.text)}</div>`;
+      return `${head}<div class="msg ${m.acuerdo ? 'acuerdo' : m.who}"><header><b>${esc(ag.def.name)}</b><small>${esc(ag.def.role)} · ${AI[ag.def.ai].name}${m.via === 'error' ? ' · sin conexión' : m.via && m.via !== 'ejemplo' && m.via !== ag.def.ai && AI[m.via] ? ' (piensa con ' + AI[m.via].name + ' porque ' + AI[ag.def.ai].name + ' no respondió)' : ''}</small></header>${esc(m.text)}${m.error ? `<small class="msg-err">Motivo: ${esc(m.error)}</small>` : ''}</div>`;
     }).join('')}${o.votos ? `<div class="round">Votación</div><div class="msg acuerdo">${esc(VOTE_TXT(o.votos))}</div>` : ''}</div>
     <div class="round" style="margin-top:14px">Resultado completo</div><pre></pre>`;
     body.querySelector('pre').textContent = o.text.split('\n\nDEBATE\n')[0];
