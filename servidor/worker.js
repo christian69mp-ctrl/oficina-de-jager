@@ -528,8 +528,15 @@ export class Pedido extends WorkflowEntrypoint {
         const transcript = [];
         for (const id of ['lia', 'rui', 'sam']) {
           const otros = Object.keys(nombres).filter(x => x !== id).map(x => nombres[x]).join(' y ');
-          const t = await pensar(env, quien[id], P.propuesta(job, c, out, id, otros), { rapido: true }).catch(() => null);
-          transcript.push({ who: id, round: 1, text: String(t || `(${nombres[id]} no ha podido conectar con su IA.)`).trim().replace(/^(Lía|Rui|Sam)\s*:\s*/i, ''), via: t ? quien[id] : 'error' });
+          // Hasta 3 intentos con su IA (los límites de Gemini y ChatGPT suelen ser momentáneos); si no, Claude ocupa su puesto y se guarda el motivo
+          const pr = P.propuesta(job, c, out, id, otros);
+          let t = null, via = quien[id], error = null;
+          for (let k = 0; k < 3 && !t; k++) {
+            try { t = await pensar(env, quien[id], pr, { rapido: true }); } catch (e) { error = String(e.message || e).slice(0, 240); }
+            if (!t && k < 2) await new Promise(r => setTimeout(r, k ? 25000 : 8000));
+          }
+          if (!t && quien[id] !== 'claude') { t = await claude(env, pr, true, false).catch(() => null); if (t) via = 'claude'; }
+          transcript.push({ who: id, round: 1, text: String(t || `(${nombres[id]} no ha podido conectar con su IA.)`).trim().replace(/^(Lía|Rui|Sam)\s*:\s*/i, ''), via: t ? via : 'error', error: via !== quien[id] || !t ? error : null });
         }
         const debate = transcript.map(m => `${nombres[m.who]}: ${m.text}`).join('\n');
         const result = jsonDe(await claude(env, P.acuerdo(job, c, out, debate), false, false)) || { acuerdo: 'La mesa no ha podido cerrar un acuerdo. Seguimos con el tema tal cual.', tema_final: job.topic };
