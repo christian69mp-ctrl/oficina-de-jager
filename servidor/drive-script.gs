@@ -60,10 +60,11 @@ function destino(d) {
   return c;
 }
 
-// Guarda un texto (guion, paquete, pedido o proyecto)
+// Guarda un texto (guion, paquete, pedido, proyecto o un archivo de código con su extensión)
 function guardar(d) {
   const c = destino(d);
-  const f = c.createFile(limpio(d.titulo || 'Paquete Pixelido') + '.txt', String(d.texto || ''), MimeType.PLAIN_TEXT);
+  const ext = /^\.[\w]{1,8}$/.test(d.ext || '') ? d.ext : '.txt';
+  const f = c.createFile(limpio(d.titulo || 'Paquete Pixelido') + ext, String(d.texto || ''), MimeType.PLAIN_TEXT);
   return { ok: true, id: f.getId(), url: f.getUrl(), carpetaUrl: c.getUrl() };
 }
 

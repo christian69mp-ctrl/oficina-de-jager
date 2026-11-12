@@ -92,9 +92,10 @@ En **Ajustes → Conexiones → Entrega a Pixelido**, pulsa **Ordenar mis carpet
 
 | Carpeta | Qué guarda | Quién la ve |
 |---|---|---|
-| **Guiones Pixelido** (o la que hayas elegido) | Un archivo por vídeo con guion y paquete, agrupados en una subcarpeta por pedido (`Pedido PX-02`) | Tú y Pixelido (compártela tú) |
+| **Guiones Pixelido** (o la que hayas elegido) | Un archivo por vídeo con guion y paquete, en una subcarpeta por pedido (`Pedido PX-02`); los vídeos sueltos, en una por canal | Tú y Pixelido (compártela tú) |
 | **Miniaturas · Oficina Jager** | Una subcarpeta por vídeo con las miniaturas A, B y C de Gemini (y la elegida marcada) y sus ideas | **Solo tú** |
-| **La Ruleta Caliente · Oficina Jager** | Cada proyecto aprobado de la Ruleta: requisitos, código y revisión | **Solo tú** |
+| **La Ruleta Caliente · Oficina Jager** | Una carpeta por proyecto aprobado de la Ruleta: requisitos, cada archivo de código por separado y revisión | **Solo tú** |
+| **Proyectos · Oficina Jager** | Lo mismo para el resto de proyectos | **Solo tú** |
 
 Las dos privadas se crean sin enlace público y sin nadie más con acceso. Si Gemini no puede generar imágenes (hace falta la facturación activada), se guardan las ideas y prompts de cada miniatura.
 

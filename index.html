@@ -2869,13 +2869,13 @@ function packageText(job) {
 }
 // Pedido completo para Pixelido: todos los vídeos del lote en un solo documento
 // ---------- Carpetas de Drive: Guiones Pixelido (compartida), Miniaturas y La Ruleta Caliente (privadas) ----------
-const CARPETAS = { guiones: 'Guiones Pixelido', miniaturas: 'Miniaturas · Oficina Jager', ruleta: 'La Ruleta Caliente · Oficina Jager' };
+const CARPETAS = { guiones: 'Guiones Pixelido', miniaturas: 'Miniaturas · Oficina Jager', ruleta: 'La Ruleta Caliente · Oficina Jager', proyectos: 'Proyectos · Oficina Jager' };
 const scriptViejo = e => /Acción desconocida/i.test(e?.message || '') ? 'Actualiza el script de Drive: copia otra vez servidor/drive-script.gs en script.google.com e implementa una versión nueva.' : (e?.message || String(e));
 function renderDriveMap() {
   const el = $('#driveMap'); if (!el) return; const d = store.drive;
   const fila = (k, f, nota, priv) => f?.id ? `<a href="${esc(f.url || 'https://drive.google.com/drive/folders/' + f.id)}" target="_blank" rel="noopener"><b>${esc(f.title || CARPETAS[k])}</b><small class="${priv ? 'priv' : ''}">${nota}</small></a>` : `<span><b>${esc(CARPETAS[k])}</b><small>sin crear</small></span>`;
-  el.innerHTML = fila('guiones', d, 'guiones y paquetes · la compartes con Pixelido') + fila('miniaturas', d?.miniaturas, 'solo tú', true) + fila('ruleta', d?.ruleta, 'solo tú', true);
-  const b = $('#driveOrdenar'); if (b) { b.hidden = hasRuntime; b.textContent = d?.miniaturas?.id && d?.ruleta?.id ? 'Revisar carpetas' : 'Ordenar mis carpetas'; }
+  el.innerHTML = fila('guiones', d, 'guiones y paquetes · la compartes con Pixelido') + fila('miniaturas', d?.miniaturas, 'solo tú', true) + fila('ruleta', d?.ruleta, 'solo tú · una carpeta por proyecto', true) + fila('proyectos', d?.proyectos, 'solo tú · otros proyectos', true);
+  const b = $('#driveOrdenar'); if (b) { b.hidden = hasRuntime; b.textContent = d?.miniaturas?.id && d?.ruleta?.id && d?.proyectos?.id ? 'Revisar carpetas' : 'Ordenar mis carpetas'; }
 }
 async function ordenarCarpetas() {
   if (!serverDrive()) { conn.driveMsg = 'Para crear las carpetas conecta el servidor con Drive (Ajustes → Conexiones).'; conn.driveOk = false; return renderConn(); }
@@ -2884,9 +2884,10 @@ async function ordenarCarpetas() {
     const g = store.drive?.id ? store.drive : await srvFetch('/drive', { accion: 'carpeta', nombre: CARPETAS.guiones });
     const m = await srvFetch('/drive', { accion: 'carpeta', nombre: CARPETAS.miniaturas, privada: true });
     const r = await srvFetch('/drive', { accion: 'carpeta', nombre: CARPETAS.ruleta, privada: true });
+    const o = await srvFetch('/drive', { accion: 'carpeta', nombre: CARPETAS.proyectos, privada: true });
     const pick = f => ({ id: f.id, title: f.title, url: f.url });
-    store.drive = { ...pick(g), miniaturas: pick(m), ruleta: pick(r) };
-    conn.driveMsg = `Listo: guiones en «${g.title}» y las carpetas privadas «${m.title}» y «${r.title}» (solo tú tienes acceso).`; conn.driveOk = true;
+    store.drive = { ...pick(g), miniaturas: pick(m), ruleta: pick(r), proyectos: pick(o) };
+    conn.driveMsg = `Listo: guiones en «${g.title}» y las carpetas privadas «${m.title}», «${r.title}» y «${o.title}» (solo tú tienes acceso).`; conn.driveOk = true;
     store.saveDrive(); log('Drive ordenado: Guiones Pixelido, Miniaturas y La Ruleta Caliente');
   } catch (e) { conn.driveMsg = 'No se pudieron crear las carpetas: ' + scriptViejo(e); conn.driveOk = false; renderConn(); }
 }
@@ -2914,13 +2915,25 @@ async function saveThumbsToDrive(job, video) {
     log(subidas ? `Miniaturas de <b>${esc(video.title)}</b> guardadas en tu carpeta privada (${subidas} imágenes)` : `Ideas de miniatura de <b>${esc(video.title)}</b> guardadas en tu carpeta privada (Gemini no generó imágenes)`);
   } catch (e) { log('No se pudieron guardar las miniaturas: ' + esc(scriptViejo(e))); }
 }
-// La Ruleta Caliente: cada proyecto aprobado (requisitos, código y revisión) en su carpeta privada
-async function saveRuletaToDrive(job) {
-  const rc = store.drive?.ruleta; if (!rc?.id || !serverDrive() || !$('#driveOn').checked) return;
-  const out = (id, t) => job.step(id)?.output?.text ? `\n\n══════ ${t} ══════\n${job.step(id).output.text}` : '';
-  const texto = `LA RULETA CALIENTE · ${job.topicFinal || job.topic}\nAprobado el ${today()} · La oficina de Jager` + out('requisitos', 'REQUISITOS (Max)') + out('codigo', 'CÓDIGO (Leo)') + out('review', 'REVISIÓN (Vera)');
-  try { await srvFetch('/drive', { accion: 'guardar', carpeta: rc.id, titulo: `${new Date().toISOString().slice(0, 10)} · ${job.topicFinal || job.topic}`, texto }); log(`Proyecto de la Ruleta <b>${esc(job.short)}</b> guardado en tu carpeta privada`); }
-  catch (e) { log('No se pudo guardar el proyecto de la Ruleta: ' + esc(scriptViejo(e))); }
+// Proyectos aprobados: una carpeta por proyecto (Ruleta en la suya; el resto en «Proyectos»), con requisitos, cada archivo de código y la revisión
+async function saveProyectoToDrive(job) {
+  const esRuleta = /ruleta|videochat/i.test(job.topic || '');
+  const base = esRuleta ? store.drive?.ruleta : store.drive?.proyectos;
+  if (!base?.id || !serverDrive() || !$('#driveOn').checked) return;
+  const titulo = (job.topicFinal || job.topic || 'Proyecto').replace(/^proyecto( ruleta caliente)?\s*:\s*/i, '');
+  const sub = `${new Date().toISOString().slice(0, 10)} · ${titulo}${job.version > 1 ? ' (v' + job.version + ')' : ''}`;
+  const txt = id => job.step(id)?.output?.text || '';
+  const archivos = [{ titulo: '1 · Requisitos (Max)', texto: txt('requisitos') }];
+  const codigo = txt('codigo'), partes = codigo.split(/^\/\/ ={3,} *(.+?) *={3,}\s*$/m);
+  if (partes.length > 1) { if (partes[0].trim()) archivos.push({ titulo: '2 · Código (Leo)', texto: partes[0] }); for (let i = 1; i < partes.length; i += 2) { const n = partes[i].trim().replace(/^.*\//, ''), m = n.match(/^(.*?)(\.[\w]+)?$/); archivos.push({ titulo: '2 · ' + m[1], ext: m[2] || '.txt', texto: partes[i + 1].replace(/^\n/, '') }); } }
+  else if (codigo) archivos.push({ titulo: '2 · Código (Leo)', texto: codigo });
+  archivos.push({ titulo: '3 · Revisión (Vera)', texto: txt('review') });
+  try {
+    let url = null;
+    for (const f of archivos.filter(x => x.texto.trim())) { const d = await srvFetch('/drive', { accion: 'guardar', carpeta: base.id, subcarpeta: sub, titulo: f.titulo, ext: f.ext, texto: f.texto }); url = d.carpetaUrl || url; }
+    job.driveUrl = url;
+    log(`Proyecto <b>${esc(job.short)}</b> guardado en tu carpeta privada «${esc(base.title || '')}» (${archivos.length} archivos)`);
+  } catch (e) { log('No se pudo guardar el proyecto en Drive: ' + esc(scriptViejo(e))); }
 }
 async function savePedidoToDrive(code, lote) {
   const texto = `PEDIDO ${code} PARA PIXELIDO · ${lote.length} vídeos · ${today()}\nPreparado por La oficina de Jager. Voces y límites de cada canal: ver OBSERVACIONES de cada vídeo.\n\n` + lote.map((j, i) => `\n\n████████ VÍDEO ${i + 1} de ${lote.length} · ${chanName(j.channelId)} ████████\n` + packageText(j)).join('');
@@ -3047,7 +3060,7 @@ async function savePackageToDrive(job, video) {
   if (!mcp) {
     if (!serverDrive()) return;
     try {
-      const d = await srvFetch('/drive', { accion: 'guardar', carpeta: folder?.id || null, subcarpeta: job.pedido ? `Pedido ${job.pedido}` : null, titulo: `Guion y paquete · ${video.title} · ${today()}`, texto: packageText(job) });
+      const d = await srvFetch('/drive', { accion: 'guardar', carpeta: folder?.id || null, subcarpeta: job.pedido ? `Pedido ${job.pedido}` : `Vídeos sueltos · ${chanName(job.channelId) || 'sin canal'}`, titulo: `Guion y paquete · ${video.title} · ${today()}`, texto: packageText(job) });
       video.driveUrl = d.url || null; video.driveErr = null;
       log(`Paco guarda el guion y el paquete en Drive${folder ? ' (' + esc(folder.title) + (job.pedido ? ' › Pedido ' + esc(job.pedido) : '') + ')' : ''}`);
     } catch (e) { video.driveErr = 'No se pudo guardar en Drive: ' + e.message; log(esc(video.driveErr)); }
@@ -3305,7 +3318,7 @@ $('#ytTest').onclick = ytEstadoLoad;
 $('#ytImport').onclick = ytImport;
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !hasRuntime && srv.ok) ytEstadoLoad(); });
 $('#estudioAct').onclick = () => loadEstudio(true);
-$('#folders').addEventListener('click', e => { const b = e.target.closest('[data-folder]'); if (!b) return; const f = conn.folders.find(x => x.id === b.dataset.folder); store.drive = { ...f, miniaturas: store.drive?.miniaturas || null, ruleta: store.drive?.ruleta || null }; conn.driveMsg = `Carpeta elegida: ${f.title}. Los próximos paquetes aprobados se guardarán ahí.`; conn.driveOk = true; store.saveDrive(); });
+$('#folders').addEventListener('click', e => { const b = e.target.closest('[data-folder]'); if (!b) return; const f = conn.folders.find(x => x.id === b.dataset.folder); store.drive = { ...f, miniaturas: store.drive?.miniaturas || null, ruleta: store.drive?.ruleta || null, proyectos: store.drive?.proyectos || null }; conn.driveMsg = `Carpeta elegida: ${f.title}. Los próximos paquetes aprobados se guardarán ahí.`; conn.driveOk = true; store.saveDrive(); });
 $('#srvSave').onclick = () => { srv.url = $('#srvUrl').value.trim(); if ($('#srvKey').value.trim()) srv.key = $('#srvKey').value.trim(); try { localStorage.setItem('oficina-servidor', JSON.stringify({ url: srv.url, key: srv.key })); } catch (e) {} $('#srvKey').value = ''; testServer(); };
 $('#srvTest').onclick = testServer;
 $('#srvShow').onclick = () => { const k = $('#srvKey'), show = k.type === 'password'; k.type = show ? 'text' : 'password'; $('#srvShow').setAttribute('aria-pressed', show); $('#srvShow').textContent = show ? 'Ocultar' : 'Ver'; };
@@ -3533,7 +3546,7 @@ function approve(job) {
     nyxSay(`El jefe acaba de aprobar el vídeo «${job.short}». Dile a Paco que lo lleve a Pixelido.`, 'Aprobado. Paco, a Pixelido.');
   } else {
     log(`Proyecto <b>${esc(job.short)}</b> aprobado`);
-    if (/ruleta|videochat/i.test(job.topic || '')) saveRuletaToDrive(job);
+    saveProyectoToDrive(job);
     nyxSay(`El jefe acaba de aprobar el proyecto «${job.short}». Felicita al equipo de Proyectos (Max, Leo y Vera).`, 'Aprobado. Buen trabajo, equipo de Proyectos.');
     crew.forEach(a => { if (!a.busy()) a.celebrate = 2.5; });
   }
