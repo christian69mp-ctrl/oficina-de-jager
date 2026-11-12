@@ -455,12 +455,15 @@ Acuerdo de la mesa de análisis (enfoque, gancho, promesa y público):
 ${out.estudioTxt || '(sin estudio)'}
 Lecciones del manual de la oficina (aplícalas):
 ${c.lessons}
-Escribe el GUION completo de un vídeo largo. Extensión: mínimo 3.750 palabras de locución (norma del estudio); si faltan datos verificados, completa con recapitulaciones, transiciones, cliffhangers y pasajes de tono, nunca con datos inventados.
-Entrega en texto plano, sin markdown, con estas cuatro partes y estos títulos exactos:
-1. LOCUCIÓN LIMPIA — solo el texto que se lee en voz alta, en párrafos, sin títulos, marcas ni notas.
-2. INDICACIONES VISUALES — por bloques numerados (B1, B2…), con el minuto aproximado y lo que se ve (archivo, mapa, documento, recreación 3D, rótulo con dato; las recreaciones marcadas como tales).
-3. FUENTES — informes oficiales, sentencias, libros o artículos que respaldan los datos; si no estás seguro de una, márcala [VERIFICAR].
-4. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.`,
+Escribe el GUION completo del vídeo, listo para locutar y para que Pixelido lo edite sin dudas. Extensión: unas 3.500 palabras de locución (entre 3.300 y 3.800, unos 22-24 minutos). Si faltan datos verificados, completa con contexto, recapitulaciones, transiciones, cliffhangers y pasajes de tono, nunca con datos inventados.
+Entrega en texto plano, sin markdown, con estas partes y estos títulos exactos:
+1. GUION DE EDICIÓN — el vídeo completo de principio a fin, dividido en bloques de 30 a 90 segundos. Cada bloque empieza con una línea así: [B1 · 0:00–0:40 · GANCHO] y debajo, siempre en este orden y con estas etiquetas:
+LOCUCIÓN: el texto exacto que se lee en voz alta en ese bloque, en párrafos completos (aquí va TODO el texto locutado del vídeo, sin notas).
+IMAGEN: qué se ve (archivo, foto, mapa, documento, metraje, recreación 3D marcada como recreación) y cómo se monta (ritmo, zoom, transición).
+TEXTO EN PANTALLA: cada rótulo exacto entre comillas «…» y cuándo aparece (cita la frase de la locución que lo dispara: fecha, lugar, nombre con cargo, cifra clave, cita textual), o «ninguno».
+SONIDO: música o efecto (tensión, silencio, golpe, cambio de tema) o «sigue».
+2. FUENTES — informes oficiales, sentencias, libros o artículos que respaldan los datos; si no estás seguro de una, márcala [VERIFICAR].
+3. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.`,
   verifica: (job, c, out) => `${c.formacion.iris}
 ${c.web}
 ${c.normas}
@@ -499,22 +502,34 @@ ${(out.titulos?.titulos || []).map((t, i) => `${i + 1}. ${t}`).join('\n')}
 Conceptos de miniatura de Gema:
 ${(out.miniaturas?.conceptos || []).map((x, i) => `${'ABC'[i]}: texto «${x.texto}» · ${x.escena} · ${x.emocion} · prompt: ${x.prompt_imagen || ''}`).join('\n') || '(sin conceptos de miniatura)'}
 Historial de la oficina (previsto y real): ${c.history}
-Elige o mejora la mejor combinación (puedes ajustar el título o el prompt) y estima su CTR de forma orientativa. Explica las 2 alternativas descartadas en una frase.
-Devuelve SOLO JSON: {"promesa":"promesa central del vídeo","ganador":{"titulo":"título final","miniatura":"A|B|C","texto_miniatura":"texto exacto","prompt_gemini":"prompt final para copiar","ctr_estimado":número},"como_funcionan_juntos":"...","riesgo":"riesgo principal de interpretación","checklist":["¿Se entiende a 160 px?","..."],"descartadas":["..."]}`,
-  brief: (job, c, out) => { const g = String(out.guion || ''); const i = g.search(/INDICACIONES VISUALES/i); return `${c.formacion.paco}
+Elige o mejora la mejor combinación (puedes ajustar el título o el prompt) y estima su CTR de forma orientativa. Explica las 2 alternativas descartadas en una frase. Entrega además los 3 TÍTULOS FINALES para el jefe: el ganador primero y dos alternativas fuertes y distintas entre sí, listos para copiar.
+Devuelve SOLO JSON: {"titulos_finales":["título ganador","alternativa 2","alternativa 3"],"promesa":"promesa central del vídeo","ganador":{"titulo":"título final","miniatura":"A|B|C","texto_miniatura":"texto exacto","prompt_gemini":"prompt final para copiar","ctr_estimado":número},"como_funcionan_juntos":"...","riesgo":"riesgo principal de interpretación","checklist":["¿Se entiende a 160 px?","..."],"descartadas":["..."]}`,
+  brief: (job, c, out) => { const g = String(out.guion || ''); const i = g.search(/GUION DE EDICI[ÓO]N|INDICACIONES VISUALES/i); return `${c.formacion.paco}
 ${c.normas}
 ${c.canal}
 ${c.pixelido}
 Prepara el pedido para Pixelido del vídeo «${out.tema}» (pedido ${job.pedido}, ${c.hoy}).
 Acuerdo de la mesa:
 ${out.estudioTxt || ''}
-Indicaciones visuales del guion de Nora:
+Guion de edición de Nora (inicio):
 ${i >= 0 ? g.slice(i, i + 9000) : g.slice(0, 6000)}
 Versión definitiva de título y miniatura de Rui: ${JSON.stringify(out.pretest || {})}
 Informe de verificación de Iris (aplica sus correcciones en DATOS A VERIFICAR):
 ${corta(out.verifica, 5000)}
-En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION (escribe solo «Ver LOCUCIÓN LIMPIA del guion adjunto»; el texto completo va aparte en el paquete) · DESCRIPCIÓN DE EDICIÓN (estilo del canal y tabla de bloques: bloque, minuto, qué se ve, rótulos) · OBSERVACIONES (voz asignada a este canal según PIXELIDO, cambios de tono, límites, pantalla final) · MINIATURA (texto exacto + descripción visual igual al prompt de Gemini) · DATOS A VERIFICAR ANTES DE LOCUTAR. Máximo 650 palabras.`; },
+En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION (escribe solo «Ver GUION DE EDICIÓN y LOCUCIÓN LIMPIA del paquete»; van aparte) · DESCRIPCIÓN DE EDICIÓN (estilo del canal, ritmo, tipografía y estilo de los textos en pantalla, música; no repitas los bloques, ya están en el guion de edición) · OBSERVACIONES (voz asignada a este canal según PIXELIDO, cambios de tono, límites, pantalla final) · MINIATURA (texto exacto + descripción visual igual al prompt de Gemini) · DATOS A VERIFICAR ANTES DE LOCUTAR. Máximo 650 palabras.`; },
 };
+
+// Locución limpia: todo lo que va detrás de «LOCUCIÓN:» en el guion de edición
+function locucionLimpia(g) {
+  const partes = []; let cur = null;
+  for (const linea of String(g || '').split('\n')) {
+    if (/^\s*LOCUCI[ÓO]N\s*:/i.test(linea)) { cur = [linea.replace(/^\s*LOCUCI[ÓO]N\s*:\s*/i, '')]; partes.push(cur); continue; }
+    if (/^\s*(IMAGEN|TEXTO EN PANTALLA|SONIDO)\s*:/i.test(linea) || /^\s*\[B\d+/i.test(linea) || /^\s*(\d\.\s*)?(FUENTES|AFIRMACIONES A VERIFICAR)\b/i.test(linea)) { cur = null; continue; }
+    if (cur) cur.push(linea);
+  }
+  return partes.map(p => p.join('\n').trim()).filter(Boolean).join('\n\n');
+}
+const palabras = t => (String(t || '').match(/\S+/g) || []).length;
 
 // Gema: instrucción para que Gemini cree cada miniatura (16:9, lista para YouTube)
 function promptMiniatura(out, x) {
@@ -573,8 +588,14 @@ export class Pedido extends WorkflowEntrypoint {
       out.estudioTxt = `ACUERDO: ${mesa.result.acuerdo}\nTema final: ${out.tema}\nÁngulo: ${mesa.result.angulo || ''}\nGancho: ${mesa.result.gancho || ''}\nPromesa: ${mesa.result.promesa || ''}\nPúblico: ${mesa.result.publico || ''}\nDuración ideal: ${mesa.result.duracion_ideal || ''}\nViral ${pz.viral ?? '?'}/100 · Rentabilidad ${pz.rentabilidad ?? '?'}/100`;
       // 3. Nora: guion completo con Claude e investigación en internet
       out.guion = await step.do('guion', R, async () => {
-        const t = await claude(env, P.guion(job, c, out), false, true);
+        let t = await claude(env, P.guion(job, c, out), false, true);
         if (!t || t.length < 500) throw new Error('Guion demasiado corto');
+        // La locución debe rondar las 3.500 palabras: si se queda corta, Nora amplía el guion (hasta 2 veces)
+        for (let k = 0; k < 2 && palabras(locucionLimpia(t)) < 3200; k++) {
+          const n = palabras(locucionLimpia(t));
+          const mas = await claude(env, `${c.formacion.nora}\n${c.normas}\n${c.canal}\nEste guion de «${out.tema}» tiene ${n} palabras de locución y necesita unas 3.500 (entre 3.300 y 3.800). Reescríbelo COMPLETO con exactamente el mismo formato (GUION DE EDICIÓN por bloques con LOCUCIÓN, IMAGEN, TEXTO EN PANTALLA y SONIDO; después FUENTES y AFIRMACIONES A VERIFICAR). Amplía los bloques más flojos con contexto verificado, detalle, tensión y transiciones; añade bloques si hace falta y recalcula los minutos. No inventes datos ni cambies los hechos.\n\nGUION ACTUAL:\n${t}`, false, false).catch(() => null);
+          if (mas && palabras(locucionLimpia(mas)) > n) t = mas; else break;
+        }
         await guardar('verifica', { guion: t });
         return t;
       });
