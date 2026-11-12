@@ -45,6 +45,8 @@ export default {
       return json(d, d.error ? 502 : 200);
     }
 
+    // Diagnóstico: prueba cada servicio con una petición mínima y devuelve el error exacto
+    if (path === '/diagnostico') return json(await diagnostico(env, await req.json().catch(() => ({}))));
     // Pedidos en el servidor
     if (path.startsWith('/pedido/')) {
       const b = await req.json().catch(() => ({}));
@@ -614,6 +616,33 @@ async function pedidoEstado(env, b) {
   return { videos };
 }
 async function pedidoOlvidar(env, b) { if (env.DATOS && String(b.key || '').startsWith('pv:')) { await env.DATOS.delete(b.key); for (const i of [0, 1, 2]) await env.DATOS.delete(`img:${b.key}:${i}`); } return { ok: true }; }
+// Diagnóstico completo de la oficina
+async function diagnostico(env, b) {
+  const prueba = async (fn) => { const t0 = Date.now(); try { const r = await fn(); return { ok: true, ms: Date.now() - t0, detalle: String(r ?? '').slice(0, 160) }; } catch (e) { return { ok: false, ms: Date.now() - t0, error: String(e.message || e).slice(0, 400) }; } };
+  const res = {};
+  const tareas = {
+    claude: () => claude(env, 'Responde solo: OK', true, false),
+    claude_busqueda: () => claude(env, 'Busca en internet la fecha de hoy y responde en una frase.', true, true),
+    gemini: () => gemini(env, 'Responde solo: OK'),
+    chatgpt: () => chatgpt(env, 'Responde solo: OK'),
+    vidiq: async () => { const r = await vidiq(env, { tool: 'vidiq_balance', args: {} }); return r.texto; },
+    drive: async () => {
+      if (!env.DRIVE_SCRIPT_URL) throw new Error('Falta DRIVE_SCRIPT_URL en el servidor');
+      const r = await fetch(env.DRIVE_SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ accion: 'carpetas', buscar: 'Oficina Jager', clave: env.DRIVE_CLAVE || '' }), redirect: 'follow' });
+      const d = await r.json().catch(() => null); if (!d) throw new Error('El script de Drive no responde con JSON'); if (d.error) throw new Error(d.error); return (d.carpetas || []).length + ' carpetas';
+    },
+    botrade: async () => {
+      if (!env.GITHUB_TOKEN) throw new Error('Falta GITHUB_TOKEN');
+      const r = await fetch(`https://api.github.com/repos/${env.BOTRADE_REPO || 'christian69mp-ctrl/botrade'}`, { headers: { Authorization: 'Bearer ' + env.GITHUB_TOKEN, 'User-Agent': 'OficinaJager/1.0' } });
+      if (!r.ok) throw new Error('GitHub respondió ' + r.status); return 'acceso correcto';
+    },
+  };
+  if (b.imagen) tareas.gemini_imagen = async () => { const i = await geminiImage(env, 'Un círculo dorado sobre fondo negro, sin texto'); return i.mime + ' ' + Math.round(i.base64.length * 0.75 / 1024) + ' KB'; };
+  await Promise.all(Object.entries(tareas).map(async ([k, fn]) => { res[k] = await prueba(fn); }));
+  res.pedidos = env.PEDIDO && env.DATOS ? { ok: true, detalle: 'motor de pedidos activo' } : { ok: false, error: !env.DATOS ? 'Falta el almacén DATOS en wrangler.toml' : 'Falta el bloque [[workflows]] (binding PEDIDO) en wrangler.toml: los pedidos se hacen en el navegador' };
+  res.modelos = { ok: true, detalle: `Claude ${env.CLAUDE_MODEL || 'claude-opus-5-5'} · Gemini ${env.GEMINI_MODEL || 'gemini-2.5-flash'} · imagen ${env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'} · ChatGPT ${env.OPENAI_MODEL || 'gpt-4.1-mini'}` };
+  return res;
+}
 // Miniatura creada por Gema en un pedido del servidor
 async function pedidoImagen(env, b) {
   if (!env.DATOS || !String(b.key || '').startsWith('pv:')) throw new Error('Pedido desconocido');
