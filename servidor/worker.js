@@ -455,6 +455,7 @@ Acuerdo de la mesa de análisis (enfoque, gancho, promesa y público):
 ${out.estudioTxt || '(sin estudio)'}
 Lecciones del manual de la oficina (aplícalas):
 ${c.lessons}
+El jefe pide este formato y esta extensión: si las reglas del estudio dicen otra cosa, manda esto.
 Escribe el GUION completo del vídeo, listo para locutar y para que Pixelido lo edite sin dudas. Extensión: unas 3.500 palabras de locución (entre 3.300 y 3.800, unos 22-24 minutos). Si faltan datos verificados, completa con contexto, recapitulaciones, transiciones, cliffhangers y pasajes de tono, nunca con datos inventados.
 Entrega en texto plano, sin markdown, con estas partes y estos títulos exactos:
 1. GUION DE EDICIÓN — el vídeo completo de principio a fin, dividido en bloques de 30 a 90 segundos. Cada bloque empieza con una línea así: [B1 · 0:00–0:40 · GANCHO] y debajo, siempre en este orden y con estas etiquetas:
