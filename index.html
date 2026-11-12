@@ -3364,8 +3364,8 @@ $('#srvDiag').onclick = async () => {
     $('#diagRes').innerHTML = '<p>Probando…</p>';
     try {
       const d = await srvFetch('/diagnostico', { imagen: $('#diagImg').checked });
-      const filas = Object.entries(d).map(([k, r]) => { const m = DIAG[k] || [k, '', '']; return `<tr><td>${r.ok ? '✅' : '❌'}</td><td><b>${esc(m[0])}</b>${m[1] ? `<br><small>${esc(m[1])}</small>` : ''}</td><td>${r.ok ? esc(r.detalle || 'correcto') + (r.ms ? ` <small>(${(r.ms / 1000).toFixed(1)} s)</small>` : '') : `<span class="diag-err">${esc(r.error || 'error')}</span>${m[2] ? `<br><small>Cómo arreglarlo: ${esc(m[2])}</small>` : ''}`}</td></tr>`; }).join('');
-      const malos = Object.values(d).filter(r => !r.ok).length;
+      const filas = Object.entries(d).map(([k, r]) => { const m = DIAG[k] || [k, '', '']; if (r.temporal) return `<tr><td>⚠️</td><td><b>${esc(m[0])}</b>${m[1] ? `<br><small>${esc(m[1])}</small>` : ''}</td><td>Saturado ahora mismo por Google (es temporal). En los pedidos se reintenta solo y, si sigue saturado, Claude hace su parte.<br><small>${esc(r.error || '')}</small></td></tr>`; return `<tr><td>${r.ok ? '✅' : '❌'}</td><td><b>${esc(m[0])}</b>${m[1] ? `<br><small>${esc(m[1])}</small>` : ''}</td><td>${r.ok ? esc(r.detalle || 'correcto') + (r.ms ? ` <small>(${(r.ms / 1000).toFixed(1)} s)</small>` : '') : `<span class="diag-err">${esc(r.error || 'error')}</span>${m[2] ? `<br><small>Cómo arreglarlo: ${esc(m[2])}</small>` : ''}`}</td></tr>`; }).join('');
+      const malos = Object.values(d).filter(r => !r.ok && !r.temporal).length;
       $('#diagRes').innerHTML = `<p class="${malos ? 'diag-err' : 'diag-ok'}">${malos ? `${malos} ${malos === 1 ? 'servicio falla' : 'servicios fallan'}: no lances pedidos hasta arreglarlo.` : 'Todo funciona: puedes lanzar pedidos.'}</p><table class="diag">${filas}</table>`;
       log(`Diagnóstico: ${malos ? malos + ' servicios con fallos' : 'todo correcto'}`);
     } catch (e) { $('#diagRes').innerHTML = `<p class="diag-err">${esc(/Ruta desconocida|404/.test(e.message) ? 'Tu servidor no tiene el diagnóstico: actualiza worker.js y vuelve a publicarlo.' : e.message)}</p>`; }
