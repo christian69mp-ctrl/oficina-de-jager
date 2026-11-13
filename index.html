@@ -250,6 +250,7 @@ button.step { font: inherit; font-size: 11.5px; }
 .diag td { border-top: 1px solid var(--line); padding: 7px 6px; vertical-align: top; }
 .diag td:first-child { width: 22px; }
 .diag-err { color: #f6a6a6; } .diag-ok { color: #4ade80; }
+.srv-nota { margin: 6px 0; font-size: 12px; color: var(--muted, #9aa6c4); }
 .job-warn { margin: 6px 0; padding: 7px 9px; border-radius: 8px; border: 1px solid #f87171; color: #fecaca; background: color-mix(in srgb, #f87171 12%, transparent); font-size: 12.5px; }
 .ruleta-card { border-color: color-mix(in srgb, #ff4d6d 45%, var(--line)); }
 .cripto-card { border-color: color-mix(in srgb, #f7b955 45%, var(--line)); }
@@ -3053,6 +3054,9 @@ function serverJob(rec) {
 }
 function applyServerRec(rec) {
   const job = serverJob(rec), out = rec.out || {}, A = job.applied;
+  // Qué está haciendo el servidor ahora mismo, y el error si un paso se está reintentando
+  job.serverNota = rec.nota || null; job.serverUpd = rec.upd || null; job.serverAviso = rec.aviso || null;
+  if (rec.aviso && A.avisoAt !== rec.aviso.at) { A.avisoAt = rec.aviso.at; log(`⚠ Servidor · <b>${esc(job.short)}</b> · el paso «${esc(rec.aviso.paso)}» ha fallado y se reintenta solo: ${esc(rec.aviso.error)}`); }
   const setOut = (id, output) => { const st = job.step(id); st.output = output; st.state = 'hecho'; st.progress = 1; A[id] = true; };
   if ('vidiq' in out && !A.vidiq) setOut('vidiq', out.vidiq ? { kind: 'text', text: out.vidiq, via: 'vidiq' } : SPECS.vidiq.fallback());
   if (out.estudio && !A.estudio) {
@@ -3086,7 +3090,8 @@ function applyServerRec(rec) {
     WORKERS.forEach(w => { if (agents[w.id] && !agents[w.id].busy()) agents[w.id].setStatus('Libre'); });
   }
   if (rec.estado === 'error' && job.status === 'en curso' && !A.error) {
-    A.error = true; log(`⚠ El vídeo <b>${esc(job.short)}</b> se ha parado en el servidor: ${esc(rec.error || 'error')}`);
+    A.error = true; job.serverAviso = { paso: 'pedido', error: rec.error || 'error' }; log(`⚠ El vídeo <b>${esc(job.short)}</b> se ha parado en el servidor: ${esc(rec.error || 'error')}`);
+    directorSay(`Jefe, el vídeo «${job.short}» se ha parado en el servidor: ${rec.error || 'error desconocido'}. Mira el diagnóstico en Ajustes.`, 'aviso');
   }
 }
 const pedidoSeen = {};
@@ -3730,7 +3735,7 @@ function renderJobs() {
   if (!jobs.length) { boxEl.innerHTML = '<div class="empty">Todavía no hay encargos. Pide «Busca temas virales», «Prepara un vídeo sobre…» o «Proyecto: …», y Nyx lo repartirá entre el equipo.</div>'; }
   else boxEl.innerHTML = jobs.slice(0, 12).map(j => `
     <article class="job ${['esperando', 'elige'].includes(j.status) ? 'wait' : ''}">
-      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>${j.fallos?.length && j.status === 'esperando' ? `<div class="job-warn">⚠ Falta o falló: ${esc(j.fallos.join(', '))}. No se puede aprobar todavía.${j.fallos.some(f => /^Miniaturas/.test(f)) && !j.fallos.some(f => !/^Miniaturas/.test(f)) ? ` <button type="button" class="btn small" data-rehacer-mini="${j.id}"${j.rehaciendo ? ' disabled' : ''}>${j.rehaciendo ? 'Creando miniaturas…' : 'Crear las miniaturas otra vez'}</button>` : ' Pulsa «Pedir cambios» para repetirlo.'}</div>` : ''}
+      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>${j.server && j.status === 'en curso' ? `<div class="srv-nota">${j.serverAviso ? (j.serverAviso.paso === 'pedido' ? `<span class="diag-err">⚠ Parado en el servidor: ${esc(j.serverAviso.error)}</span> <button type="button" class="btn small" data-relanzar="${j.id}">Volver a lanzar este vídeo</button><br>` : `<span class="diag-err">⚠ Reintentando «${esc(j.serverAviso.paso)}»: ${esc(j.serverAviso.error)}</span><br>`) : ''}${j.serverNota ? 'Ahora: ' + esc(j.serverNota) : 'Trabajando en el servidor'}${j.serverUpd ? ` · último avance hace ${Math.max(0, Math.round((Date.now() - j.serverUpd) / 60000))} min` : ''}</div>` : ''}${j.fallos?.length && j.status === 'esperando' ? `<div class="job-warn">⚠ Falta o falló: ${esc(j.fallos.join(', '))}. No se puede aprobar todavía.${j.fallos.some(f => /^Miniaturas/.test(f)) && !j.fallos.some(f => !/^Miniaturas/.test(f)) ? ` <button type="button" class="btn small" data-rehacer-mini="${j.id}"${j.rehaciendo ? ' disabled' : ''}>${j.rehaciendo ? 'Creando miniaturas…' : 'Crear las miniaturas otra vez'}</button>` : ' Pulsa «Pedir cambios» para repetirlo.'}</div>` : ''}
       <div class="steps">${j.steps.map(s => {
         const inner = `<span>${s.label} · ${stepOwner(s, j)}</span>`;
         return s.output
@@ -3884,6 +3889,7 @@ function openMetrics(id, pre) {
 
 document.addEventListener('click', e => {
   const st = e.target.closest('[data-step]'); if (st) return openOutput(st.dataset.job, st.dataset.step);
+  const rl = e.target.closest('[data-relanzar]'); if (rl) { const j = jobs.find(x => x.id === +rl.dataset.relanzar); if (j?.server) { srvFetch('/pedido/olvidar', { key: j.server }).catch(() => {}); jobs.splice(jobs.indexOf(j), 1); srvFetch('/pedido/iniciar', { pedido: j.pedido, videos: [{ topic: j.topic, channelId: j.channelId, ctx: pedidoCtx(j.channelId) }] }).then(() => { log(`Vídeo <b>${esc(j.short)}</b> lanzado otra vez en el servidor`); pedidoPoll(); }).catch(err => directorSay('No he podido relanzarlo: ' + err.message, 'aviso')); markDirty(); } return; }
   const rm = e.target.closest('[data-rehacer-mini]'); if (rm) return rehacerMiniaturas(jobs.find(j => j.id === +rm.dataset.rehacerMini));
   const ap = e.target.closest('[data-approve]'); if (ap) return approve(jobs.find(j => j.id === +ap.dataset.approve));
   const ch = e.target.closest('[data-changes]'); if (ch) return requestChanges(jobs.find(j => j.id === +ch.dataset.changes));
