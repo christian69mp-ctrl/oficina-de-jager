@@ -91,14 +91,15 @@ function documento(d) {
     a[A.BOLD] = !!o.bold; a[A.ITALIC] = !!o.italic;
     el.setAttributes(a); return el;
   };
+  const T = x => { const v = String(x == null ? '' : x); return v.trim() ? v : ' '; };
   const c = destino(d);
   const doc = DocumentApp.create(limpio(d.titulo || 'Paquete Pixelido', 150));
   const body = doc.getBody();
   body.setMarginLeft(42).setMarginRight(42).setMarginTop(42).setMarginBottom(42);
-  const p = (texto, o) => { const x = body.appendParagraph(String(texto || '')); x.setSpacingAfter(o && o.after != null ? o.after : 4); return estilo(x, Object.assign({ font: 'Arial', size: 11, color: '#1f2937' }, o || {})); };
-  const titulo = (texto, color) => { const x = body.appendParagraph(texto); x.setHeading(DocumentApp.ParagraphHeading.HEADING1); x.setSpacingBefore(10).setSpacingAfter(8); return estilo(x, { font: 'Arial', size: 17, bold: true, color: color || '#111827' }); };
+  const p = (texto, o) => { const x = body.appendParagraph(T(texto)); x.setSpacingAfter(o && o.after != null ? o.after : 4); return estilo(x, Object.assign({ font: 'Arial', size: 11, color: '#1f2937' }, o || {})); };
+  const titulo = (texto, color) => { const x = body.appendParagraph(T(texto)); x.setHeading(DocumentApp.ParagraphHeading.HEADING1); x.setSpacingBefore(10).setSpacingAfter(8); return estilo(x, { font: 'Arial', size: 17, bold: true, color: color || '#111827' }); };
   // portada
-  const cab = body.getParagraphs()[0]; cab.setText(d.cabecera || d.titulo || ''); estilo(cab, { font: 'Arial', size: 20, bold: true, color: '#111827' });
+  const cab = body.getParagraphs()[0]; cab.setText(T(d.cabecera || d.titulo)); estilo(cab, { font: 'Arial', size: 20, bold: true, color: '#111827' });
   p(d.subtitulo || '', { size: 10, color: '#6b7280', after: 10 });
   p('Cómo leer este documento:  LOCUCIÓN = lo que se dice  ·  IMAGEN = lo que se ve  ·  TEXTO EN PANTALLA = rótulos  ·  SONIDO = música y efectos', { size: 9, color: '#374151', bg: '#f3f4f6', after: 12 });
   // 1. ficha
@@ -116,14 +117,14 @@ function documento(d) {
   const h = t.getRow(0); for (let i = 0; i < 3; i++) { const cel = h.getCell(i); cel.setBackgroundColor('#111827'); estilo(cel.getChild(0).asParagraph(), { font: 'Arial', size: 9, bold: true, color: '#ffffff' }); }
   (d.bloques || []).forEach((b, k) => {
     const fila = t.appendTableRow();
-    const c0 = fila.appendTableCell(''), c1 = fila.appendTableCell(''), c2 = fila.appendTableCell('');
+    const c0 = fila.appendTableCell(' '), c1 = fila.appendTableCell(' '), c2 = fila.appendTableCell(' ');
     c0.setBackgroundColor('#fef3c7'); c1.setBackgroundColor(k % 2 ? '#ffffff' : '#fafafa'); c2.setBackgroundColor('#f8fafc');
-    const p0 = c0.getChild(0).asParagraph(); p0.setText(b.cab || ''); estilo(p0, { font: 'Arial', size: 9, bold: true, color: '#92400e' });
+    const p0 = c0.getChild(0).asParagraph(); p0.setText(T(b.cab)); estilo(p0, { font: 'Arial', size: 9, bold: true, color: '#92400e' });
     const lineas = String(b.locucion || '').split(/\n+/).filter(x => x.trim());
-    const p1 = c1.getChild(0).asParagraph(); p1.setText(lineas[0] || ''); estilo(p1, { font: 'Georgia', size: 11, color: '#111827' }); p1.setLineSpacing(1.25);
-    lineas.slice(1).forEach(l => { const x = c1.appendParagraph(l); estilo(x, { font: 'Georgia', size: 11, color: '#111827' }); x.setLineSpacing(1.25); });
-    const p2 = c2.getChild(0).asParagraph(); p2.setText('');
-    const bloque = (etq, texto, cEtq, o) => { if (!texto) return; const e = c2.appendParagraph(etq); estilo(e, { font: 'Arial', size: 8, bold: true, color: cEtq }); e.setSpacingBefore(4); const x = c2.appendParagraph(texto); estilo(x, Object.assign({ font: 'Arial', size: 9 }, o)); };
+    const p1 = c1.getChild(0).asParagraph(); p1.setText(T(lineas[0])); estilo(p1, { font: 'Georgia', size: 11, color: '#111827' }); p1.setLineSpacing(1.25);
+    lineas.slice(1).forEach(l => { const x = c1.appendParagraph(T(l)); estilo(x, { font: 'Georgia', size: 11, color: '#111827' }); x.setLineSpacing(1.25); });
+    const p2 = c2.getChild(0).asParagraph(); p2.setText(' ');
+    const bloque = (etq, texto, cEtq, o) => { if (!texto || !String(texto).trim()) return; const e = c2.appendParagraph(etq); estilo(e, { font: 'Arial', size: 8, bold: true, color: cEtq }); e.setSpacingBefore(4); const x = c2.appendParagraph(T(texto)); estilo(x, Object.assign({ font: 'Arial', size: 9 }, o)); };
     bloque('IMAGEN', b.imagen, '#1d4ed8', { color: '#1e3a8a' });
     bloque('TEXTO EN PANTALLA', b.texto, '#c2410c', { color: '#9a3412', bold: true });
     bloque('SONIDO', b.sonido, '#6b7280', { color: '#4b5563', italic: true });
