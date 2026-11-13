@@ -545,12 +545,19 @@ export class Pedido extends WorkflowEntrypoint {
     const guardar = async (paso, cambios = {}) => {
       const cur = JSON.parse((await env.DATOS.get(key)) || '{}');
       cur.out = { ...(cur.out || {}), ...cambios }; cur.paso = paso; cur.estado = paso === 'listo' ? 'listo' : 'en curso'; cur.upd = Date.now();
+      delete cur.aviso; cur.nota = null;
       await env.DATOS.put(key, JSON.stringify(cur));
     };
+    // Lo que está haciendo ahora mismo (se ve en la ficha del encargo) y el error si un paso falla y se reintenta
+    const nota = async (texto, aviso) => { try { const cur = JSON.parse((await env.DATOS.get(key)) || '{}'); cur.nota = texto; if (aviso) cur.aviso = aviso; cur.upd = Date.now(); await env.DATOS.put(key, JSON.stringify(cur)); } catch (e) {} };
+    const sd = (nombre, cfg, fn) => step.do(nombre, cfg, async () => {
+      try { return await fn(); }
+      catch (e) { await nota(null, { paso: nombre, error: String(e?.message || e).slice(0, 300), at: Date.now() }); throw e; }
+    });
     const R = { retries: { limit: 4, delay: '30 seconds', backoff: 'exponential' }, timeout: '30 minutes' };
     try {
       // 1. Lía: investigación con vidIQ (si falla, se sigue sin ella)
-      out.vidiq = await step.do('vidiq', { retries: { limit: 1, delay: '10 seconds' } }, async () => {
+      out.vidiq = await sd('vidiq', { retries: { limit: 1, delay: '10 seconds' } }, async () => {
         let txt = null;
         if (env.VIDIQ_API_KEY) try {
           const tema = String(job.topic).slice(0, 140);
@@ -562,7 +569,7 @@ export class Pedido extends WorkflowEntrypoint {
         return txt;
       });
       // 2. Mesa de análisis: propuesta de cada analista con su IA y acuerdo final
-      const mesa = await step.do('estudio', R, async () => {
+      const mesa = await sd('estudio', R, async () => {
         const quien = { lia: 'gemini', rui: 'chatgpt', sam: 'claude' };
         const nombres = { lia: 'Lía', rui: 'Rui', sam: 'Sam' };
         const transcript = [];
@@ -570,15 +577,17 @@ export class Pedido extends WorkflowEntrypoint {
           const otros = Object.keys(nombres).filter(x => x !== id).map(x => nombres[x]).join(' y ');
           // Hasta 3 intentos con su IA (los límites de Gemini y ChatGPT suelen ser momentáneos); si no, Claude ocupa su puesto y se guarda el motivo
           const pr = P.propuesta(job, c, out, id, otros);
+          await nota(`${nombres[id]} prepara su propuesta con ${({ gemini: 'Gemini', chatgpt: 'ChatGPT', claude: 'Claude' })[quien[id]]}`);
           let t = null, via = quien[id], error = null;
           for (let k = 0; k < 3 && !t; k++) {
             try { t = await pensar(env, quien[id], pr, { rapido: true, sinSustituto: true }); } catch (e) { error = String(e.message || e).slice(0, 240); }
-            if (!t && k < 2) await new Promise(r => setTimeout(r, k ? 25000 : 8000));
+            if (!t && k < 2) { await nota(`${nombres[id]}: su IA no responde (${error || 'sin respuesta'}). Reintento ${k + 2} de 3…`); await new Promise(r => setTimeout(r, k ? 25000 : 8000)); }
           }
           if (!t && quien[id] !== 'claude') { t = await claude(env, pr, true, false).catch(() => null); if (t) via = 'claude'; }
           transcript.push({ who: id, round: 1, text: String(t || `(${nombres[id]} no ha podido conectar con su IA.)`).trim().replace(/^(Lía|Rui|Sam)\s*:\s*/i, ''), via: t ? via : 'error', error: via !== quien[id] || !t ? error : null });
         }
         const debate = transcript.map(m => `${nombres[m.who]}: ${m.text}`).join('\n');
+        await nota('Sam redacta el acuerdo de la mesa');
         const result = jsonDe(await claude(env, P.acuerdo(job, c, out, debate), false, false)) || { acuerdo: 'La mesa no ha podido cerrar un acuerdo. Seguimos con el tema tal cual.', tema_final: job.topic };
         const r = { transcript, result };
         await guardar('guion', { estudio: r });
@@ -588,12 +597,14 @@ export class Pedido extends WorkflowEntrypoint {
       const pz = mesa.result.puntuaciones || {};
       out.estudioTxt = `ACUERDO: ${mesa.result.acuerdo}\nTema final: ${out.tema}\nÁngulo: ${mesa.result.angulo || ''}\nGancho: ${mesa.result.gancho || ''}\nPromesa: ${mesa.result.promesa || ''}\nPúblico: ${mesa.result.publico || ''}\nDuración ideal: ${mesa.result.duracion_ideal || ''}\nViral ${pz.viral ?? '?'}/100 · Rentabilidad ${pz.rentabilidad ?? '?'}/100`;
       // 3. Nora: guion completo con Claude e investigación en internet
-      out.guion = await step.do('guion', R, async () => {
+      out.guion = await sd('guion', R, async () => {
+        await nota('Nora escribe el guion con búsqueda en internet (el paso más largo: 5-15 minutos)');
         let t = await claude(env, P.guion(job, c, out), false, true);
         if (!t || t.length < 500) throw new Error('Guion demasiado corto');
         // La locución debe rondar las 3.500 palabras: si se queda corta, Nora amplía el guion (hasta 2 veces)
         for (let k = 0; k < 2 && palabras(locucionLimpia(t)) < 3200; k++) {
           const n = palabras(locucionLimpia(t));
+          await nota(`Nora amplía el guion: tiene ${n} palabras y hacen falta unas 3.500`);
           const mas = await claude(env, `${c.formacion.nora}\n${c.normas}\n${c.canal}\nEste guion de «${out.tema}» tiene ${n} palabras de locución y necesita unas 3.500 (entre 3.300 y 3.800). Reescríbelo COMPLETO con exactamente el mismo formato (GUION DE EDICIÓN por bloques con LOCUCIÓN, IMAGEN, TEXTO EN PANTALLA y SONIDO; después FUENTES y AFIRMACIONES A VERIFICAR). Amplía los bloques más flojos con contexto verificado, detalle, tensión y transiciones; añade bloques si hace falta y recalcula los minutos. No inventes datos ni cambies los hechos.\n\nGUION ACTUAL:\n${t}`, false, false).catch(() => null);
           if (mas && palabras(locucionLimpia(mas)) > n) t = mas; else break;
         }
@@ -601,10 +612,10 @@ export class Pedido extends WorkflowEntrypoint {
         return t;
       });
       // Iris: verificación de datos con búsqueda en internet
-      out.verifica = await step.do('verifica', R, async () => { const t = c.formacion.iris ? await claude(env, P.verifica(job, c, out), false, true) : ''; await guardar('miniaturas', { verifica: t }); return t; });
+      out.verifica = await sd('verifica', R, async () => { const t = c.formacion.iris ? await claude(env, P.verifica(job, c, out), false, true) : ''; await guardar('miniaturas', { verifica: t }); return t; });
       // 4. Gema: ideas de miniatura y después las 3 imágenes con Gemini
-      out.miniaturas = await step.do('miniaturas', R, async () => { const d = jsonDe(await pensar(env, 'gemini', P.miniaturas(job, c, out), { json: true })); if (!d?.conceptos) throw new Error('Miniaturas sin formato'); await guardar('titulos', { miniaturas: d }); return d; });
-      out.imagenes = await step.do('imagenes', { retries: { limit: 1, delay: '20 seconds' }, timeout: '10 minutes' }, async () => {
+      out.miniaturas = await sd('miniaturas', R, async () => { const d = jsonDe(await pensar(env, 'gemini', P.miniaturas(job, c, out), { json: true })); if (!d?.conceptos) throw new Error('Miniaturas sin formato'); await guardar('titulos', { miniaturas: d }); return d; });
+      out.imagenes = await sd('imagenes', { retries: { limit: 1, delay: '20 seconds' }, timeout: '10 minutes' }, async () => {
         const res = { ok: [], error: null };
         for (const [i, x] of (out.miniaturas.conceptos || []).slice(0, 3).entries()) {
           try {
@@ -617,11 +628,11 @@ export class Pedido extends WorkflowEntrypoint {
         return res;
       });
       // 5. Tito: títulos y SEO
-      out.titulos = await step.do('titulos', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.titulos(job, c, out), { json: true })); if (!d?.titulos) throw new Error('Títulos sin formato'); await guardar('pretest', { titulos: d }); return d; });
+      out.titulos = await sd('titulos', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.titulos(job, c, out), { json: true })); if (!d?.titulos) throw new Error('Títulos sin formato'); await guardar('pretest', { titulos: d }); return d; });
       // 6. Rui: versión definitiva de título y miniatura
-      out.pretest = await step.do('pretest', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out), { json: true })); if (!d?.ganador) throw new Error('Test de CTR sin formato'); await guardar('brief', { pretest: d }); return d; });
+      out.pretest = await sd('pretest', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out), { json: true })); if (!d?.ganador) throw new Error('Test de CTR sin formato'); await guardar('brief', { pretest: d }); return d; });
       // 7. Paco: pedido para Pixelido
-      await step.do('brief', R, async () => { const t = await claude(env, P.brief(job, c, out), false, false); await guardar('listo', { brief: t }); return true; });
+      await sd('brief', R, async () => { const t = await claude(env, P.brief(job, c, out), false, false); await guardar('listo', { brief: t }); return true; });
     } catch (e) {
       const cur = JSON.parse((await env.DATOS.get(key)) || '{}');
       cur.estado = 'error'; cur.error = String(e.message || e).slice(0, 300); cur.upd = Date.now();
@@ -653,6 +664,12 @@ async function pedidoEstado(env, b) {
     const l = await env.DATOS.list({ prefix: 'pv:', cursor });
     for (const k of l.keys) {
       const r = JSON.parse((await env.DATOS.get(k.name)) || 'null'); if (!r) continue;
+      if (r.estado !== 'listo' && r.estado !== 'error' && env.PEDIDO && Date.now() - (r.upd || 0) > 120000) {
+        try {
+          const st = await (await env.PEDIDO.get(k.name.replace(/:/g, '-'))).status();
+          if (['errored', 'terminated'].includes(st.status)) { r.estado = 'error'; r.error = String(st.error?.message || st.error || st.status).slice(0, 300); r.upd = Date.now(); await env.DATOS.put(k.name, JSON.stringify(r)); }
+        } catch (e) {}
+      }
       videos.push(conocidos[k.name] === r.upd ? { key: k.name, upd: r.upd, igual: true } : r);
     }
     cursor = l.list_complete ? null : l.cursor;
