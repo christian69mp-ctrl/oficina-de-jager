@@ -409,7 +409,7 @@ body[data-nivel="p1"] [data-vn="p2"], body[data-nivel="p2"] [data-vn="p1"], body
     </section>
 
     <section data-tabs="trabajo">
-      <h2>Encargos <small id="stats">0 hechos</small></h2>
+      <h2>Encargos <small id="stats">0 hechos</small> <button type="button" class="btn small" id="borrarFallidos" hidden>Eliminar fallidos</button></h2>
       <div class="jobs" id="jobs"></div>
     </section>
 
@@ -2428,7 +2428,8 @@ IMAGEN: qué se ve (archivo, foto, mapa, documento, metraje, recreación 3D marc
 TEXTO EN PANTALLA: cada rótulo exacto entre comillas «…» y cuándo aparece (cita la frase de la locución que lo dispara: fecha, lugar, nombre con cargo, cifra clave, cita textual), o «ninguno».
 SONIDO: música o efecto (tensión, silencio, golpe, cambio de tema) o «sigue».
 2. FUENTES — informes oficiales, sentencias, libros o artículos que respaldan los datos; si no estás seguro de una, márcala [VERIFICAR].
-3. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.`,
+3. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.
+RETENCIÓN (objetivo del jefe: que al menos el 60 % siga viendo a los 30 segundos y que la retención media sea la máxima posible): empieza en los primeros 15 segundos con la escena de mayor tensión del caso, deja clara la promesa del vídeo antes del segundo 30, abre una pregunta o bucle nuevo cada 2-3 minutos y ciérralo más adelante, cambia de ritmo a menudo, nada de introducciones lentas ni saludos, y avanza de los hechos menores al clímax.`,
   },
   miniaturas: {
     json: true,
@@ -2465,7 +2466,7 @@ ${(j.titles || []).map((t, i) => `${i + 1}. ${t}`).join('\n')}
 Conceptos de miniatura de Gema:
 ${(j.concepts || []).map((c, i) => `${'ABC'[i]}: texto «${c.texto}» · ${c.escena} · ${c.emocion} · prompt: ${c.prompt_imagen || ''}`).join('\n') || '(sin conceptos de miniatura)'}
 Historial de la oficina (previsto y real): ${historyTxt()}
-Elige o mejora la mejor combinación (puedes ajustar el título o el prompt) y estima su CTR de forma orientativa. Explica las 2 alternativas descartadas en una frase. Entrega además los 3 TÍTULOS FINALES para el jefe: el ganador primero y dos alternativas fuertes y distintas entre sí, listos para copiar.
+Elige o mejora la mejor combinación (puedes ajustar el título o el prompt) y estima su CTR de forma orientativa. Explica las 2 alternativas descartadas en una frase. OBJETIVO OBLIGATORIO DEL JEFE: CTR estimado de al menos el 5 % (porcentaje real de YouTube; sé creíble, sin clickbait engañoso). Entrega además los 3 TÍTULOS FINALES para el jefe: el ganador primero y dos alternativas fuertes y distintas entre sí, listos para copiar.
 Devuelve SOLO JSON: {"titulos_finales":["título ganador","alternativa 2","alternativa 3"],"promesa":"promesa central del vídeo","ganador":{"titulo":"título final","miniatura":"A|B|C","texto_miniatura":"texto exacto","prompt_gemini":"prompt final para copiar","ctr_estimado":número},"como_funcionan_juntos":"...","riesgo":"riesgo principal de interpretación","checklist":["¿Se entiende a 160 px?","..."],"descartadas":["..."]}`,
     format: (d, j) => { j.winner = d.ganador; j.titulos3 = [...new Set([d.ganador?.titulo, ...(d.titulos_finales || []), ...(j.titles || [])].filter(Boolean).map(t => String(t).trim()))].slice(0, 3); return `LOS 3 TÍTULOS (el primero es el recomendado)
 ${j.titulos3.map((t, i) => `${i + 1}. ${t}`).join('\n')}
@@ -2675,12 +2676,12 @@ const PERSONA = {
   sam: FORMACION.sam.replace(/^Eres /, ''),
 };
 const GOAL = {
-  estudio: 'el mejor enfoque para el vídeo: que sea viral, que la gente haga clic, que se quede hasta el final y que sea rentable',
+  estudio: 'el mejor enfoque para el vídeo: que sea viral, que la gente haga clic (objetivo del jefe: CTR de al menos el 5 %), que se quede (objetivo: al menos el 60 % sigue a los 30 segundos) y que sea rentable',
   eleccion: 'qué tema producir primero entre los candidatos: el más viral y rentable para el canal',
   plan: 'el plan para subir el CTR y la retención y escalar el canal al máximo',
 };
 const SCHEMA = {
-  estudio: '{"acuerdo":"1-2 frases para decir en voz alta","tema_final":"título de trabajo","angulo":"...","gancho":"primera frase exacta del vídeo","promesa":"qué gana el espectador","publico":"...","duracion_ideal":"x-y min","mejor_momento":"día y hora","puntuaciones":{"viral":0-100,"ctr_estimado":número,"retencion_30s":número,"rentabilidad":0-100},"monetizacion":["2-3 formas de ganar dinero con este vídeo"],"riesgos":["..."],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
+  estudio: '{"acuerdo":"1-2 frases para decir en voz alta","tema_final":"título de trabajo","angulo":"...","gancho":"primera frase exacta del vídeo","promesa":"qué gana el espectador","publico":"...","duracion_ideal":"x-y min","mejor_momento":"día y hora","puntuaciones":{"viral":0-100,"ctr_estimado":"número en % real de YouTube (normal 2-10; objetivo ≥ 5)","retencion_30s":"número en % de espectadores que siguen a los 30 s (normal 50-80; objetivo ≥ 60)","rentabilidad":0-100},"monetizacion":["2-3 formas de ganar dinero con este vídeo"],"riesgos":["..."],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
   eleccion: '{"acuerdo":"1-2 frases para decir en voz alta","ranking":[{"tema":"...","angulo":"...","viral":0-100,"rentabilidad":0-100,"total":0-100,"por_que":"una frase","formato":"largo|short"}],"votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}} con todos los candidatos ordenados de mejor a peor',
   plan: '{"acuerdo":"2 frases para el jefe","buen_resultado":true|false,"por_que_funciono":"si fue buen resultado: la causa concreta (tema, gancho, miniatura, título, ritmo…); si no, vacío","merito":{"trabajador":"lia|nora|gema|tito|rui|paco|sam o vacío si no fue buen resultado","motivo":"qué hizo exactamente"},"tambien":["otros trabajadores que ayudaron"],"acciones":["5 acciones concretas y priorizadas"],"lecciones":["1-3 reglas nuevas y cortas para el manual del canal que no repitan las que ya hay; si fue buen resultado, la primera es lo que hay que repetir siempre"],"escalar":"cómo escalar: serie, shorts, frecuencia y monetización","siguiente_video":"idea concreta","votos":{"lia":"a favor|con matices|en contra","rui":"...","sam":"..."}}',
 };
@@ -2897,6 +2898,9 @@ function faltasEntrega(job) {
   if (job.step('guion')?.output?.via !== 'error' && n < 3000) f.push(`Guion (solo ${n} palabras de locución; hacen falta unas 3.500)`);
   const imgs = (job.realThumbs || []).filter(Boolean).length; if (imgs < 3) f.push(`Miniaturas (${imgs} de 3 imágenes hechas)`);
   if ((job.titulos3 || []).length < 3) f.push('3 títulos');
+  const ctr = parseFloat(job.winner?.ctr_estimado), ret = parseFloat(job.study?.puntuaciones?.retencion_30s);
+  if (!(ctr >= 5)) f.push(`CTR estimado ${isNaN(ctr) ? 'sin calcular' : ctr + ' %'} (objetivo: 5 % o más)`);
+  if (!(ret >= 60)) f.push(`Retención a los 30 s ${isNaN(ret) ? 'sin calcular' : ret + ' %'} (objetivo: 60 % o más)`);
   return f;
 }
 function packageText(job) {
@@ -3086,12 +3090,13 @@ function applyServerRec(rec) {
   if (rec.estado === 'listo' && job.status === 'en curso') {
     job.status = 'esperando'; job.step('ok').state = 'cola';
     revisarEntrega(job);
+    directorSay(job.fallos.length ? `Jefe, el vídeo «${job.short}» ha terminado, pero falta: ${job.fallos.join(', ')}.` : `Jefe, el vídeo «${job.short}» del pedido ${job.pedido} está listo: guion, tres miniaturas y tres títulos. Revísalo y apruébalo cuando quieras.`, 'habla', undefined, true);
     log(job.fallos.length ? `⚠ Vídeo <b>${esc(job.short)}</b> del pedido ${esc(job.pedido)} terminado, pero falta: ${esc(job.fallos.join(', '))}` : `Vídeo <b>${esc(job.short)}</b> del pedido ${esc(job.pedido)} listo para tu aprobación`);
     WORKERS.forEach(w => { if (agents[w.id] && !agents[w.id].busy()) agents[w.id].setStatus('Libre'); });
   }
   if (rec.estado === 'error' && job.status === 'en curso' && !A.error) {
     A.error = true; job.serverAviso = { paso: 'pedido', error: rec.error || 'error' }; log(`⚠ El vídeo <b>${esc(job.short)}</b> se ha parado en el servidor: ${esc(rec.error || 'error')}`);
-    directorSay(`Jefe, el vídeo «${job.short}» se ha parado en el servidor: ${rec.error || 'error desconocido'}. Mira el diagnóstico en Ajustes.`, 'aviso');
+    directorSay(/credit balance/i.test(rec.error || '') ? 'Jefe, me he quedado sin saldo de Claude y así no puedo pensar ni poner al equipo a trabajar. Recarga en console.anthropic.com, en Billing, y seguimos.' : `Jefe, el vídeo «${job.short}» se ha parado en el servidor: ${rec.error || 'error desconocido'}. Mira el diagnóstico en Ajustes.`, 'habla', undefined, true);
   }
 }
 const pedidoSeen = {};
@@ -3229,7 +3234,8 @@ async function srvFetch(path, body) {
   if (!r.ok) throw new Error(d.error || 'El servidor respondió ' + r.status);
   return d;
 }
-async function askServer(ai, prompt, tier, buscar) { try { return (await srvFetch('/texto', { ia: ai, prompt, rapido: tier === 'quick', buscar: !!buscar })).texto || null; } catch (e) { log('Servidor: ' + esc(e.message)); return null; } }
+let claudeSinSaldo = false;
+async function askServer(ai, prompt, tier, buscar) { try { const t = (await srvFetch('/texto', { ia: ai, prompt, rapido: tier === 'quick', buscar: !!buscar })).texto || null; if (ai === 'claude' && t) claudeSinSaldo = false; return t; } catch (e) { if (ai === 'claude' && /credit balance|insufficient|no credits/i.test(e.message)) claudeSinSaldo = true; log('Servidor: ' + esc(e.message)); return null; } }
 async function askServerImage(prompt) { const d = await srvFetch('/imagen', { prompt }); return d.base64 ? `data:${d.mime || 'image/png'};base64,${d.base64}` : null; }
 // ---------- YouTube Studio ----------
 const ytReady = () => serverReady() && !!srv.caps.youtube;
@@ -3313,6 +3319,15 @@ function renderConn() {
   if (!hasRuntime) { if (document.activeElement !== $('#srvUrl')) $('#srvUrl').value = srv.url; if (srv.msg) st($('#srvState'), srv.msg, srv.ok); }
 }
 $('#driveBtn').onclick = chooseFolder;
+// Encargos fallidos: los que no se pueden aprobar, los parados en el servidor y los que se repitieron
+const esFallido = j => j.status === 'rehecho' || (j.status === 'esperando' && j.fallos?.length) || j.serverAviso?.paso === 'pedido' || (j.status === 'en curso' && !j.server && j.steps.some(s => s.output?.via === 'error'));
+setInterval(() => { const n = jobs.filter(esFallido).length, b = $('#borrarFallidos'); if (b) { b.hidden = !n; b.textContent = `Eliminar fallidos (${n})`; } }, 800);
+$('#borrarFallidos').onclick = () => {
+  const malos = jobs.filter(esFallido); if (!malos.length) return;
+  if (!confirm(`¿Eliminar ${malos.length} ${malos.length === 1 ? 'encargo fallido' : 'encargos fallidos'}? No se borra nada de Drive.`)) return;
+  for (const j of malos) { if (j.server) srvFetch('/pedido/olvidar', { key: j.server }).catch(() => {}); jobs.splice(jobs.indexOf(j), 1); }
+  log(`Eliminados ${malos.length} encargos fallidos`); markDirty();
+};
 $('#driveOrdenar').onclick = ordenarCarpetas;
 // ---------- Puntos del mes: 3 al trabajador con el mérito y 1 a quien ayudó ----------
 const mesClave = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
@@ -3475,10 +3490,11 @@ async function handleMessage(text, o = { voz: true }) {
   thinking = false;
   rememberChat('Jager', text); if (r.respuesta) rememberChat('Nyx', r.respuesta);
   if (r.tipo === 'charla') {
-    directorSay(r.respuesta || 'Para hablar contigo de verdad necesito estar conectada a Claude, jefe. Conecta el servidor en «Conexiones».', 'habla', undefined, !!(o.voz && r.respuesta));
+    directorSay(r.respuesta || (claudeSinSaldo ? 'Jefe, me he quedado sin saldo de Claude y así no puedo pensar ni poner al equipo a trabajar. Recarga en console.anthropic.com, en Billing, y seguimos.' : 'Ahora mismo no puedo pensar con Claude, jefe. Mira el diagnóstico en Ajustes y vuelve a preguntarme.'), 'habla', undefined, true);
     log(`Hablas con Nyx: «${esc(text)}»`);
     return;
   }
+  if (!r.respuesta && claudeSinSaldo) { directorSay('Jefe, me he quedado sin saldo de Claude y así no puedo pensar ni poner al equipo a trabajar. Recarga en console.anthropic.com, en Billing, y seguimos.', 'habla', undefined, true); return; }
   if (r.tipo === 'tendencias') { newOrder('radar', r.tema || 'Temas virales para el canal', { reply: r.respuesta, voz: o.voz }); return; }
   newOrder(r.tipo, r.tema, { reply: r.respuesta, voz: o.voz });
 }
@@ -3492,7 +3508,8 @@ const REPLIES = {
   cripto: 'Hecho. Ciro lo mira en la Sala Cripto con los datos de BOTRADE y del mercado.',
 };
 function newOrder(type, topic, o = {}) {
-  if (brainState !== 'lista') { directorSay('No puedo poner al equipo a trabajar sin IA conectada, jefe. Conecta el servidor en «Conexiones» y empezamos.', 'aviso'); return null; }
+  if (brainState !== 'lista') { directorSay('No puedo poner al equipo a trabajar sin IA conectada, jefe. Conecta el servidor en «Conexiones» y empezamos.', 'habla', undefined, true); return null; }
+  if (claudeSinSaldo) { directorSay('Jefe, me he quedado sin saldo de Claude y así no puedo pensar ni poner al equipo a trabajar. Recarga en console.anthropic.com, en Billing, y seguimos.', 'habla', undefined, true); return null; }
   const flow = FLOWS[type];
   const job = {
     channelId: o.channelId || store.active, pedido: o.pedido || null,
@@ -3628,7 +3645,7 @@ function arriveDirector(job) {
   } else if (job.fallos.length) {
     job.status = 'esperando'; ok.state = 'cola';
     const lista = job.fallos.join(', ');
-    directorSay(`Jefe, el encargo «${job.short}» todavía no está completo: ${lista}. No se puede aprobar hasta que esté todo.`, 'aviso');
+    directorSay(`Jefe, el encargo «${job.short}» todavía no está completo: ${lista}. No se puede aprobar hasta que esté todo.`, 'habla', undefined, true);
     log(`⚠ Encargo <b>#${job.id}</b> con pasos fallidos: ${esc(lista)}. No se puede aprobar.`);
   } else {
     job.status = 'esperando'; ok.state = 'cola';
@@ -3637,7 +3654,7 @@ function arriveDirector(job) {
       : `Jefe, «${job.short}» está programado y revisado. ¿Lo apruebas?`;
     nyxSay(job.type === 'video'
       ? `El paquete del vídeo «${job.short}» está listo${job.winner?.titulo ? `; título ganador «${job.winner.titulo}»` : ''}${job.winner?.ctr_estimado ? ` y Rui estima un CTR del ${job.winner.ctr_estimado}%` : ''}. Pide al jefe que lo revise y lo apruebe para que Paco lo lleve a Pixelido.`
-      : `El proyecto «${job.short}» está programado por Leo y revisado por Vera. Pide al jefe que lo apruebe.`, fb);
+      : `El proyecto «${job.short}» está programado por Leo y revisado por Vera. Pide al jefe que lo apruebe.`, fb, undefined, undefined, true);
     setTimeout(() => setFan('listo', true), 6000);
     log(`Encargo <b>#${job.id}</b> esperando tu aprobación`);
   }
@@ -3900,7 +3917,7 @@ document.addEventListener('click', e => {
   const an = e.target.closest('[data-analysis]'); if (an) return openAnalysis(an.dataset.analysis);
   const dl = e.target.closest('[data-dellesson]'); if (dl) { store.lecciones.splice(+dl.dataset.dellesson, 1); return store.saveManual(); }
   const fo = e.target.closest('[data-focus]'); if (fo) return focusOn(fo.dataset.focus);
-  const od = e.target.closest('[data-order]'); if (od) return handleMessage(od.dataset.order, { voz: false });
+  const od = e.target.closest('[data-order]'); if (od) return handleMessage(od.dataset.order, { voz: true });
   const vw = e.target.closest('[data-view]'); if (vw) return setView(vw.dataset.view);
   const sp = e.target.closest('[data-speed]'); if (sp) { speed = +sp.dataset.speed; $$('[data-speed]').forEach(b => b.setAttribute('aria-pressed', b === sp)); }
 });
