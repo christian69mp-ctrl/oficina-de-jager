@@ -2891,6 +2891,15 @@ function locucionLimpia(g) {
   }
   return partes.map(p => p.join('\n').trim()).filter(Boolean).join('\n\n');
 }
+// Consumo de un vídeo en el servidor, en una línea: tokens por modelo, búsquedas e imágenes
+function textoUso(u) {
+  if (!u) return '';
+  const k = n => n >= 1000 ? Math.round(n / 1000) + ' mil' : String(n);
+  const nombre = m => /opus/.test(m) ? 'Claude Opus' : /sonnet/.test(m) ? 'Claude Sonnet' : /haiku/.test(m) ? 'Claude Haiku' : /gemini/.test(m) ? 'Gemini' : /gpt/.test(m) ? 'ChatGPT' : m;
+  const partes = Object.entries(u).filter(([m]) => m !== 'imagenes').map(([m, v]) => `${nombre(m)}: ${k(v.entrada)} tokens de entrada y ${k(v.salida)} de salida${v.busquedas ? `, ${v.busquedas} búsquedas` : ''}`);
+  if (u.imagenes?.llamadas) partes.push(`${u.imagenes.llamadas} imágenes de Gemini`);
+  return partes.join(' · ');
+}
 const contarPalabras = t => (String(t || '').match(/\S+/g) || []).length;
 // Lo que el jefe exige en cada entrega: guion de ~3.500 palabras, 3 miniaturas hechas y 3 títulos
 function faltasEntrega(job) {
@@ -3060,7 +3069,7 @@ function serverJob(rec) {
 function applyServerRec(rec) {
   const job = serverJob(rec), out = rec.out || {}, A = job.applied;
   // Qué está haciendo el servidor ahora mismo, y el error si un paso se está reintentando
-  job.serverNota = rec.nota || null; job.serverUpd = rec.upd || null; job.serverAviso = rec.aviso || null;
+  job.serverNota = rec.nota || null; job.serverUpd = rec.upd || null; job.serverAviso = rec.aviso || null; job.uso = rec.uso || job.uso || null;
   if (rec.aviso && A.avisoAt !== rec.aviso.at) { A.avisoAt = rec.aviso.at; log(`⚠ Servidor · <b>${esc(job.short)}</b> · el paso «${esc(rec.aviso.paso)}» ha fallado y se reintenta solo: ${esc(rec.aviso.error)}`); }
   const setOut = (id, output) => { const st = job.step(id); st.output = output; st.state = 'hecho'; st.progress = 1; A[id] = true; };
   if ('vidiq' in out && !A.vidiq) setOut('vidiq', out.vidiq ? { kind: 'text', text: out.vidiq, via: 'vidiq' } : SPECS.vidiq.fallback());
@@ -3754,7 +3763,7 @@ function renderJobs() {
   if (!jobs.length) { boxEl.innerHTML = '<div class="empty">Todavía no hay encargos. Pide «Busca temas virales», «Prepara un vídeo sobre…» o «Proyecto: …», y Nyx lo repartirá entre el equipo.</div>'; }
   else boxEl.innerHTML = jobs.slice(0, 12).map(j => `
     <article class="job ${['esperando', 'elige'].includes(j.status) ? 'wait' : ''}">
-      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>${j.server && j.status === 'en curso' ? `<div class="srv-nota">${j.serverAviso ? (j.serverAviso.paso === 'pedido' ? `<span class="diag-err">⚠ Parado en el servidor: ${esc(j.serverAviso.error)}</span> <button type="button" class="btn small" data-relanzar="${j.id}">Volver a lanzar este vídeo</button><br>` : `<span class="diag-err">⚠ Reintentando «${esc(j.serverAviso.paso)}»: ${esc(j.serverAviso.error)}</span><br>`) : ''}${j.serverNota ? 'Ahora: ' + esc(j.serverNota) : 'Trabajando en el servidor'}${j.serverUpd ? ` · último avance hace ${Math.max(0, Math.round((Date.now() - j.serverUpd) / 60000))} min` : ''}</div>` : ''}${j.fallos?.length && j.status === 'esperando' ? `<div class="job-warn">⚠ Falta o falló: ${esc(j.fallos.join(', '))}. No se puede aprobar todavía.${j.fallos.some(f => /^Miniaturas/.test(f)) && !j.fallos.some(f => !/^Miniaturas/.test(f)) ? ` <button type="button" class="btn small" data-rehacer-mini="${j.id}"${j.rehaciendo ? ' disabled' : ''}>${j.rehaciendo ? 'Creando miniaturas…' : 'Crear las miniaturas otra vez'}</button>` : ' Pulsa «Pedir cambios» para repetirlo.'}</div>` : ''}
+      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>${j.server && j.status === 'en curso' ? `<div class="srv-nota">${j.serverAviso ? (j.serverAviso.paso === 'pedido' ? `<span class="diag-err">⚠ Parado en el servidor: ${esc(j.serverAviso.error)}</span> <button type="button" class="btn small" data-relanzar="${j.id}">Volver a lanzar este vídeo</button><br>` : `<span class="diag-err">⚠ Reintentando «${esc(j.serverAviso.paso)}»: ${esc(j.serverAviso.error)}</span><br>`) : ''}${j.serverNota ? 'Ahora: ' + esc(j.serverNota) : 'Trabajando en el servidor'}${j.uso ? '<br><small>Consumo: ' + esc(textoUso(j.uso)) + '</small>' : ''}${j.serverUpd ? ` · último avance hace ${Math.max(0, Math.round((Date.now() - j.serverUpd) / 60000))} min` : ''}</div>` : ''}${j.server && j.status !== 'en curso' && j.uso ? `<div class="srv-nota"><small>Consumo de este vídeo: ${esc(textoUso(j.uso))}</small></div>` : ''}${j.fallos?.length && j.status === 'esperando' ? `<div class="job-warn">⚠ Falta o falló: ${esc(j.fallos.join(', '))}. No se puede aprobar todavía.${j.fallos.some(f => /^Miniaturas/.test(f)) && !j.fallos.some(f => !/^Miniaturas/.test(f)) ? ` <button type="button" class="btn small" data-rehacer-mini="${j.id}"${j.rehaciendo ? ' disabled' : ''}>${j.rehaciendo ? 'Creando miniaturas…' : 'Crear las miniaturas otra vez'}</button>` : ' Pulsa «Pedir cambios» para repetirlo.'}</div>` : ''}
       <div class="steps">${j.steps.map(s => {
         const inner = `<span>${s.label} · ${stepOwner(s, j)}</span>`;
         return s.output
