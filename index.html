@@ -2421,6 +2421,7 @@ Lecciones del manual de la oficina (aplícalas):
 ${lessonsTxt()}
 El jefe pide este formato y esta extensión: si las reglas del estudio dicen otra cosa, manda esto.
 Escribe el GUION completo del vídeo, listo para locutar y para que Pixelido lo edite sin dudas. Extensión: unas 3.500 palabras de locución (entre 3.300 y 3.800, unos 22-24 minutos). Si faltan datos verificados, completa con contexto, recapitulaciones, transiciones, cliffhangers y pasajes de tono, nunca con datos inventados.
+Empieza directamente por «1. GUION DE EDICIÓN»: sin notas, recomendaciones ni comentarios previos, y sin mencionar archivos ni nombres de fichero.
 Entrega en texto plano, sin markdown, con estas partes y estos títulos exactos:
 1. GUION DE EDICIÓN — el vídeo completo de principio a fin, dividido en bloques de 30 a 90 segundos. Cada bloque empieza con una línea así: [B1 · 0:00–0:40 · GANCHO] y debajo, siempre en este orden y con estas etiquetas:
 LOCUCIÓN: el texto exacto que se lee en voz alta en ese bloque, en párrafos completos (aquí va TODO el texto locutado del vídeo, sin notas).
@@ -3072,6 +3073,7 @@ function applyServerRec(rec) {
     for (const m of transcript) if (m.error || m.via === 'error') log(`Mesa de <b>${esc(job.short)}</b>: ${NAME(m.who)} no pudo usar ${AI[agents[m.who].def.ai].name}${m.via === 'claude' ? ' y la sustituyó Claude' : ''}${m.error ? ' · ' + esc(m.error) : ''}`);
   }
   if (out.guion && !A.guion) setOut('guion', { kind: 'text', text: out.guion, via: 'claude' });
+  if (out.corregido && A.guion && !A.corregido) { A.corregido = true; job.step('guion').output = { kind: 'text', text: out.guion, via: 'claude' }; log(`Nora ha aplicado al guion de <b>${esc(job.short)}</b> las correcciones de Iris`); if (job.status === 'esperando') revisarEntrega(job); }
   if (out.verifica && !A.verifica) setOut('verifica', { kind: 'text', text: out.verifica, via: 'claude' });
   if (out.miniaturas && !A.miniaturas) { SPECS.miniaturas.format(out.miniaturas, job); setOut('miniaturas', thumbsOutput(job, 'gemini')); }
   if (out.imagenes && A.miniaturas && !A.imagenes) { A.imagenes = true; cargarMiniaturasServidor(job, out.imagenes); }
