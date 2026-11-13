@@ -251,6 +251,12 @@ button.step { font: inherit; font-size: 11.5px; }
 .diag td:first-child { width: 22px; }
 .diag-err { color: #f6a6a6; } .diag-ok { color: #4ade80; }
 .srv-nota { margin: 6px 0; font-size: 12px; color: var(--muted, #9aa6c4); }
+.ped-modo { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: grid; gap: 6px; }
+.ped-modo legend { font-size: 12px; padding: 0 4px; color: var(--muted, #9aa6c4); }
+.ped-modo .toggle { align-items: flex-start; gap: 8px; font-size: 13px; }
+.guion-box { margin: 8px 0; padding: 10px; border-radius: 8px; border: 1px solid #a78bfa; background: color-mix(in srgb, #a78bfa 10%, transparent); font-size: 13px; display: grid; gap: 8px; }
+.guion-box ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+#guionPegado { width: 100%; min-height: 220px; font: 13px/1.5 Georgia, serif; }
 .job-warn { margin: 6px 0; padding: 7px 9px; border-radius: 8px; border: 1px solid #f87171; color: #fecaca; background: color-mix(in srgb, #f87171 12%, transparent); font-size: 12.5px; }
 .ruleta-card { border-color: color-mix(in srgb, #ff4d6d 45%, var(--line)); }
 .cripto-card { border-color: color-mix(in srgb, #f7b955 45%, var(--line)); }
@@ -1038,7 +1044,7 @@ const board = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.5), new THREE.MeshBa
 function drawBoard() {
   const g = boardTex.image.getContext('2d'), W = 1360, H = 640;
   g.fillStyle = '#eef1f7'; g.fillRect(0, 0, W, H);
-  const cols = [['POR HACER', j => j.status === 'esperando' || j.status === 'elige'], ['EN CURSO', j => j.status === 'en curso' || j.status === 'enviando'], ['HECHO', j => ['enviado', 'aprobado'].includes(j.status)]];
+  const cols = [['POR HACER', j => j.status === 'esperando' || j.status === 'elige' || j.status === 'guion'], ['EN CURSO', j => j.status === 'en curso' || j.status === 'enviando'], ['HECHO', j => ['enviado', 'aprobado'].includes(j.status)]];
   cols.forEach(([c, f], i) => {
     const x = 30 + i * 450; g.fillStyle = '#1b2440'; g.font = '700 46px "Chakra Petch", sans-serif'; g.fillText(c === 'POR HACER' ? 'TU APROBACIÓN' : c, x, 66);
     const list = jobs.filter(f).slice(0, 4);
@@ -3060,6 +3066,32 @@ async function cargarMiniaturasServidor(job, info) {
 }
 // Recalcula qué falta (pasos fallidos + guion de ~3.500 palabras, 3 miniaturas hechas y 3 títulos)
 function revisarEntrega(job) { job.fallos = [...job.steps.filter(s => s.output?.via === 'error').map(s => s.label), ...faltasEntrega(job)]; markDirty(); return job.fallos; }
+// Modo suscripción: copiar el encargo para la app de Claude
+async function copiarEncargo(job) {
+  try { await navigator.clipboard.writeText(job.encargoGuion); directorSay('Copiado, jefe. Pégalo en un chat nuevo de Claude y, cuando te dé el guion, pégalo aquí con el botón 3.', 'aviso'); log(`Encargo del guion de <b>${esc(job.short)}</b> copiado`); }
+  catch (e) {
+    const body = openModal('Encargo para Claude', 'Mantén pulsado el texto → Seleccionar todo → Copiar', false);
+    body.innerHTML = `<textarea id="encargoTxt" style="width:100%;min-height:260px" readonly>${esc(job.encargoGuion)}</textarea>`;
+    const t = $('#encargoTxt'); t.focus(); t.select();
+  }
+}
+// Modo suscripción: pegar el guion que ha escrito Claude y enviarlo a la oficina
+function pegarGuion(job) {
+  const body = openModal('Pega aquí el guion de Claude', 'Cópialo entero, desde «1. GUION DE EDICIÓN» hasta el final', false);
+  body.innerHTML = `<textarea id="guionPegado" placeholder="Pega aquí el guion completo…"></textarea><p class="note" id="guionCuenta">0 palabras de locución</p><div class="order-row"><button type="button" class="btn primary" id="guionEnviar">Enviar a la oficina</button></div>`;
+  const cuenta = () => { const t = String($('#guionPegado').value).replace(/\*\*|__/g, ''); const n = contarPalabras(locucionLimpia(t)), b = bloquesGuion(t).length; $('#guionCuenta').textContent = `${n} palabras de locución en ${b} bloques${n && n < 3000 ? ' · ojo: hacen falta unas 3.500' : ''}${t.trim() && !n ? ' · no encuentro «LOCUCIÓN:»: pide a Claude que respete el formato del encargo' : ''}`; };
+  $('#guionPegado').addEventListener('input', cuenta);
+  $('#guionEnviar').onclick = async () => {
+    const g = $('#guionPegado').value; if (!g.trim()) return;
+    $('#guionEnviar').disabled = true; $('#guionEnviar').textContent = 'Enviando…';
+    try {
+      const d = await srvFetch('/pedido/guion', { key: job.server, guion: g, ctx: pedidoCtx(job.channelId) });
+      $('#modal').hidden = true; job.status = 'en curso'; markDirty(); pedidoPoll();
+      log(`Guion de <b>${esc(job.short)}</b> recibido (${d.palabras} palabras): Iris lo verifica`);
+      directorSay(`Recibido, jefe: ${d.palabras} palabras. Iris lo verifica, Gema hace las miniaturas y Rui los títulos. Te aviso cuando esté.`, 'habla', undefined, true);
+    } catch (e) { $('#guionEnviar').disabled = false; $('#guionEnviar').textContent = 'Enviar a la oficina'; $('#guionCuenta').textContent = '⚠ ' + e.message; }
+  };
+}
 async function rehacerMiniaturas(job) {
   if (!serverReady()) return directorSay('Para crear las miniaturas hace falta el servidor conectado, jefe.', 'aviso');
   const cs = (job.concepts || []).slice(0, 3); if (!cs.length) return directorSay('No hay ideas de miniatura en este encargo: pulsa «Pedir cambios» para repetirlo.', 'aviso');
@@ -3146,6 +3178,10 @@ function applyServerRec(rec) {
       ids.forEach(id => agents[id]?.setStatus(st.debate ? 'En la mesa (servidor)' : (st.verb || st.label) + '… (servidor)', st.debate ? '#b38cff' : AI[agents[id].def.ai].color));
     }
   }
+  if (rec.estado === 'esperando_guion') {
+    job.encargoGuion = out.encargoGuion || job.encargoGuion;
+    if (job.status === 'en curso') { job.status = 'guion'; markDirty(); log(`El encargo del guion de <b>${esc(job.short)}</b> está listo para pegarlo en Claude`); directorSay(`Jefe, ya está preparado el encargo del guion de «${job.short}». Cópialo, pégalo en Claude y luego pega aquí el guion que te dé.`, 'habla', undefined, true); }
+  } else if (job.status === 'guion' && rec.estado === 'en curso') { job.status = 'en curso'; markDirty(); }
   if (rec.estado === 'listo' && job.status === 'en curso') {
     job.status = 'esperando'; job.step('ok').state = 'cola';
     revisarEntrega(job);
@@ -3167,7 +3203,7 @@ async function pedidoPoll() {
     markDirty();
   } catch (e) { log('Pedido: ' + esc(e.message)); }
 }
-setInterval(() => { if (jobs.some(j => j.server && j.status === 'en curso')) pedidoPoll(); }, 15000);
+setInterval(() => { if (jobs.some(j => j.server && (j.status === 'en curso' || j.status === 'guion'))) pedidoPoll(); }, 15000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pedidoPoll(); });
 function openPedido() {
   const body = openModal('Nuevo pedido para Pixelido', `Hasta 10 vídeos. Cada vídeo pasa por todo el equipo y, con vidIQ conectado, gasta unos 10 créditos de vidIQ (${serverReady() && srv.caps.vidiq ? 'vidIQ conectado' : 'vidIQ sin conectar: se hará sin sus datos'}).`, false);
@@ -3176,6 +3212,10 @@ function openPedido() {
   const opts = id => store.channels.map(c => `<option value="${esc(c.id)}"${c.id === id ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
   body.innerHTML = `<form id="pedidoForm" style="display:flex;flex-direction:column;gap:10px">
     <label class="field" for="pedCode">Código del pedido<input id="pedCode" value="${esc(nextPedidoCode())}"></label>
+    <fieldset class="ped-modo"><legend>¿Quién escribe el guion?</legend>
+      <label class="toggle"><input type="radio" name="pedModo" value="suscripcion" checked> <span><b>Yo, con mi plan de Claude</b> (recomendado: casi sin coste). La oficina prepara el encargo, tú lo pegas en Claude y luego pegas aquí el guion.</span></label>
+      <label class="toggle"><input type="radio" name="pedModo" value="auto"> <span><b>La oficina, sola</b> (más caro: usa la API de Claude).</span></label>
+    </fieldset>
     ${order.map((cid, i) => `<div class="field-row ped-row"><select id="pedCh${i}" aria-label="Canal del vídeo ${i + 1}">${opts(cid)}</select><input id="pedT${i}" placeholder="Vídeo ${i + 1}: tema (vacío = no se hace)" aria-label="Tema del vídeo ${i + 1}"></div>`).join('')}
     <p class="note${serverPedidos() ? '' : ' diag-err'}" id="pedErr">${serverPedidos() ? 'Trabaja en el servidor: puedes cerrar la oficina. Consejo: comprueba antes en «Ver ficha del canal» los temas ya cubiertos.' : 'Atención: el servidor no tiene el motor de pedidos, así que este pedido trabajará en este navegador. No cierres ni bloquees la pestaña hasta que termine, o mejor, arréglalo antes (Ajustes → Diagnóstico completo).'}</p>
     <div class="order-row"><button type="submit" class="btn primary">Lanzar pedido</button></div></form>`;
@@ -3188,7 +3228,7 @@ function openPedido() {
     $('#modal').hidden = true;
     if (serverPedidos()) {
       $('#pedErr').textContent = 'Enviando el pedido al servidor…';
-      srvFetch('/pedido/iniciar', { pedido: code, videos: filas.map(f => ({ topic: f.tema, channelId: f.ch, ctx: pedidoCtx(f.ch) })) })
+      srvFetch('/pedido/iniciar', { pedido: code, modo: document.querySelector('[name=pedModo]:checked')?.value || 'suscripcion', videos: filas.map(f => ({ topic: f.tema, channelId: f.ch, ctx: pedidoCtx(f.ch) })) })
         .then(() => { log(`Pedido <b>${esc(code)}</b> lanzado en el servidor: ${filas.length} vídeos. Puedes cerrar la oficina; seguirán trabajando.`); pedidoPoll(); })
         .catch(e => { directorSay('No he podido lanzar el pedido en el servidor: ' + e.message, 'aviso'); });
       $('#modal').hidden = true;
@@ -3522,7 +3562,7 @@ if (!hasRuntime && srv.url) testServer();
    ============================================================ */
 const jobs = [];
 let jobSeq = 0;
-const STATUS_TXT = { 'en curso': 'En marcha', esperando: 'Esperando tu aprobación', elige: 'Elige un tema para producirlo', enviando: 'Aprobado · Paco va hacia Pixelido', enviado: 'Entregado a Pixelido', aprobado: 'Terminado', rehecho: 'Rehaciendo con cambios' };
+const STATUS_TXT = { guion: 'Esperando tu guion (escríbelo con tu plan de Claude)', 'en curso': 'En marcha', esperando: 'Esperando tu aprobación', elige: 'Elige un tema para producirlo', enviando: 'Aprobado · Paco va hacia Pixelido', enviado: 'Entregado a Pixelido', aprobado: 'Terminado', rehecho: 'Rehaciendo con cambios' };
 
 function classify(text) {
   const l = text.toLowerCase();
@@ -3812,7 +3852,7 @@ function renderJobs() {
   if (!jobs.length) { boxEl.innerHTML = '<div class="empty">Todavía no hay encargos. Pide «Busca temas virales», «Prepara un vídeo sobre…» o «Proyecto: …», y Nyx lo repartirá entre el equipo.</div>'; }
   else boxEl.innerHTML = jobs.slice(0, 12).map(j => `
     <article class="job ${['esperando', 'elige'].includes(j.status) ? 'wait' : ''}">
-      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>${j.server && j.status === 'en curso' ? `<div class="srv-nota">${j.serverAviso ? (j.serverAviso.paso === 'pedido' ? `<span class="diag-err">⚠ Parado en el servidor: ${esc(j.serverAviso.error)}</span> <button type="button" class="btn small" data-relanzar="${j.id}">Volver a lanzar este vídeo</button><br>` : `<span class="diag-err">⚠ Reintentando «${esc(j.serverAviso.paso)}»: ${esc(j.serverAviso.error)}</span><br>`) : ''}${j.serverNota ? 'Ahora: ' + esc(j.serverNota) : 'Trabajando en el servidor'}${j.uso ? '<br><small>Consumo: ' + esc(textoUso(j.uso)) + '</small>' : ''}${j.serverUpd ? ` · último avance hace ${Math.max(0, Math.round((Date.now() - j.serverUpd) / 60000))} min` : ''}</div>` : ''}${j.server && j.status !== 'en curso' && j.uso ? `<div class="srv-nota"><small>Consumo de este vídeo: ${esc(textoUso(j.uso))}</small></div>` : ''}${j.fallos?.length && j.status === 'esperando' ? `<div class="job-warn">⚠ Falta o falló: ${esc(j.fallos.join(', '))}. No se puede aprobar todavía.${j.fallos.some(f => /^Correcciones de Iris/.test(f)) ? ` <button type="button" class="btn small" data-corregir="${j.id}"${j.corrigiendo ? ' disabled' : ''}>${j.corrigiendo ? 'Nora está corrigiendo…' : 'Aplicar correcciones de Iris'}</button>` : ''}${j.fallos.some(f => /^Miniaturas/.test(f)) && !j.fallos.some(f => !/^Miniaturas/.test(f)) ? ` <button type="button" class="btn small" data-rehacer-mini="${j.id}"${j.rehaciendo ? ' disabled' : ''}>${j.rehaciendo ? 'Creando miniaturas…' : 'Crear las miniaturas otra vez'}</button>` : ' Pulsa «Pedir cambios» para repetirlo.'}</div>` : ''}
+      <div class="job-head"><div class="job-title">#${j.id} · ${esc(j.topicFinal || j.topic)}${j.version > 1 ? ' <small>(v' + j.version + ')</small>' : ''}${j.pedido ? ' <small>· ' + esc(j.pedido) + ' · ' + esc(chanName(j.channelId)) + '</small>' : ''}${j.demo ? ' <small>(demo)</small>' : ''}${j.type !== 'proyecto' && store.channels.length > 1 ? ` <small>· ${esc(chanName(j.channelId))}</small>` : ''}</div><span class="tag ${j.type}">${FLOWS[j.type].label}</span></div>${j.status === 'guion' ? `<div class="guion-box"><b>Te toca: el guion con tu plan de Claude</b><ol><li><button type="button" class="btn small primary" data-copiar-encargo="${j.id}">1 · Copiar el encargo</button></li><li><a class="btn small" href="https://claude.ai/new" target="_blank" rel="noopener">2 · Abrir Claude y pegarlo</a></li><li><button type="button" class="btn small primary" data-pegar-guion="${j.id}">3 · Pegar aquí el guion que te dé</button></li></ol><small>Si Claude se corta antes del final, escríbele «continúa» y copia el guion entero.</small></div>` : ''}${j.server && j.status === 'en curso' ? `<div class="srv-nota">${j.serverAviso ? (j.serverAviso.paso === 'pedido' ? `<span class="diag-err">⚠ Parado en el servidor: ${esc(j.serverAviso.error)}</span> <button type="button" class="btn small" data-relanzar="${j.id}">Volver a lanzar este vídeo</button><br>` : `<span class="diag-err">⚠ Reintentando «${esc(j.serverAviso.paso)}»: ${esc(j.serverAviso.error)}</span><br>`) : ''}${j.serverNota ? 'Ahora: ' + esc(j.serverNota) : 'Trabajando en el servidor'}${j.uso ? '<br><small>Consumo: ' + esc(textoUso(j.uso)) + '</small>' : ''}${j.serverUpd ? ` · último avance hace ${Math.max(0, Math.round((Date.now() - j.serverUpd) / 60000))} min` : ''}</div>` : ''}${j.server && j.status !== 'en curso' && j.uso ? `<div class="srv-nota"><small>Consumo de este vídeo: ${esc(textoUso(j.uso))}</small></div>` : ''}${j.fallos?.length && j.status === 'esperando' ? `<div class="job-warn">⚠ Falta o falló: ${esc(j.fallos.join(', '))}. No se puede aprobar todavía.${j.fallos.some(f => /^Correcciones de Iris/.test(f)) ? ` <button type="button" class="btn small" data-corregir="${j.id}"${j.corrigiendo ? ' disabled' : ''}>${j.corrigiendo ? 'Nora está corrigiendo…' : 'Aplicar correcciones de Iris'}</button>` : ''}${j.fallos.some(f => /^Miniaturas/.test(f)) && !j.fallos.some(f => !/^Miniaturas/.test(f)) ? ` <button type="button" class="btn small" data-rehacer-mini="${j.id}"${j.rehaciendo ? ' disabled' : ''}>${j.rehaciendo ? 'Creando miniaturas…' : 'Crear las miniaturas otra vez'}</button>` : ' Pulsa «Pedir cambios» para repetirlo.'}</div>` : ''}
       <div class="steps">${j.steps.map(s => {
         const inner = `<span>${s.label} · ${stepOwner(s, j)}</span>`;
         return s.output
@@ -3968,6 +4008,8 @@ document.addEventListener('click', e => {
   const st = e.target.closest('[data-step]'); if (st) return openOutput(st.dataset.job, st.dataset.step);
   const rl = e.target.closest('[data-relanzar]'); if (rl) { const j = jobs.find(x => x.id === +rl.dataset.relanzar); if (j?.server) { srvFetch('/pedido/olvidar', { key: j.server }).catch(() => {}); jobs.splice(jobs.indexOf(j), 1); srvFetch('/pedido/iniciar', { pedido: j.pedido, videos: [{ topic: j.topic, channelId: j.channelId, ctx: pedidoCtx(j.channelId) }] }).then(() => { log(`Vídeo <b>${esc(j.short)}</b> lanzado otra vez en el servidor`); pedidoPoll(); }).catch(err => directorSay('No he podido relanzarlo: ' + err.message, 'aviso')); markDirty(); } return; }
   const cg = e.target.closest('[data-corregir]'); if (cg) { const j = jobs.find(x => x.id === +cg.dataset.corregir); if (j?.server && !j.corrigiendo) { j.corrigiendo = true; markDirty(); log(`Nora aplica las correcciones de Iris a <b>${esc(j.short)}</b>`); srvFetch('/pedido/corregir', { key: j.server, ctx: pedidoCtx(j.channelId) }).then(d => { j.corrigiendo = false; if (!d.cambiado) { j.corregido = true; log('Iris no pedía cambios aplicables: el guion se queda como estaba'); revisarEntrega(j); } directorSay(d.cambiado ? `Listo, jefe: Nora ha aplicado las correcciones de Iris a «${j.short}». Ahora el guion tiene ${d.palabras} palabras de locución.` : `Jefe, no había correcciones que aplicar en «${j.short}».`, 'habla', undefined, true); pedidoPoll(); }).catch(err => { j.corrigiendo = false; markDirty(); directorSay('No he podido aplicar las correcciones: ' + err.message, 'habla', undefined, true); }); } return; }
+  const ce = e.target.closest('[data-copiar-encargo]'); if (ce) { const j = jobs.find(x => x.id === +ce.dataset.copiarEncargo); if (j?.encargoGuion) copiarEncargo(j); return; }
+  const pg = e.target.closest('[data-pegar-guion]'); if (pg) { const j = jobs.find(x => x.id === +pg.dataset.pegarGuion); if (j) pegarGuion(j); return; }
   const rm = e.target.closest('[data-rehacer-mini]'); if (rm) return rehacerMiniaturas(jobs.find(j => j.id === +rm.dataset.rehacerMini));
   const ap = e.target.closest('[data-approve]'); if (ap) return approve(jobs.find(j => j.id === +ap.dataset.approve));
   const ch = e.target.closest('[data-changes]'); if (ch) return requestChanges(jobs.find(j => j.id === +ch.dataset.changes));
