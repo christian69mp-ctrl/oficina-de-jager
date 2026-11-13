@@ -51,7 +51,7 @@ export default {
     // Pedidos en el servidor
     if (path.startsWith('/pedido/')) {
       const b = await req.json().catch(() => ({}));
-      const fn = { '/pedido/iniciar': () => pedidoIniciar(env, b), '/pedido/estado': () => pedidoEstado(env, b), '/pedido/olvidar': () => pedidoOlvidar(env, b), '/pedido/imagen': () => pedidoImagen(env, b) }[path];
+      const fn = { '/pedido/corregir': () => pedidoCorregir(env, b), '/pedido/iniciar': () => pedidoIniciar(env, b), '/pedido/estado': () => pedidoEstado(env, b), '/pedido/olvidar': () => pedidoOlvidar(env, b), '/pedido/imagen': () => pedidoImagen(env, b) }[path];
       if (!fn) return json({ error: 'Ruta desconocida' }, 404);
       try { return json(await fn()); } catch (e) { return json({ error: String(e.message || e) }, 502); }
     }
@@ -460,6 +460,7 @@ Lecciones del manual de la oficina (aplícalas):
 ${c.lessons}
 El jefe pide este formato y esta extensión: si las reglas del estudio dicen otra cosa, manda esto.
 Escribe el GUION completo del vídeo, listo para locutar y para que Pixelido lo edite sin dudas. Extensión: unas 3.500 palabras de locución (entre 3.300 y 3.800, unos 22-24 minutos). Si faltan datos verificados, completa con contexto, recapitulaciones, transiciones, cliffhangers y pasajes de tono, nunca con datos inventados.
+Empieza directamente por «1. GUION DE EDICIÓN»: sin notas, recomendaciones ni comentarios previos, y sin mencionar archivos ni nombres de fichero.
 Entrega en texto plano, sin markdown, con estas partes y estos títulos exactos:
 1. GUION DE EDICIÓN — el vídeo completo de principio a fin, dividido en bloques de 30 a 90 segundos. Cada bloque empieza con una línea así: [B1 · 0:00–0:40 · GANCHO] y debajo, siempre en este orden y con estas etiquetas:
 LOCUCIÓN: el texto exacto que se lee en voz alta en ese bloque, en párrafos completos (aquí va TODO el texto locutado del vídeo, sin notas).
@@ -523,6 +524,33 @@ Informe de verificación de Iris (aplica sus correcciones en DATOS A VERIFICAR):
 ${corta(out.verifica, 5000)}
 En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION (escribe solo «Ver GUION DE EDICIÓN y LOCUCIÓN LIMPIA del paquete»; van aparte) · DESCRIPCIÓN DE EDICIÓN (estilo del canal, ritmo, tipografía y estilo de los textos en pantalla, música; no repitas los bloques, ya están en el guion de edición) · OBSERVACIONES (voz asignada a este canal según PIXELIDO, cambios de tono, límites, pantalla final) · MINIATURA (texto exacto + descripción visual igual al prompt de Gemini) · DATOS A VERIFICAR ANTES DE LOCUTAR. Máximo 650 palabras.`; },
 };
+
+// Nora aplica las correcciones de Iris al guion completo, con el mismo formato y extensión
+async function corregirGuion(env, c, tema, guion, verifica, nota = async () => {}) {
+  if (!guion || !/NECESITA CORRECCIONES|CORRECCIONES\s*:?\s*\n\s*\S|SIN CONFIRMAR\s*:?\s*\n\s*\S/i.test(verifica || '')) return guion;
+  await nota('Nora aplica las correcciones de Iris al guion');
+  const antes = palabras(locucionLimpia(guion));
+  const t = await claude(env, `${c.formacion?.nora || 'Eres Nora, guionista de documentales del estudio.'}
+${c.normas || ''}
+${c.canal || ''}
+Eres la guionista y vas a dejar el guion de «${tema}» listo para locutar aplicando el informe de verificación de Iris.
+Reglas:
+- Aplica TODAS las CORRECCIONES: cambia cada dato erróneo por el texto corregido exacto que indica Iris.
+- Lo que esté SIN CONFIRMAR, quítalo o suavízalo («según la prensa irlandesa…», «se le atribuye…»), sin inventar nada.
+- Distingue siempre investigado, acusado y condenado; no presentes como probado lo que no lo está.
+- Aplica las recomendaciones de SENSIBILIDAD.
+- Mantén exactamente el mismo formato (1. GUION DE EDICIÓN por bloques con LOCUCIÓN, IMAGEN, TEXTO EN PANTALLA y SONIDO; 2. FUENTES; 3. AFIRMACIONES A VERIFICAR, que ahora solo debe contener lo que siga pendiente) y una extensión parecida (unas ${antes} palabras de locución; si quitas algo, compensa con contexto verificado o transiciones).
+- Corrige también los rótulos de TEXTO EN PANTALLA afectados.
+- Empieza directamente por «1. GUION DE EDICIÓN», sin comentarios previos.
+
+INFORME DE IRIS:
+${corta(verifica, 14000)}
+
+GUION ACTUAL:
+${guion}`, false, false);
+  // Si la versión corregida se queda muy corta o pierde el formato, se conserva la anterior
+  return t && /GUION DE EDICI[ÓO]N/i.test(t) && palabras(locucionLimpia(t)) >= antes * 0.85 ? t : guion;
+}
 
 // Locución limpia: todo lo que va detrás de «LOCUCIÓN:» en el guion de edición
 function locucionLimpia(g) {
@@ -630,7 +658,13 @@ export class Pedido extends WorkflowEntrypoint {
         return t;
       });
       // Iris: verificación de datos con búsqueda en internet
-      out.verifica = await sd('verifica', R, async () => { const t = c.formacion.iris ? await claude(env, P.verifica(job, c, out), false, true, { busquedas: 6 }) : ''; await guardar('miniaturas', { verifica: t }); return t; });
+      out.verifica = await sd('verifica', R, async () => { const t = c.formacion.iris ? await claude(env, P.verifica(job, c, out), false, true, { busquedas: 10 }) : ''; await guardar('miniaturas', { verifica: t }); return t; });
+      // Nora aplica al guion las correcciones de Iris (si las hay): el guion que llega al jefe ya está corregido
+      out.guion = await sd('corregir', R, async () => {
+        const t = await corregirGuion(env, c, out.tema, out.guion, out.verifica, nota);
+        if (t !== out.guion) await guardar('miniaturas', { guion: t, corregido: true });
+        return t;
+      });
       // 4. Gema: ideas de miniatura y después las 3 imágenes con Gemini
       out.miniaturas = await sd('miniaturas', R, async () => { const d = jsonDe(await pensar(env, 'gemini', P.miniaturas(job, c, out), { json: true })); if (!d?.conceptos) throw new Error('Miniaturas sin formato'); await guardar('titulos', { miniaturas: d }); return d; });
       out.imagenes = await sd('imagenes', { retries: { limit: 1, delay: '20 seconds' }, timeout: '10 minutes' }, async () => {
@@ -727,6 +761,15 @@ async function diagnostico(env, b) {
   for (const k of ['gemini', 'gemini_imagen', 'chatgpt']) if (res[k] && !res[k].ok && /high demand|overloaded|try again later|UNAVAILABLE|503/i.test(res[k].error || '')) res[k].temporal = true;
   res.modelos = { ok: true, detalle: `Claude ${env.CLAUDE_MODEL || 'claude-opus-5-5'} (guion) y ${env.CLAUDE_MODEL_LIGERO || 'claude-sonnet-5-5'} (resto) · Gemini ${modelosGemini.texto || env.GEMINI_MODEL || 'gemini-2.5-flash'} · imagen ${modelosGemini.imagen || env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'} · ChatGPT ${env.OPENAI_MODEL || 'gpt-4.1-mini'}` };
   return res;
+}
+// Aplica las correcciones de Iris a un vídeo ya terminado (pedidos anteriores a este paso)
+async function pedidoCorregir(env, b) {
+  if (!env.DATOS || !String(b.key || '').startsWith('pv:')) throw new Error('Pedido desconocido');
+  const rec = JSON.parse((await env.DATOS.get(b.key)) || 'null'); if (!rec?.out?.guion) throw new Error('Ese vídeo no tiene guion');
+  const t = await corregirGuion(env, b.ctx || {}, rec.out.estudio?.result?.tema_final || rec.job.topic, rec.out.guion, rec.out.verifica);
+  const cambiado = t !== rec.out.guion;
+  if (cambiado) { const cur = JSON.parse((await env.DATOS.get(b.key)) || '{}'); cur.out.guion = t; cur.out.corregido = true; cur.upd = Date.now(); await env.DATOS.put(b.key, JSON.stringify(cur)); }
+  return { ok: true, cambiado, palabras: palabras(locucionLimpia(t)) };
 }
 // Miniatura creada por Gema en un pedido del servidor
 async function pedidoImagen(env, b) {
