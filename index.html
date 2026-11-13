@@ -2900,6 +2900,34 @@ function textoUso(u) {
   if (u.imagenes?.llamadas) partes.push(`${u.imagenes.llamadas} imágenes de Gemini`);
   return partes.join(' · ');
 }
+// Guion de edición → bloques {cab, locucion, imagen, texto, sonido}
+function bloquesGuion(g) {
+  const txt = String(g || ''); const i = txt.search(/^\s*\[B\d+/m); if (i < 0) return [];
+  const fin = txt.search(/\n\s*(\d\.\s*)?FUENTES\b/i);
+  const zona = txt.slice(i, fin > i ? fin : undefined);
+  return zona.split(/(?=^\s*\[B\d+)/m).map(b => {
+    const cab = (b.match(/^\s*\[([^\]]+)\]/) || [])[1] || '';
+    const campo = et => { const m = b.match(new RegExp('^\\s*' + et + '\\s*:\\s*([\\s\\S]*?)(?=^\\s*(LOCUCI[ÓO]N|IMAGEN|TEXTO EN PANTALLA|SONIDO)\\s*:|$(?![\\s\\S]))', 'im')); return m ? m[1].trim() : ''; };
+    return { cab: cab.replace(/\s*·\s*/g, ' · '), locucion: campo('LOCUCI[ÓO]N'), imagen: campo('IMAGEN'), texto: campo('TEXTO EN PANTALLA'), sonido: campo('SONIDO') };
+  }).filter(b => b.cab || b.locucion);
+}
+// El paquete del vídeo como Google Doc con formato (lo monta el script de Drive)
+function documentoPaquete(job, video) {
+  const txt = id => job.step(id)?.output?.via !== 'error' ? job.step(id)?.output?.text || '' : '';
+  const g = txt('guion'), bloques = bloquesGuion(g), n = contarPalabras(locucionLimpia(g));
+  const elegida = job.winner?.miniatura || 'A', j2 = g.search(/\n\s*(\d\.\s*)?FUENTES\b/i);
+  return {
+    cabecera: video.title || job.topicFinal || job.topic,
+    subtitulo: `${chanName(job.channelId) || ''}${job.pedido ? ' · Pedido ' + job.pedido : ''} · La oficina de Jager · ${today()}`,
+    titulos: job.titulos3 || [],
+    miniaturas: (job.concepts || []).slice(0, 3).map((c, k) => `${'ABC'[k]}${'ABC'[k] === elegida ? ' (ELEGIDA)' : ''} · texto «${c.texto || ''}» · ${c.escena || ''}`).join('\n'),
+    encargo: txt('brief'),
+    bloques,
+    locucionInfo: `Para grabar la voz: solo el texto que se lee · ${n} palabras · unos ${Math.round(n / 150)} minutos. Las marcas grises indican el bloque del guion de edición.`,
+    locucion: bloques.map(b => ({ cab: b.cab, texto: b.locucion })),
+    anexos: [{ titulo: '6 · Descripción, SEO y comentario fijado', texto: txt('titulos') }, { titulo: '7 · Fuentes y datos a verificar', texto: j2 >= 0 ? g.slice(j2).trim() : '' }, { titulo: '8 · Verificación de datos (Iris)', texto: txt('verifica') }],
+  };
+}
 const contarPalabras = t => (String(t || '').match(/\S+/g) || []).length;
 // Lo que el jefe exige en cada entrega: guion de ~3.500 palabras, 3 miniaturas hechas y 3 títulos
 function faltasEntrega(job) {
@@ -2957,6 +2985,21 @@ async function ordenarCarpetas() {
   } catch (e) { conn.driveMsg = 'No se pudieron crear las carpetas: ' + scriptViejo(e); conn.driveOk = false; renderConn(); }
 }
 // Miniaturas: las 3 imágenes (o las ideas si Gemini no puede generarlas) en una carpeta por vídeo, dentro de la carpeta privada
+// Miniatura de YouTube: 1280x720 (16:9, recortada al centro) en JPG de menos de 2 MB
+function aMiniaturaYouTube(src) {
+  return new Promise((ok, mal) => {
+    const im = new Image();
+    im.onload = () => {
+      const W = 1280, H = 720, c = document.createElement('canvas'); c.width = W; c.height = H;
+      const g = c.getContext('2d'), k = Math.max(W / im.width, H / im.height), w = im.width * k, h = im.height * k;
+      g.drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
+      let q = 0.92, out = c.toDataURL('image/jpeg', q);
+      while (out.length * 0.75 > 1.9e6 && q > 0.5) { q -= 0.08; out = c.toDataURL('image/jpeg', q); }
+      ok(out);
+    };
+    im.onerror = mal; im.src = src;
+  });
+}
 async function saveThumbsToDrive(job, video) {
   const mini = store.drive?.miniaturas; if (!mini?.id || !serverDrive()) return;
   const cs = job.concepts?.length ? job.concepts.slice(0, 3) : [];
@@ -2970,9 +3013,12 @@ async function saveThumbsToDrive(job, video) {
   let subidas = 0, url = null;
   try {
     for (const [i, src] of (imgs || []).entries()) {
-      const m = String(src || '').match(/^data:([^;]+);base64,(.+)$/); if (!m) continue;
-      const d = await srvFetch('/drive', { accion: 'imagen', carpeta: mini.id, subcarpeta: sub, titulo: `Miniatura ${'ABC'[i]}${'ABC'[i] === elegida ? ' (elegida)' : ''}`, mime: m[1], base64: m[2] });
-      subidas++; url = d.carpetaUrl || url;
+      if (!src) continue;
+      const jpg = await aMiniaturaYouTube(src).catch(() => null);
+      const m = String(jpg || src).match(/^data:([^;]+);base64,(.+)$/); if (!m) continue;
+      const cuerpo = { accion: 'imagen', carpeta: mini.id, subcarpeta: sub, titulo: `Miniatura ${'ABC'[i]}${'ABC'[i] === elegida ? ' (elegida)' : ''}`, mime: m[1], base64: m[2] };
+      try { const d = await srvFetch('/drive', cuerpo).catch(async () => { await new Promise(r => setTimeout(r, 3000)); return srvFetch('/drive', cuerpo); }); subidas++; url = d.carpetaUrl || url; }
+      catch (e) { log(`No se pudo subir la miniatura ${'ABC'[i]}: ${esc(scriptViejo(e))}`); }
     }
     const ideas = `MINIATURAS · ${video.title}\nElegida: ${elegida}${job.winner?.texto_miniatura ? ' · texto «' + job.winner.texto_miniatura + '»' : ''}\n\n` + (cs.map((c, i) => `${'ABC'[i]} · texto «${c.texto || ''}»\nEscena: ${c.escena || ''}\nEmoción: ${c.emocion || ''}${c.colores ? '\nColores: ' + c.colores : ''}${c.prompt_imagen ? '\nPrompt de imagen: ' + c.prompt_imagen : ''}`).join('\n\n') || '(sin ideas de miniatura)') + (subidas ? '' : '\n\nNo se generaron imágenes: Gemini necesita la facturación activada para crear imágenes.');
     const d2 = await srvFetch('/drive', { accion: 'guardar', carpeta: mini.id, subcarpeta: sub, titulo: 'Ideas de miniatura', texto: ideas });
@@ -3161,7 +3207,8 @@ async function savePackageToDrive(job, video) {
   if (!mcp) {
     if (!serverDrive()) return;
     try {
-      const d = await srvFetch('/drive', { accion: 'guardar', carpeta: folder?.id || null, subcarpeta: job.pedido ? `Pedido ${job.pedido}` : `Vídeos sueltos · ${chanName(job.channelId) || 'sin canal'}`, titulo: `Guion y paquete · ${video.title} · ${today()}`, texto: packageText(job) });
+      const destinoPaq = { carpeta: folder?.id || null, subcarpeta: job.pedido ? `Pedido ${job.pedido}` : `Vídeos sueltos · ${chanName(job.channelId) || 'sin canal'}`, titulo: `Guion · ${video.title}` };
+      const d = await srvFetch('/drive', { accion: 'documento', ...destinoPaq, ...documentoPaquete(job, video) }).catch(e => { log('Drive: ' + esc(scriptViejo(e)) + ' · se guarda como texto'); return srvFetch('/drive', { accion: 'guardar', ...destinoPaq, texto: packageText(job) }); });
       video.driveUrl = d.url || null; video.driveErr = null;
       log(`Paco guarda el guion y el paquete en Drive${folder ? ' (' + esc(folder.title) + (job.pedido ? ' › Pedido ' + esc(job.pedido) : '') + ')' : ''}`);
     } catch (e) { video.driveErr = 'No se pudo guardar en Drive: ' + e.message; log(esc(video.driveErr)); }
