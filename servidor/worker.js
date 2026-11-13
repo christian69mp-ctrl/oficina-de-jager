@@ -3,6 +3,7 @@
 // Las claves nunca llegan al navegador: se guardan como secretos del Worker.
 
 import { WorkflowEntrypoint } from 'cloudflare:workers';
+import { NonRetryableError } from 'cloudflare:workflows';
 
 export default {
   async fetch(req, env) {
@@ -109,7 +110,8 @@ export default {
 // Claude piensa lo que dice Nyx y hace el trabajo de los trabajadores de Claude.
 // rapido = respuestas cortas de Nyx: menos esfuerzo para que conteste antes.
 // buscar = Claude puede investigar en internet (búsqueda web de Anthropic) antes de responder.
-async function claude(env, prompt, rapido, buscar) {
+// top = el modelo más potente (Opus), solo para el guion; el resto usa Sonnet, mucho más barato y muy bueno
+async function claude(env, prompt, rapido, buscar, o = {}) {
   if (!env.ANTHROPIC_API_KEY) throw new Error('Falta la clave ANTHROPIC_API_KEY en el servidor');
   const messages = [{ role: 'user', content: prompt }];
   const fuentes = new Map();
@@ -118,10 +120,10 @@ async function claude(env, prompt, rapido, buscar) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2026-10-21' },
       body: JSON.stringify({
-        model: env.CLAUDE_MODEL || 'claude-opus-5-5',
+        model: o.top ? (env.CLAUDE_MODEL || 'claude-opus-5-5') : (env.CLAUDE_MODEL_LIGERO || 'claude-sonnet-5-5'),
         max_tokens: rapido ? 2000 : 32000,
         ...(rapido ? { output_config: { effort: 'low' } } : {}),
-        ...(buscar ? { tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: +(env.MAX_BUSQUEDAS || 12) }] } : {}),
+        ...(buscar ? { tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: +(o.busquedas || env.MAX_BUSQUEDAS || 6) }] } : {}),
         messages,
       }),
     });
@@ -552,9 +554,15 @@ export class Pedido extends WorkflowEntrypoint {
     const nota = async (texto, aviso) => { try { const cur = JSON.parse((await env.DATOS.get(key)) || '{}'); cur.nota = texto; if (aviso) cur.aviso = aviso; cur.upd = Date.now(); await env.DATOS.put(key, JSON.stringify(cur)); } catch (e) {} };
     const sd = (nombre, cfg, fn) => step.do(nombre, cfg, async () => {
       try { return await fn(); }
-      catch (e) { await nota(null, { paso: nombre, error: String(e?.message || e).slice(0, 300), at: Date.now() }); throw e; }
+      catch (e) {
+        const msg = String(e?.message || e);
+        await nota(null, { paso: nombre, error: msg.slice(0, 300), at: Date.now() });
+        // Sin saldo o clave incorrecta: reintentar no sirve y solo gasta; se para y se avisa
+        if (/credit balance|insufficient_quota|no credits|invalid x-api-key|authentication_error|API key not valid|PERMISSION_DENIED/i.test(msg)) throw new NonRetryableError(msg);
+        throw e;
+      }
     });
-    const R = { retries: { limit: 4, delay: '30 seconds', backoff: 'exponential' }, timeout: '30 minutes' };
+    const R = { retries: { limit: 2, delay: '1 minute', backoff: 'exponential' }, timeout: '30 minutes' };
     try {
       // 1. Lía: investigación con vidIQ (si falla, se sigue sin ella)
       out.vidiq = await sd('vidiq', { retries: { limit: 1, delay: '10 seconds' } }, async () => {
@@ -599,20 +607,20 @@ export class Pedido extends WorkflowEntrypoint {
       // 3. Nora: guion completo con Claude e investigación en internet
       out.guion = await sd('guion', R, async () => {
         await nota('Nora escribe el guion con búsqueda en internet (el paso más largo: 5-15 minutos)');
-        let t = await claude(env, P.guion(job, c, out), false, true);
+        let t = await claude(env, P.guion(job, c, out), false, true, { top: true, busquedas: 8 });
         if (!t || t.length < 500) throw new Error('Guion demasiado corto');
         // La locución debe rondar las 3.500 palabras: si se queda corta, Nora amplía el guion (hasta 2 veces)
         for (let k = 0; k < 2 && palabras(locucionLimpia(t)) < 3200; k++) {
           const n = palabras(locucionLimpia(t));
           await nota(`Nora amplía el guion: tiene ${n} palabras y hacen falta unas 3.500`);
-          const mas = await claude(env, `${c.formacion.nora}\n${c.normas}\n${c.canal}\nEste guion de «${out.tema}» tiene ${n} palabras de locución y necesita unas 3.500 (entre 3.300 y 3.800). Reescríbelo COMPLETO con exactamente el mismo formato (GUION DE EDICIÓN por bloques con LOCUCIÓN, IMAGEN, TEXTO EN PANTALLA y SONIDO; después FUENTES y AFIRMACIONES A VERIFICAR). Amplía los bloques más flojos con contexto verificado, detalle, tensión y transiciones; añade bloques si hace falta y recalcula los minutos. No inventes datos ni cambies los hechos.\n\nGUION ACTUAL:\n${t}`, false, false).catch(() => null);
+          const mas = await claude(env, `${c.formacion.nora}\n${c.normas}\n${c.canal}\nEste guion de «${out.tema}» tiene ${n} palabras de locución y necesita unas 3.500 (entre 3.300 y 3.800). Reescríbelo COMPLETO con exactamente el mismo formato (GUION DE EDICIÓN por bloques con LOCUCIÓN, IMAGEN, TEXTO EN PANTALLA y SONIDO; después FUENTES y AFIRMACIONES A VERIFICAR). Amplía los bloques más flojos con contexto verificado, detalle, tensión y transiciones; añade bloques si hace falta y recalcula los minutos. No inventes datos ni cambies los hechos.\n\nGUION ACTUAL:\n${t}`, false, false, { top: true }).catch(() => null);
           if (mas && palabras(locucionLimpia(mas)) > n) t = mas; else break;
         }
         await guardar('verifica', { guion: t });
         return t;
       });
       // Iris: verificación de datos con búsqueda en internet
-      out.verifica = await sd('verifica', R, async () => { const t = c.formacion.iris ? await claude(env, P.verifica(job, c, out), false, true) : ''; await guardar('miniaturas', { verifica: t }); return t; });
+      out.verifica = await sd('verifica', R, async () => { const t = c.formacion.iris ? await claude(env, P.verifica(job, c, out), false, true, { busquedas: 6 }) : ''; await guardar('miniaturas', { verifica: t }); return t; });
       // 4. Gema: ideas de miniatura y después las 3 imágenes con Gemini
       out.miniaturas = await sd('miniaturas', R, async () => { const d = jsonDe(await pensar(env, 'gemini', P.miniaturas(job, c, out), { json: true })); if (!d?.conceptos) throw new Error('Miniaturas sin formato'); await guardar('titulos', { miniaturas: d }); return d; });
       out.imagenes = await sd('imagenes', { retries: { limit: 1, delay: '20 seconds' }, timeout: '10 minutes' }, async () => {
@@ -702,7 +710,7 @@ async function diagnostico(env, b) {
   await Promise.all(Object.entries(tareas).map(async ([k, fn]) => { res[k] = await prueba(fn); }));
   res.pedidos = env.PEDIDO && env.DATOS ? { ok: true, detalle: 'motor de pedidos activo' } : { ok: false, error: !env.DATOS ? 'Falta el almacén DATOS en wrangler.toml' : 'Falta el bloque [[workflows]] (binding PEDIDO) en wrangler.toml: los pedidos se hacen en el navegador' };
   for (const k of ['gemini', 'gemini_imagen', 'chatgpt']) if (res[k] && !res[k].ok && /high demand|overloaded|try again later|UNAVAILABLE|503/i.test(res[k].error || '')) res[k].temporal = true;
-  res.modelos = { ok: true, detalle: `Claude ${env.CLAUDE_MODEL || 'claude-opus-5-5'} · Gemini ${modelosGemini.texto || env.GEMINI_MODEL || 'gemini-2.5-flash'} · imagen ${modelosGemini.imagen || env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'} · ChatGPT ${env.OPENAI_MODEL || 'gpt-4.1-mini'}` };
+  res.modelos = { ok: true, detalle: `Claude ${env.CLAUDE_MODEL || 'claude-opus-5-5'} (guion) y ${env.CLAUDE_MODEL_LIGERO || 'claude-sonnet-5-5'} (resto) · Gemini ${modelosGemini.texto || env.GEMINI_MODEL || 'gemini-2.5-flash'} · imagen ${modelosGemini.imagen || env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'} · ChatGPT ${env.OPENAI_MODEL || 'gpt-4.1-mini'}` };
   return res;
 }
 // Miniatura creada por Gema en un pedido del servidor

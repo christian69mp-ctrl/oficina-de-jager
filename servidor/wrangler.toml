@@ -4,7 +4,8 @@ compatibility_date = "2025-06-01"
 
 # Modelos (cámbialos si salen versiones nuevas)
 [vars]
-CLAUDE_MODEL = "claude-opus-5-5"
+CLAUDE_MODEL = "claude-opus-5-5"          # solo para el guion de Nora
+CLAUDE_MODEL_LIGERO = "claude-sonnet-5-5"  # Nyx, Iris, Paco, la mesa (más barato)
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"
 OPENAI_MODEL = "gpt-4.1-mini"
