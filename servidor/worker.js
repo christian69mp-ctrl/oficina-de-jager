@@ -203,7 +203,9 @@ async function investigar(env, prompt, uso, busquedas = 4) {
 
 async function geminiImage(env, prompt) {
   if (!env.GEMINI_API_KEY) throw new Error('Falta la clave GEMINI_API_KEY en el servidor');
-  const { r, d } = await geminiPost(env, 'imagen', { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } });
+  // Formato miniatura de YouTube (16:9); si el modelo no admite el formato, se pide sin él y la oficina la recorta a 1280x720
+  let { r, d } = await geminiPost(env, 'imagen', { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'], imageConfig: { aspectRatio: '16:9' } } });
+  if (!r.ok && r.status === 400) ({ r, d } = await geminiPost(env, 'imagen', { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } }));
   if (!r.ok) throw new Error('Gemini imagen: ' + (d.error?.message || r.status));
   const part = (d.candidates?.[0]?.content?.parts || []).find(p => p.inlineData || p.inline_data);
   const img = part?.inlineData || part?.inline_data;
