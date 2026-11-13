@@ -446,6 +446,7 @@ Habla en primera persona, en español de España, con tono de reunión y frases 
 ${P.mesaBase(job, c, out)}
 Propuestas:
 ${debate}
+OBJETIVOS OBLIGATORIOS DEL JEFE: CTR estimado de al menos el 5 % y retención a los 30 segundos de al menos el 60 %. En el JSON, ctr_estimado y retencion_30s van en porcentaje real de YouTube (un CTR normal está entre el 2 y el 10 %; la retención a los 30 s, entre el 50 y el 80 %). Si con el enfoque elegido no se llega, cambia el ángulo, el gancho o la promesa hasta llegar. No infles las cifras: tienen que ser creíbles.
 Devuelve SOLO JSON: ${c.schema}`,
   guion: (job, c, out) => `${c.formacion.nora}
 ${c.web}
@@ -466,7 +467,8 @@ IMAGEN: qué se ve (archivo, foto, mapa, documento, metraje, recreación 3D marc
 TEXTO EN PANTALLA: cada rótulo exacto entre comillas «…» y cuándo aparece (cita la frase de la locución que lo dispara: fecha, lugar, nombre con cargo, cifra clave, cita textual), o «ninguno».
 SONIDO: música o efecto (tensión, silencio, golpe, cambio de tema) o «sigue».
 2. FUENTES — informes oficiales, sentencias, libros o artículos que respaldan los datos; si no estás seguro de una, márcala [VERIFICAR].
-3. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.`,
+3. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.
+RETENCIÓN (objetivo del jefe: que al menos el 60 % siga viendo a los 30 segundos y que la retención media sea la máxima posible): empieza en los primeros 15 segundos con la escena de mayor tensión del caso, deja clara la promesa del vídeo antes del segundo 30, abre una pregunta o bucle nuevo cada 2-3 minutos y ciérralo más adelante, cambia de ritmo a menudo, nada de introducciones lentas ni saludos, y avanza de los hechos menores al clímax.`,
   verifica: (job, c, out) => `${c.formacion.iris}
 ${c.web}
 ${c.normas}
@@ -505,7 +507,7 @@ ${(out.titulos?.titulos || []).map((t, i) => `${i + 1}. ${t}`).join('\n')}
 Conceptos de miniatura de Gema:
 ${(out.miniaturas?.conceptos || []).map((x, i) => `${'ABC'[i]}: texto «${x.texto}» · ${x.escena} · ${x.emocion} · prompt: ${x.prompt_imagen || ''}`).join('\n') || '(sin conceptos de miniatura)'}
 Historial de la oficina (previsto y real): ${c.history}
-Elige o mejora la mejor combinación (puedes ajustar el título o el prompt) y estima su CTR de forma orientativa. Explica las 2 alternativas descartadas en una frase. Entrega además los 3 TÍTULOS FINALES para el jefe: el ganador primero y dos alternativas fuertes y distintas entre sí, listos para copiar.
+Elige o mejora la mejor combinación (puedes ajustar el título o el prompt) y estima su CTR de forma orientativa. Explica las 2 alternativas descartadas en una frase. OBJETIVO OBLIGATORIO DEL JEFE: CTR estimado de al menos el 5 % (porcentaje real de YouTube; sé creíble, sin clickbait engañoso). Entrega además los 3 TÍTULOS FINALES para el jefe: el ganador primero y dos alternativas fuertes y distintas entre sí, listos para copiar.
 Devuelve SOLO JSON: {"titulos_finales":["título ganador","alternativa 2","alternativa 3"],"promesa":"promesa central del vídeo","ganador":{"titulo":"título final","miniatura":"A|B|C","texto_miniatura":"texto exacto","prompt_gemini":"prompt final para copiar","ctr_estimado":número},"como_funcionan_juntos":"...","riesgo":"riesgo principal de interpretación","checklist":["¿Se entiende a 160 px?","..."],"descartadas":["..."]}`,
   brief: (job, c, out) => { const g = String(out.guion || ''); const i = g.search(/GUION DE EDICI[ÓO]N|INDICACIONES VISUALES/i); return `${c.formacion.paco}
 ${c.normas}
@@ -596,7 +598,15 @@ export class Pedido extends WorkflowEntrypoint {
         }
         const debate = transcript.map(m => `${nombres[m.who]}: ${m.text}`).join('\n');
         await nota('Sam redacta el acuerdo de la mesa');
-        const result = jsonDe(await claude(env, P.acuerdo(job, c, out, debate), false, false)) || { acuerdo: 'La mesa no ha podido cerrar un acuerdo. Seguimos con el tema tal cual.', tema_final: job.topic };
+        let result = jsonDe(await claude(env, P.acuerdo(job, c, out, debate), false, false)) || { acuerdo: 'La mesa no ha podido cerrar un acuerdo. Seguimos con el tema tal cual.', tema_final: job.topic };
+        // Si el acuerdo no llega a los objetivos del jefe (CTR ≥ 5 %, retención a los 30 s ≥ 60 %), la mesa lo replantea (hasta 2 veces)
+        const bajo = x => { const p = x?.puntuaciones || {}; return (+p.ctr_estimado || 0) < 5 || (+p.retencion_30s || 0) < 60; };
+        for (let k = 0; k < 2 && bajo(result); k++) {
+          const p = result.puntuaciones || {};
+          await nota(`La mesa replantea el enfoque: CTR estimado ${p.ctr_estimado ?? '?'} % y retención ${p.retencion_30s ?? '?'} %; el objetivo es 5 % y 60 %`);
+          const otra = jsonDe(await claude(env, P.acuerdo(job, c, out, debate) + `\n\nTu acuerdo anterior se quedó en CTR ${p.ctr_estimado ?? '?'} % y retención a los 30 s ${p.retencion_30s ?? '?'} %, por debajo del objetivo. Acuerdo anterior: ${JSON.stringify(result).slice(0, 3000)}\nReplantea el ángulo, el gancho y la promesa para superar los objetivos de verdad.`, false, false).catch(() => null));
+          if (otra?.acuerdo) result = otra; else break;
+        }
         const r = { transcript, result };
         await guardar('guion', { estudio: r });
         return r;
@@ -638,7 +648,12 @@ export class Pedido extends WorkflowEntrypoint {
       // 5. Tito: títulos y SEO
       out.titulos = await sd('titulos', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.titulos(job, c, out), { json: true })); if (!d?.titulos) throw new Error('Títulos sin formato'); await guardar('pretest', { titulos: d }); return d; });
       // 6. Rui: versión definitiva de título y miniatura
-      out.pretest = await sd('pretest', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out), { json: true })); if (!d?.ganador) throw new Error('Test de CTR sin formato'); await guardar('brief', { pretest: d }); return d; });
+      out.pretest = await sd('pretest', R, async () => { let d = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out), { json: true })); if (!d?.ganador) throw new Error('Test de CTR sin formato');
+        for (let k = 0; k < 2 && (+d.ganador.ctr_estimado || 0) < 5; k++) {
+          await nota(`Rui mejora título y miniatura: CTR estimado ${d.ganador.ctr_estimado ?? '?'} %, el objetivo es 5 %`);
+          const otra = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out) + `\n\nTu propuesta anterior estimaba un CTR del ${d.ganador.ctr_estimado ?? '?'} %: no llega al 5 %. Propuesta anterior: ${JSON.stringify(d).slice(0, 2500)}\nMejora el título y el concepto de miniatura (más contraste, curiosidad concreta, emoción) hasta superar el 5 % de forma creíble.`, { json: true }).catch(() => null));
+          if (otra?.ganador) d = otra; else break;
+        } await guardar('brief', { pretest: d }); return d; });
       // 7. Paco: pedido para Pixelido
       await sd('brief', R, async () => { const t = await claude(env, P.brief(job, c, out), false, false); await guardar('listo', { brief: t }); return true; });
     } catch (e) {
