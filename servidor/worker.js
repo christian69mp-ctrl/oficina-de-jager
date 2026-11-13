@@ -51,7 +51,7 @@ export default {
     // Pedidos en el servidor
     if (path.startsWith('/pedido/')) {
       const b = await req.json().catch(() => ({}));
-      const fn = { '/pedido/corregir': () => pedidoCorregir(env, b), '/pedido/iniciar': () => pedidoIniciar(env, b), '/pedido/estado': () => pedidoEstado(env, b), '/pedido/olvidar': () => pedidoOlvidar(env, b), '/pedido/imagen': () => pedidoImagen(env, b) }[path];
+      const fn = { '/pedido/guion': () => pedidoGuion(env, b), '/pedido/corregir': () => pedidoCorregir(env, b), '/pedido/iniciar': () => pedidoIniciar(env, b), '/pedido/estado': () => pedidoEstado(env, b), '/pedido/olvidar': () => pedidoOlvidar(env, b), '/pedido/imagen': () => pedidoImagen(env, b) }[path];
       if (!fn) return json({ error: 'Ruta desconocida' }, 404);
       try { return json(await fn()); } catch (e) { return json({ error: String(e.message || e) }, 502); }
     }
@@ -612,6 +612,8 @@ export class Pedido extends WorkflowEntrypoint {
     const env = this.env;
     const { key, job, ctx: c } = event.payload;
     const out = { tema: job.topic };
+    // auto = la oficina escribe el guion con la API · preparar = se para con el encargo para tu plan de Claude · completar = sigue con tu guion
+    const modo = event.payload.modo || 'auto';
     const guardar = async (paso, cambios = {}) => {
       const cur = JSON.parse((await env.DATOS.get(key)) || '{}');
       cur.out = { ...(cur.out || {}), ...cambios }; cur.paso = paso; cur.estado = paso === 'listo' ? 'listo' : 'en curso'; cur.upd = Date.now();
@@ -636,6 +638,12 @@ export class Pedido extends WorkflowEntrypoint {
     });
     const R = { retries: { limit: 2, delay: '1 minute', backoff: 'exponential' }, timeout: '30 minutes' };
     try {
+      let mesa;
+      if (modo === 'completar') {
+        const rec = JSON.parse((await env.DATOS.get(key)) || '{}');
+        Object.assign(out, { vidiq: rec.out?.vidiq || null, dossier: rec.out?.dossier || '', guion: rec.out?.guion || '' });
+        mesa = rec.out?.estudio || { result: { tema_final: job.topic, acuerdo: '' } };
+      } else {
       // 1. Lía: investigación con vidIQ (si falla, se sigue sin ella)
       out.vidiq = await sd('vidiq', { retries: { limit: 1, delay: '10 seconds' } }, async () => {
         let txt = null;
@@ -649,7 +657,7 @@ export class Pedido extends WorkflowEntrypoint {
         return txt;
       });
       // 2. Mesa de análisis: propuesta de cada analista con su IA y acuerdo final
-      const mesa = await sd('estudio', R, async () => {
+      mesa = await sd('estudio', R, async () => {
         const quien = { lia: 'gemini', rui: 'chatgpt', sam: 'claude' };
         const nombres = { lia: 'Lía', rui: 'Rui', sam: 'Sam' };
         const transcript = [];
@@ -681,17 +689,30 @@ export class Pedido extends WorkflowEntrypoint {
         await guardar('guion', { estudio: r });
         return r;
       });
+      }
       out.tema = mesa.result.tema_final || job.topic;
       const pz = mesa.result.puntuaciones || {};
       out.estudioTxt = `ACUERDO: ${mesa.result.acuerdo}\nTema final: ${out.tema}\nÁngulo: ${mesa.result.angulo || ''}\nGancho: ${mesa.result.gancho || ''}\nPromesa: ${mesa.result.promesa || ''}\nPúblico: ${mesa.result.publico || ''}\nDuración ideal: ${mesa.result.duracion_ideal || ''}\nViral ${pz.viral ?? '?'}/100 · Rentabilidad ${pz.rentabilidad ?? '?'}/100`;
       // Iris investiga con la Búsqueda de Google y prepara el dosier del que sale el guion
-      out.dossier = await sd('investiga', R, async () => {
+      if (modo !== 'completar') out.dossier = await sd('investiga', R, async () => {
         await nota('Iris investiga el caso con la Búsqueda de Google');
         const t = await investigar(env, P.dossier(job, c, out), U, 5);
         if (!t || t.length < 800) throw new Error('Dosier de investigación demasiado corto');
         await guardar('guion', { dossier: t });
         return t;
       });
+      // Modo suscripción: aquí se para con el encargo listo para pegar en la app de Claude
+      if (modo === 'preparar') {
+        await sd('encargo', R, async () => {
+          const encargo = P.guion(job, c, out) + '\n\nEscribe ahora el guion completo, siguiendo exactamente ese formato. Texto plano, sin markdown: sin asteriscos, sin almohadillas y sin negritas.';
+          const cur = JSON.parse((await env.DATOS.get(key)) || '{}');
+          cur.out = { ...(cur.out || {}), encargoGuion: encargo }; cur.estado = 'esperando_guion'; cur.paso = 'guion'; cur.nota = 'Esperando tu guion escrito con tu plan de Claude'; delete cur.aviso; cur.upd = Date.now();
+          await env.DATOS.put(key, JSON.stringify(cur));
+          return true;
+        });
+        return;
+      }
+      if (modo === 'auto') {
       // 3. Nora: guion completo con Claude e investigación en internet
       out.guion = await sd('guion', R, async () => {
         await nota('Nora escribe el guion a partir del dosier de Iris (el paso más largo)');
@@ -707,6 +728,7 @@ export class Pedido extends WorkflowEntrypoint {
         await guardar('verifica', { guion: t });
         return t;
       });
+      }
       // Iris: verificación de datos con búsqueda en internet
       out.verifica = await sd('verifica', R, async () => { const t = c.formacion.iris ? await investigar(env, P.verifica(job, c, out), U, 4) : ''; await guardar('miniaturas', { verifica: t }); return t; });
       // Nora aplica al guion las correcciones de Iris (si las hay): el guion que llega al jefe ya está corregido
@@ -757,8 +779,9 @@ async function pedidoIniciar(env, b) {
   for (const [i, v] of (b.videos || []).slice(0, 20).entries()) {
     const key = `pv:${code}:${Date.now().toString(36)}${i}`;
     const job = { topic: String(v.topic || '').slice(0, 300), channelId: v.channelId, pedido: code };
-    await env.DATOS.put(key, JSON.stringify({ key, job, estado: 'en cola', paso: 'vidiq', out: {}, creado: Date.now(), upd: Date.now() }));
-    await env.PEDIDO.create({ id: key.replace(/:/g, '-'), params: { key, job, ctx: v.ctx } });
+    const modo = b.modo === 'suscripcion' ? 'suscripcion' : 'auto';
+    await env.DATOS.put(key, JSON.stringify({ key, job, modo, estado: 'en cola', paso: 'vidiq', out: {}, creado: Date.now(), upd: Date.now() }));
+    await env.PEDIDO.create({ id: key.replace(/:/g, '-'), params: { key, job, ctx: v.ctx, modo: modo === 'suscripcion' ? 'preparar' : 'auto' } });
     res.push(key);
   }
   return { claves: res };
@@ -771,7 +794,7 @@ async function pedidoEstado(env, b) {
     const l = await env.DATOS.list({ prefix: 'pv:', cursor });
     for (const k of l.keys) {
       const r = JSON.parse((await env.DATOS.get(k.name)) || 'null'); if (!r) continue;
-      if (r.estado !== 'listo' && r.estado !== 'error' && env.PEDIDO && Date.now() - (r.upd || 0) > 120000) {
+      if (r.estado !== 'listo' && r.estado !== 'error' && r.estado !== 'esperando_guion' && env.PEDIDO && Date.now() - (r.upd || 0) > 120000) {
         try {
           const st = await (await env.PEDIDO.get(k.name.replace(/:/g, '-'))).status();
           if (['errored', 'terminated'].includes(st.status)) { r.estado = 'error'; r.error = String(st.error?.message || st.error || st.status).slice(0, 300); r.upd = Date.now(); await env.DATOS.put(k.name, JSON.stringify(r)); }
@@ -812,6 +835,22 @@ async function diagnostico(env, b) {
   for (const k of ['gemini', 'gemini_imagen', 'chatgpt']) if (res[k] && !res[k].ok && /high demand|overloaded|try again later|UNAVAILABLE|503/i.test(res[k].error || '')) res[k].temporal = true;
   res.modelos = { ok: true, detalle: `Claude ${env.CLAUDE_MODEL || 'claude-opus-5-5'} (guion), ${env.CLAUDE_MODEL_LIGERO || 'claude-sonnet-5-5'} (mesa, Paco, Nyx) y ${env.CLAUDE_MODEL_RAPIDO || 'claude-haiku-5-5'} (correcciones) · Gemini ${modelosGemini.texto || env.GEMINI_MODEL || 'gemini-2.5-flash'} · imagen ${modelosGemini.imagen || env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'} · ChatGPT ${env.OPENAI_MODEL || 'gpt-4.1-mini'}` };
   return res;
+}
+// Modo suscripción: llega el guion que el jefe ha escrito con su plan de Claude y el pedido sigue en el servidor
+function normalizarGuion(t) {
+  return String(t || '').replace(/\r/g, '').replace(/\*\*|__/g, '').replace(/^\s*#{1,6}\s*/gm, '').replace(/^\s*>\s?/gm, '')
+    .replace(/^\s*[-*•]\s*(?=(LOCUCI[ÓO]N|IMAGEN|TEXTO EN PANTALLA|SONIDO)\s*:)/gim, '').trim();
+}
+async function pedidoGuion(env, b) {
+  if (!env.DATOS || !env.PEDIDO || !String(b.key || '').startsWith('pv:')) throw new Error('Pedido desconocido');
+  const rec = JSON.parse((await env.DATOS.get(b.key)) || 'null'); if (!rec) throw new Error('Pedido desconocido');
+  if (rec.estado !== 'esperando_guion' && rec.estado !== 'error') throw new Error('Este vídeo no está esperando un guion');
+  const g = normalizarGuion(b.guion), n = palabras(locucionLimpia(g));
+  if (n < 500) throw new Error('No encuentro la locución: el guion debe venir por bloques con «LOCUCIÓN:», «IMAGEN:», «TEXTO EN PANTALLA:» y «SONIDO:». Pide a Claude que respete el formato del encargo.');
+  rec.out = { ...(rec.out || {}), guion: g }; rec.estado = 'en curso'; rec.paso = 'verifica'; rec.nota = 'Iris verifica tu guion'; delete rec.aviso; delete rec.error; rec.upd = Date.now();
+  await env.DATOS.put(b.key, JSON.stringify(rec));
+  await env.PEDIDO.create({ id: b.key.replace(/:/g, '-') + '-c' + Date.now().toString(36), params: { key: b.key, job: rec.job, ctx: b.ctx, modo: 'completar' } });
+  return { ok: true, palabras: n };
 }
 // Aplica las correcciones de Iris a un vídeo ya terminado (pedidos anteriores a este paso)
 async function pedidoCorregir(env, b) {
