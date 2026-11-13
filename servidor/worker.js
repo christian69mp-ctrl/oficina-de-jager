@@ -115,20 +115,25 @@ async function claude(env, prompt, rapido, buscar, o = {}) {
   if (!env.ANTHROPIC_API_KEY) throw new Error('Falta la clave ANTHROPIC_API_KEY en el servidor');
   const messages = [{ role: 'user', content: prompt }];
   const fuentes = new Map();
+  // top: Opus (solo el guion) · mecanico: Haiku (cambios puntuales, JSON) · resto: Sonnet
+  const modelo = o.top ? (env.CLAUDE_MODEL || 'claude-opus-5-5') : o.mecanico ? (env.CLAUDE_MODEL_RAPIDO || 'claude-haiku-5-5') : (env.CLAUDE_MODEL_LIGERO || 'claude-sonnet-5-5');
+  // El pensamiento interno se paga como texto escrito: poco en tareas sencillas, el normal en el guion y la mesa
+  const esfuerzo = rapido ? 'low' : o.esfuerzo || (o.mecanico ? 'low' : 'medium');
   for (let vuelta = 0; vuelta < 6; vuelta++) {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2026-10-21' },
       body: JSON.stringify({
-        model: o.top ? (env.CLAUDE_MODEL || 'claude-opus-5-5') : (env.CLAUDE_MODEL_LIGERO || 'claude-sonnet-5-5'),
+        model: modelo,
         max_tokens: rapido ? 2000 : 32000,
-        ...(rapido ? { output_config: { effort: 'low' } } : {}),
+        output_config: { effort: esfuerzo },
         ...(buscar ? { tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: +(o.busquedas || env.MAX_BUSQUEDAS || 6) }] } : {}),
         messages,
       }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error('Claude: ' + (d.error?.message || r.status));
+    sumarUso(o.uso, modelo, (d.usage?.input_tokens || 0) + (d.usage?.cache_read_input_tokens || 0) + (d.usage?.cache_creation_input_tokens || 0), d.usage?.output_tokens || 0, d.usage?.server_tool_use?.web_search_requests || 0);
     if (d.stop_reason === 'refusal') throw new Error('Claude ha preferido no responder a eso');
     for (const b of d.content || []) {
       if (b.type === 'web_search_tool_result' && Array.isArray(b.content)) for (const x of b.content) if (x.url) fuentes.set(x.url, x.title || x.url);
@@ -171,11 +176,29 @@ async function geminiPost(env, tipo, body) {
   }
   return { r, d, model };
 }
-async function gemini(env, prompt) {
+// Consumo de cada vídeo: tokens por modelo, búsquedas e imágenes (se ve en la ficha del encargo)
+function sumarUso(uso, modelo, entrada, salida, busquedas = 0) {
+  if (!uso) return;
+  const m = uso[modelo] || (uso[modelo] = { entrada: 0, salida: 0, busquedas: 0, llamadas: 0 });
+  m.entrada += entrada; m.salida += salida; m.busquedas += busquedas; m.llamadas++;
+}
+// buscar = Gemini investiga con la Búsqueda de Google (mucho más barato que la búsqueda web de Claude)
+async function gemini(env, prompt, o = {}) {
   if (!env.GEMINI_API_KEY) throw new Error('Falta la clave GEMINI_API_KEY en el servidor');
-  const { r, d } = await geminiPost(env, 'texto', { contents: [{ parts: [{ text: prompt }] }] });
+  const { r, d, model } = await geminiPost(env, 'texto', { contents: [{ parts: [{ text: prompt }] }], ...(o.buscar ? { tools: [{ google_search: {} }] } : {}) });
   if (!r.ok) throw new Error('Gemini: ' + (d.error?.message || r.status));
-  return (d.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
+  const cand = d.candidates?.[0] || {};
+  const meta = cand.groundingMetadata || {};
+  sumarUso(o.uso, model, d.usageMetadata?.promptTokenCount || 0, (d.usageMetadata?.candidatesTokenCount || 0) + (d.usageMetadata?.thoughtsTokenCount || 0), (meta.webSearchQueries || []).length);
+  let texto = (cand.content?.parts || []).map(p => p.text || '').join('').trim();
+  const fuentes = (meta.groundingChunks || []).map(x => x.web).filter(Boolean);
+  if (o.buscar && fuentes.length && !/FUENTES CONSULTADAS/.test(texto)) texto += '\n\nFUENTES CONSULTADAS (Google)\n' + [...new Map(fuentes.map(w => [w.uri, w])).values()].slice(0, 40).map(w => `- ${w.title || 'fuente'}: ${w.uri}`).join('\n');
+  return texto;
+}
+// Investigación con búsqueda: primero Gemini + Google; si no puede, Claude (Sonnet) con pocas búsquedas
+async function investigar(env, prompt, uso, busquedas = 4) {
+  try { const t = await gemini(env, prompt, { buscar: true, uso }); if (t && t.length > 300) return t; } catch (e) {}
+  return claude(env, prompt, false, true, { busquedas, uso });
 }
 
 async function geminiImage(env, prompt) {
@@ -188,7 +211,7 @@ async function geminiImage(env, prompt) {
   return { mime: img.mimeType || img.mime_type || 'image/png', base64: img.data };
 }
 
-async function chatgpt(env, prompt) {
+async function chatgpt(env, prompt, uso) {
   if (!env.OPENAI_API_KEY) throw new Error('Falta la clave OPENAI_API_KEY en el servidor');
   const r = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -197,6 +220,7 @@ async function chatgpt(env, prompt) {
   });
   const d = await r.json();
   if (!r.ok) throw new Error('ChatGPT: ' + (d.error?.message || r.status));
+  sumarUso(uso, d.model || env.OPENAI_MODEL || 'gpt-4.1-mini', d.usage?.prompt_tokens || 0, d.usage?.completion_tokens || 0);
   return (d.choices?.[0]?.message?.content || '').trim();
 }
 
@@ -427,13 +451,13 @@ const corta = (t, n) => { t = String(t || '').trim(); return t.length > n ? t.sl
 async function pensar(env, ia, prompt, o = {}) {
   const extra = o.json ? '\n\nResponde solo con el JSON, sin texto alrededor.' : '';
   try {
-    if (ia === 'gemini' && env.GEMINI_API_KEY) return await gemini(env, prompt + extra);
-    if (ia === 'chatgpt' && env.OPENAI_API_KEY) return await chatgpt(env, prompt + extra);
+    if (ia === 'gemini' && env.GEMINI_API_KEY) return await gemini(env, prompt + extra, { uso: o.uso });
+    if (ia === 'chatgpt' && env.OPENAI_API_KEY) return await chatgpt(env, prompt + extra, o.uso);
   } catch (e) {
     // Sin saldo, sin cuota o modelo retirado: Claude ocupa su puesto para que el pedido no se quede a medias
     if (!env.ANTHROPIC_API_KEY || o.sinSustituto) throw e;
   }
-  return claude(env, prompt + extra, !!o.rapido, !!o.buscar);
+  return claude(env, prompt + extra, !!o.rapido, !!o.buscar, { uso: o.uso });
 }
 const P = {
   vidiqTxt: out => out.vidiq ? `\nDATOS REALES DE vidIQ (úsalos: palabras con volumen y poca competencia, y patrones de los outliers):\n${corta(out.vidiq, 5000)}\n` : '',
@@ -448,8 +472,20 @@ Propuestas:
 ${debate}
 OBJETIVOS OBLIGATORIOS DEL JEFE: CTR estimado de al menos el 5 % y retención a los 30 segundos de al menos el 60 %. En el JSON, ctr_estimado y retencion_30s van en porcentaje real de YouTube (un CTR normal está entre el 2 y el 10 %; la retención a los 30 s, entre el 50 y el 80 %). Si con el enfoque elegido no se llega, cambia el ángulo, el gancho o la promesa hasta llegar. No infles las cifras: tienen que ser creíbles.
 Devuelve SOLO JSON: ${c.schema}`,
+  dossier: (job, c, out) => `Eres Iris, documentalista e investigadora del estudio. Investiga con la Búsqueda de Google el caso «${out.tema}» para un documental en español de unos 22 minutos.
+Enfoque acordado por la mesa: ${String(out.estudioTxt || '').slice(0, 1500)}
+Entrega un DOSIER en texto plano, sin markdown, con estos apartados:
+CRONOLOGÍA: fecha · hecho · [n] (número de la fuente).
+PERSONAS: nombre, papel y situación judicial EXACTA (investigado, acusado, condenado, absuelto, archivado), con fuente.
+CIFRAS CLAVE: cada cifra con su fuente; si dos fuentes no coinciden, da las dos.
+CITAS TEXTUALES: solo citas literales con su fuente.
+LO QUE NO ESTÁ PROBADO: rumores, atribuciones de prensa y acusaciones sin sentencia.
+DETALLES PARA EL GUION: escenas, lugares, ambientes y anécdotas verificadas que den ritmo y tensión.
+FUENTES: lista numerada [n] título · medio u organismo · enlace. Prioriza fuentes oficiales (policía, juzgados, ministerios, OFAC/Tesoro, Europol) y prensa de referencia.
+Solo hechos comprobables. Sé exhaustiva: este dosier es la única base del guion.`,
   guion: (job, c, out) => `${c.formacion.nora}
-${c.web}
+DOSIER DE INVESTIGACIÓN (la base de todos los datos del guion; usa SOLO estos hechos y cifras; lo que no esté aquí no lo inventes: cuéntalo de forma general o márcalo [VERIFICAR]):
+${corta(out.dossier, 22000)}
 ${c.normas}
 ${c.canal}
 ${c.guion}
@@ -471,7 +507,9 @@ SONIDO: música o efecto (tensión, silencio, golpe, cambio de tema) o «sigue»
 3. AFIRMACIONES A VERIFICAR — lista de cada dato que hay que comprobar antes de locutar.
 RETENCIÓN (objetivo del jefe: que al menos el 60 % siga viendo a los 30 segundos y que la retención media sea la máxima posible): empieza en los primeros 15 segundos con la escena de mayor tensión del caso, deja clara la promesa del vídeo antes del segundo 30, abre una pregunta o bucle nuevo cada 2-3 minutos y ciérralo más adelante, cambia de ritmo a menudo, nada de introducciones lentas ni saludos, y avanza de los hechos menores al clímax.`,
   verifica: (job, c, out) => `${c.formacion.iris}
-${c.web}
+Tienes la Búsqueda de Google: comprueba las afirmaciones clave del guion (fechas, cifras, nombres, cargos, situación judicial) contra fuentes fiables y contra el dosier de investigación.
+Dosier de investigación:
+${corta(out.dossier, 8000)}
 ${c.normas}
 ${c.canal}
 Vídeo: «${out.tema}».
@@ -526,30 +564,28 @@ En texto plano, sin markdown, con estos apartados y en este orden: TEMA · GUION
 };
 
 // Nora aplica las correcciones de Iris al guion completo, con el mismo formato y extensión
-async function corregirGuion(env, c, tema, guion, verifica, nota = async () => {}) {
+async function corregirGuion(env, c, tema, guion, verifica, nota = async () => {}, uso) {
   if (!guion || !/NECESITA CORRECCIONES|CORRECCIONES\s*:?\s*\n\s*\S|SIN CONFIRMAR\s*:?\s*\n\s*\S/i.test(verifica || '')) return guion;
   await nota('Nora aplica las correcciones de Iris al guion');
-  const antes = palabras(locucionLimpia(guion));
-  const t = await claude(env, `${c.formacion?.nora || 'Eres Nora, guionista de documentales del estudio.'}
-${c.normas || ''}
-${c.canal || ''}
-Eres la guionista y vas a dejar el guion de «${tema}» listo para locutar aplicando el informe de verificación de Iris.
+  const d = jsonDe(await claude(env, `${c.formacion?.nora || 'Eres Nora, guionista de documentales del estudio.'}
+Vas a aplicar al guion de «${tema}» el informe de verificación de Iris con cambios puntuales.
 Reglas:
-- Aplica TODAS las CORRECCIONES: cambia cada dato erróneo por el texto corregido exacto que indica Iris.
+- Aplica TODAS las CORRECCIONES con el texto corregido exacto.
 - Lo que esté SIN CONFIRMAR, quítalo o suavízalo («según la prensa irlandesa…», «se le atribuye…»), sin inventar nada.
-- Distingue siempre investigado, acusado y condenado; no presentes como probado lo que no lo está.
-- Aplica las recomendaciones de SENSIBILIDAD.
-- Mantén exactamente el mismo formato (1. GUION DE EDICIÓN por bloques con LOCUCIÓN, IMAGEN, TEXTO EN PANTALLA y SONIDO; 2. FUENTES; 3. AFIRMACIONES A VERIFICAR, que ahora solo debe contener lo que siga pendiente) y una extensión parecida (unas ${antes} palabras de locución; si quitas algo, compensa con contexto verificado o transiciones).
+- Distingue siempre investigado, acusado y condenado. Aplica las recomendaciones de SENSIBILIDAD.
 - Corrige también los rótulos de TEXTO EN PANTALLA afectados.
-- Empieza directamente por «1. GUION DE EDICIÓN», sin comentarios previos.
+- Cada cambio: "original" es un fragmento copiado EXACTAMENTE del guion (mínimo 6 palabras, tal cual, con sus signos), y "nuevo" el texto que lo sustituye.
+Devuelve SOLO JSON: {"cambios":[{"original":"...","nuevo":"..."}],"pendiente":["lo que no se ha podido corregir con cambios puntuales"]}
 
 INFORME DE IRIS:
-${corta(verifica, 14000)}
+${corta(verifica, 12000)}
 
-GUION ACTUAL:
-${guion}`, false, false);
-  // Si la versión corregida se queda muy corta o pierde el formato, se conserva la anterior
-  return t && /GUION DE EDICI[ÓO]N/i.test(t) && palabras(locucionLimpia(t)) >= antes * 0.85 ? t : guion;
+GUION:
+${guion}`, false, false, { uso, mecanico: true }));
+  let t = guion, n = 0;
+  for (const ch of d?.cambios || []) if (ch?.original && ch.original.length >= 12 && t.includes(ch.original)) { t = t.replace(ch.original, String(ch.nuevo ?? '')); n++; }
+  await nota(`Nora ha aplicado ${n} correcciones de Iris`);
+  return n ? t : guion;
 }
 
 // Locución limpia: todo lo que va detrás de «LOCUCIÓN:» en el guion de edición
@@ -582,9 +618,13 @@ export class Pedido extends WorkflowEntrypoint {
     };
     // Lo que está haciendo ahora mismo (se ve en la ficha del encargo) y el error si un paso falla y se reintenta
     const nota = async (texto, aviso) => { try { const cur = JSON.parse((await env.DATOS.get(key)) || '{}'); cur.nota = texto; if (aviso) cur.aviso = aviso; cur.upd = Date.now(); await env.DATOS.put(key, JSON.stringify(cur)); } catch (e) {} };
+    // Consumo del paso en curso: se suma al del vídeo al terminar cada paso
+    const U = {};
+    const anotarUso = async () => { if (!Object.keys(U).length) return; try { const cur = JSON.parse((await env.DATOS.get(key)) || '{}'); const t = cur.uso || {}; for (const [m, v] of Object.entries(U)) { const a = t[m] || (t[m] = { entrada: 0, salida: 0, busquedas: 0, llamadas: 0 }); for (const k of Object.keys(a)) a[k] += v[k] || 0; } cur.uso = t; await env.DATOS.put(key, JSON.stringify(cur)); } catch (e) {} for (const k of Object.keys(U)) delete U[k]; };
     const sd = (nombre, cfg, fn) => step.do(nombre, cfg, async () => {
-      try { return await fn(); }
+      try { const v = await fn(); await anotarUso(); return v; }
       catch (e) {
+        await anotarUso();
         const msg = String(e?.message || e);
         await nota(null, { paso: nombre, error: msg.slice(0, 300), at: Date.now() });
         // Sin saldo o clave incorrecta: reintentar no sirve y solo gasta; se para y se avisa
@@ -618,18 +658,18 @@ export class Pedido extends WorkflowEntrypoint {
           await nota(`${nombres[id]} prepara su propuesta con ${({ gemini: 'Gemini', chatgpt: 'ChatGPT', claude: 'Claude' })[quien[id]]}`);
           let t = null, via = quien[id], error = null;
           for (let k = 0; k < 3 && !t; k++) {
-            try { t = await pensar(env, quien[id], pr, { rapido: true, sinSustituto: true }); } catch (e) { error = String(e.message || e).slice(0, 240); }
+            try { t = await pensar(env, quien[id], pr, { rapido: true, sinSustituto: true, uso: U }); } catch (e) { error = String(e.message || e).slice(0, 240); }
             if (!t && k < 2) { await nota(`${nombres[id]}: su IA no responde (${error || 'sin respuesta'}). Reintento ${k + 2} de 3…`); await new Promise(r => setTimeout(r, k ? 25000 : 8000)); }
           }
-          if (!t && quien[id] !== 'claude') { t = await claude(env, pr, true, false).catch(() => null); if (t) via = 'claude'; }
+          if (!t && quien[id] !== 'claude') { t = await claude(env, pr, true, false, { uso: U }).catch(() => null); if (t) via = 'claude'; }
           transcript.push({ who: id, round: 1, text: String(t || `(${nombres[id]} no ha podido conectar con su IA.)`).trim().replace(/^(Lía|Rui|Sam)\s*:\s*/i, ''), via: t ? via : 'error', error: via !== quien[id] || !t ? error : null });
         }
         const debate = transcript.map(m => `${nombres[m.who]}: ${m.text}`).join('\n');
         await nota('Sam redacta el acuerdo de la mesa');
-        let result = jsonDe(await claude(env, P.acuerdo(job, c, out, debate), false, false)) || { acuerdo: 'La mesa no ha podido cerrar un acuerdo. Seguimos con el tema tal cual.', tema_final: job.topic };
+        let result = jsonDe(await claude(env, P.acuerdo(job, c, out, debate), false, false, { uso: U })) || { acuerdo: 'La mesa no ha podido cerrar un acuerdo. Seguimos con el tema tal cual.', tema_final: job.topic };
         // Si el acuerdo no llega a los objetivos del jefe (CTR ≥ 5 %, retención a los 30 s ≥ 60 %), la mesa lo replantea (hasta 2 veces)
         const bajo = x => { const p = x?.puntuaciones || {}; return (+p.ctr_estimado || 0) < 5 || (+p.retencion_30s || 0) < 60; };
-        for (let k = 0; k < 2 && bajo(result); k++) {
+        for (let k = 0; k < 1 && bajo(result); k++) {
           const p = result.puntuaciones || {};
           await nota(`La mesa replantea el enfoque: CTR estimado ${p.ctr_estimado ?? '?'} % y retención ${p.retencion_30s ?? '?'} %; el objetivo es 5 % y 60 %`);
           const otra = jsonDe(await claude(env, P.acuerdo(job, c, out, debate) + `\n\nTu acuerdo anterior se quedó en CTR ${p.ctr_estimado ?? '?'} % y retención a los 30 s ${p.retencion_30s ?? '?'} %, por debajo del objetivo. Acuerdo anterior: ${JSON.stringify(result).slice(0, 3000)}\nReplantea el ángulo, el gancho y la promesa para superar los objetivos de verdad.`, false, false).catch(() => null));
@@ -642,36 +682,44 @@ export class Pedido extends WorkflowEntrypoint {
       out.tema = mesa.result.tema_final || job.topic;
       const pz = mesa.result.puntuaciones || {};
       out.estudioTxt = `ACUERDO: ${mesa.result.acuerdo}\nTema final: ${out.tema}\nÁngulo: ${mesa.result.angulo || ''}\nGancho: ${mesa.result.gancho || ''}\nPromesa: ${mesa.result.promesa || ''}\nPúblico: ${mesa.result.publico || ''}\nDuración ideal: ${mesa.result.duracion_ideal || ''}\nViral ${pz.viral ?? '?'}/100 · Rentabilidad ${pz.rentabilidad ?? '?'}/100`;
+      // Iris investiga con la Búsqueda de Google y prepara el dosier del que sale el guion
+      out.dossier = await sd('investiga', R, async () => {
+        await nota('Iris investiga el caso con la Búsqueda de Google');
+        const t = await investigar(env, P.dossier(job, c, out), U, 5);
+        if (!t || t.length < 800) throw new Error('Dosier de investigación demasiado corto');
+        await guardar('guion', { dossier: t });
+        return t;
+      });
       // 3. Nora: guion completo con Claude e investigación en internet
       out.guion = await sd('guion', R, async () => {
-        await nota('Nora escribe el guion con búsqueda en internet (el paso más largo: 5-15 minutos)');
-        let t = await claude(env, P.guion(job, c, out), false, true, { top: true, busquedas: 8 });
+        await nota('Nora escribe el guion a partir del dosier de Iris (el paso más largo)');
+        let t = await claude(env, P.guion(job, c, out), false, false, { top: true, uso: U });
         if (!t || t.length < 500) throw new Error('Guion demasiado corto');
         // La locución debe rondar las 3.500 palabras: si se queda corta, Nora amplía el guion (hasta 2 veces)
-        for (let k = 0; k < 2 && palabras(locucionLimpia(t)) < 3200; k++) {
+        for (let k = 0; k < 1 && palabras(locucionLimpia(t)) < 3200; k++) {
           const n = palabras(locucionLimpia(t));
           await nota(`Nora amplía el guion: tiene ${n} palabras y hacen falta unas 3.500`);
-          const mas = await claude(env, `${c.formacion.nora}\n${c.normas}\n${c.canal}\nEste guion de «${out.tema}» tiene ${n} palabras de locución y necesita unas 3.500 (entre 3.300 y 3.800). Reescríbelo COMPLETO con exactamente el mismo formato (GUION DE EDICIÓN por bloques con LOCUCIÓN, IMAGEN, TEXTO EN PANTALLA y SONIDO; después FUENTES y AFIRMACIONES A VERIFICAR). Amplía los bloques más flojos con contexto verificado, detalle, tensión y transiciones; añade bloques si hace falta y recalcula los minutos. No inventes datos ni cambies los hechos.\n\nGUION ACTUAL:\n${t}`, false, false, { top: true }).catch(() => null);
+          const mas = await claude(env, `${c.formacion.nora}\n${c.normas}\n${c.canal}\nEste guion de «${out.tema}» tiene ${n} palabras de locución y necesita unas 3.500 (entre 3.300 y 3.800). Reescríbelo COMPLETO con exactamente el mismo formato (GUION DE EDICIÓN por bloques con LOCUCIÓN, IMAGEN, TEXTO EN PANTALLA y SONIDO; después FUENTES y AFIRMACIONES A VERIFICAR). Amplía los bloques más flojos con contexto verificado, detalle, tensión y transiciones; añade bloques si hace falta y recalcula los minutos. No inventes datos ni cambies los hechos.\n\nGUION ACTUAL:\n${t}`, false, false, { top: true, uso: U }).catch(() => null);
           if (mas && palabras(locucionLimpia(mas)) > n) t = mas; else break;
         }
         await guardar('verifica', { guion: t });
         return t;
       });
       // Iris: verificación de datos con búsqueda en internet
-      out.verifica = await sd('verifica', R, async () => { const t = c.formacion.iris ? await claude(env, P.verifica(job, c, out), false, true, { busquedas: 10 }) : ''; await guardar('miniaturas', { verifica: t }); return t; });
+      out.verifica = await sd('verifica', R, async () => { const t = c.formacion.iris ? await investigar(env, P.verifica(job, c, out), U, 4) : ''; await guardar('miniaturas', { verifica: t }); return t; });
       // Nora aplica al guion las correcciones de Iris (si las hay): el guion que llega al jefe ya está corregido
       out.guion = await sd('corregir', R, async () => {
-        const t = await corregirGuion(env, c, out.tema, out.guion, out.verifica, nota);
+        const t = await corregirGuion(env, c, out.tema, out.guion, out.verifica, nota, U);
         if (t !== out.guion) await guardar('miniaturas', { guion: t, corregido: true });
         return t;
       });
       // 4. Gema: ideas de miniatura y después las 3 imágenes con Gemini
-      out.miniaturas = await sd('miniaturas', R, async () => { const d = jsonDe(await pensar(env, 'gemini', P.miniaturas(job, c, out), { json: true })); if (!d?.conceptos) throw new Error('Miniaturas sin formato'); await guardar('titulos', { miniaturas: d }); return d; });
+      out.miniaturas = await sd('miniaturas', R, async () => { const d = jsonDe(await pensar(env, 'gemini', P.miniaturas(job, c, out), { json: true, uso: U })); if (!d?.conceptos) throw new Error('Miniaturas sin formato'); await guardar('titulos', { miniaturas: d }); return d; });
       out.imagenes = await sd('imagenes', { retries: { limit: 1, delay: '20 seconds' }, timeout: '10 minutes' }, async () => {
         const res = { ok: [], error: null };
         for (const [i, x] of (out.miniaturas.conceptos || []).slice(0, 3).entries()) {
           try {
-            const img = await geminiImage(env, promptMiniatura(out, x));
+            const img = await geminiImage(env, promptMiniatura(out, x)); U.imagenes = U.imagenes || { entrada: 0, salida: 0, busquedas: 0, llamadas: 0 }; U.imagenes.llamadas++;
             await env.DATOS.put(`img:${key}:${i}`, JSON.stringify(img), { expirationTtl: 60 * 86400 });
             res.ok[i] = true;
           } catch (e) { res.ok[i] = false; res.error = String(e.message || e).slice(0, 300); }
@@ -680,16 +728,16 @@ export class Pedido extends WorkflowEntrypoint {
         return res;
       });
       // 5. Tito: títulos y SEO
-      out.titulos = await sd('titulos', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.titulos(job, c, out), { json: true })); if (!d?.titulos) throw new Error('Títulos sin formato'); await guardar('pretest', { titulos: d }); return d; });
+      out.titulos = await sd('titulos', R, async () => { const d = jsonDe(await pensar(env, 'chatgpt', P.titulos(job, c, out), { json: true, uso: U })); if (!d?.titulos) throw new Error('Títulos sin formato'); await guardar('pretest', { titulos: d }); return d; });
       // 6. Rui: versión definitiva de título y miniatura
-      out.pretest = await sd('pretest', R, async () => { let d = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out), { json: true })); if (!d?.ganador) throw new Error('Test de CTR sin formato');
+      out.pretest = await sd('pretest', R, async () => { let d = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out), { json: true, uso: U })); if (!d?.ganador) throw new Error('Test de CTR sin formato');
         for (let k = 0; k < 2 && (+d.ganador.ctr_estimado || 0) < 5; k++) {
           await nota(`Rui mejora título y miniatura: CTR estimado ${d.ganador.ctr_estimado ?? '?'} %, el objetivo es 5 %`);
-          const otra = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out) + `\n\nTu propuesta anterior estimaba un CTR del ${d.ganador.ctr_estimado ?? '?'} %: no llega al 5 %. Propuesta anterior: ${JSON.stringify(d).slice(0, 2500)}\nMejora el título y el concepto de miniatura (más contraste, curiosidad concreta, emoción) hasta superar el 5 % de forma creíble.`, { json: true }).catch(() => null));
+          const otra = jsonDe(await pensar(env, 'chatgpt', P.pretest(job, c, out) + `\n\nTu propuesta anterior estimaba un CTR del ${d.ganador.ctr_estimado ?? '?'} %: no llega al 5 %. Propuesta anterior: ${JSON.stringify(d).slice(0, 2500)}\nMejora el título y el concepto de miniatura (más contraste, curiosidad concreta, emoción) hasta superar el 5 % de forma creíble.`, { json: true, uso: U }).catch(() => null));
           if (otra?.ganador) d = otra; else break;
         } await guardar('brief', { pretest: d }); return d; });
       // 7. Paco: pedido para Pixelido
-      await sd('brief', R, async () => { const t = await claude(env, P.brief(job, c, out), false, false); await guardar('listo', { brief: t }); return true; });
+      await sd('brief', R, async () => { const t = await claude(env, P.brief(job, c, out), false, false, { uso: U, esfuerzo: 'low' }); await guardar('listo', { brief: t }); return true; });
     } catch (e) {
       const cur = JSON.parse((await env.DATOS.get(key)) || '{}');
       cur.estado = 'error'; cur.error = String(e.message || e).slice(0, 300); cur.upd = Date.now();
@@ -741,6 +789,7 @@ async function diagnostico(env, b) {
   const tareas = {
     claude: () => claude(env, 'Responde solo: OK', true, false),
     claude_busqueda: () => claude(env, 'Busca en internet la fecha de hoy y responde en una frase.', true, true),
+    gemini_busqueda: async () => { const t = await gemini(env, 'Busca en Google la fecha de hoy y responde en una frase.', { buscar: true }); if (!/FUENTES CONSULTADAS/.test(t)) throw new Error('Gemini respondió sin usar la Búsqueda de Google'); return t.slice(0, 120); },
     gemini: async () => { const t = await gemini(env, 'Responde solo: OK'); return `${t} · modelo ${modelosGemini.texto || env.GEMINI_MODEL || 'gemini-2.5-flash'}`; },
     chatgpt: () => chatgpt(env, 'Responde solo: OK'),
     vidiq: async () => { const r = await vidiq(env, { tool: 'vidiq_balance', args: {} }); return r.texto; },
@@ -759,17 +808,17 @@ async function diagnostico(env, b) {
   await Promise.all(Object.entries(tareas).map(async ([k, fn]) => { res[k] = await prueba(fn); }));
   res.pedidos = env.PEDIDO && env.DATOS ? { ok: true, detalle: 'motor de pedidos activo' } : { ok: false, error: !env.DATOS ? 'Falta el almacén DATOS en wrangler.toml' : 'Falta el bloque [[workflows]] (binding PEDIDO) en wrangler.toml: los pedidos se hacen en el navegador' };
   for (const k of ['gemini', 'gemini_imagen', 'chatgpt']) if (res[k] && !res[k].ok && /high demand|overloaded|try again later|UNAVAILABLE|503/i.test(res[k].error || '')) res[k].temporal = true;
-  res.modelos = { ok: true, detalle: `Claude ${env.CLAUDE_MODEL || 'claude-opus-5-5'} (guion) y ${env.CLAUDE_MODEL_LIGERO || 'claude-sonnet-5-5'} (resto) · Gemini ${modelosGemini.texto || env.GEMINI_MODEL || 'gemini-2.5-flash'} · imagen ${modelosGemini.imagen || env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'} · ChatGPT ${env.OPENAI_MODEL || 'gpt-4.1-mini'}` };
+  res.modelos = { ok: true, detalle: `Claude ${env.CLAUDE_MODEL || 'claude-opus-5-5'} (guion), ${env.CLAUDE_MODEL_LIGERO || 'claude-sonnet-5-5'} (mesa, Paco, Nyx) y ${env.CLAUDE_MODEL_RAPIDO || 'claude-haiku-5-5'} (correcciones) · Gemini ${modelosGemini.texto || env.GEMINI_MODEL || 'gemini-2.5-flash'} · imagen ${modelosGemini.imagen || env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'} · ChatGPT ${env.OPENAI_MODEL || 'gpt-4.1-mini'}` };
   return res;
 }
 // Aplica las correcciones de Iris a un vídeo ya terminado (pedidos anteriores a este paso)
 async function pedidoCorregir(env, b) {
   if (!env.DATOS || !String(b.key || '').startsWith('pv:')) throw new Error('Pedido desconocido');
   const rec = JSON.parse((await env.DATOS.get(b.key)) || 'null'); if (!rec?.out?.guion) throw new Error('Ese vídeo no tiene guion');
-  const t = await corregirGuion(env, b.ctx || {}, rec.out.estudio?.result?.tema_final || rec.job.topic, rec.out.guion, rec.out.verifica);
+  const uso = {}; const t = await corregirGuion(env, b.ctx || {}, rec.out.estudio?.result?.tema_final || rec.job.topic, rec.out.guion, rec.out.verifica, undefined, uso);
   const cambiado = t !== rec.out.guion;
   if (cambiado) { const cur = JSON.parse((await env.DATOS.get(b.key)) || '{}'); cur.out.guion = t; cur.out.corregido = true; cur.upd = Date.now(); await env.DATOS.put(b.key, JSON.stringify(cur)); }
-  return { ok: true, cambiado, palabras: palabras(locucionLimpia(t)) };
+  return { ok: true, cambiado, palabras: palabras(locucionLimpia(t)), uso };
 }
 // Miniatura creada por Gema en un pedido del servidor
 async function pedidoImagen(env, b) {
