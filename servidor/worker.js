@@ -604,7 +604,9 @@ const palabras = t => (String(t || '').match(/\S+/g) || []).length;
 
 // Gema: instrucción para que Gemini cree cada miniatura (16:9, lista para YouTube)
 function promptMiniatura(out, x) {
-  return `Miniatura de YouTube en formato horizontal 16:9 (1280x720), acabado fotográfico cinematográfico de alta calidad, para un documental en español titulado «${out.tema}». ${x.prompt_imagen ? x.prompt_imagen + '. ' : ''}Escena: ${x.escena || ''}. Emoción que debe transmitir: ${x.emocion || ''}.${x.colores ? ' Colores: ' + x.colores + '.' : ''}${x.texto ? ` Texto grande, grueso y muy legible en la imagen, escrito exactamente así: «${x.texto}».` : ' Sin texto.'} Composición clara con un único punto de atención, alto contraste y que se entienda en la pantalla de un móvil. Sin logotipos ni marcas de agua.`;
+  // Sin el título del vídeo en la petición: Gemini tiende a escribirlo en la imagen y con faltas
+  const t = String(x.texto || '').trim();
+  return `Imagen horizontal 16:9 para la miniatura de YouTube de un documental de true crime. Fotografía cinematográfica realista de alta calidad. ${x.prompt_imagen ? x.prompt_imagen + ' ' : ''}Escena: ${x.escena || ''}. Emoción: ${x.emocion || ''}.${x.colores ? ' Colores: ' + x.colores + '.' : ''} ${t ? `El ÚNICO texto de toda la imagen es «${t}», escrito exactamente así, letra por letra y con sus tildes (${[...t].join(' ')}), en mayúsculas grandes, gruesas y muy legibles. No añadas ningún otro texto, subtítulo, título, fecha ni letra.` : 'Sin ningún texto ni letras.'} Un único punto de atención, alto contraste, que se entienda en un móvil. Sin logotipos ni marcas de agua. Sin rostros reconocibles de personas reales.`;
 }
 
 export class Pedido extends WorkflowEntrypoint {
